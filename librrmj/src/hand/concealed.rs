@@ -49,4 +49,14 @@ impl Concealed {
         self.tiles.remove(pos);
         Ok(())
     }
+
+    pub fn remove_matching_identity(&mut self, tile: Tile) -> Result<(), crate::Error> {
+        let pos = self
+            .tiles
+            .iter()
+            .position(|t| t.matches_identity(tile))
+            .ok_or(crate::Error::TileNotInHand { tile })?;
+        self.tiles.remove(pos);
+        Ok(())
+    }
 }

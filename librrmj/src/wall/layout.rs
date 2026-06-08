@@ -7,11 +7,18 @@ use crate::wall::{DEAD_WALL_SIZE, WALL_SIZE};
 pub struct WallLayout {
     live: Vec<Tile>,
     dead: Vec<Tile>,
+    kan_count: u8,
+    rinshan_taken: u8,
 }
 
 impl WallLayout {
     pub fn new(live: Vec<Tile>, dead: Vec<Tile>) -> Result<Self, Error> {
-        let layout = Self { live, dead };
+        let layout = Self {
+            live,
+            dead,
+            kan_count: 0,
+            rinshan_taken: 0,
+        };
         layout.validate()?;
         Ok(layout)
     }
@@ -22,6 +29,10 @@ impl WallLayout {
 
     pub fn dead(&self) -> &[Tile] {
         &self.dead
+    }
+
+    pub const fn kan_count(&self) -> u8 {
+        self.kan_count
     }
 
     pub fn live_drawn(&self) -> usize {
@@ -37,6 +48,23 @@ impl WallLayout {
             return Err(Error::LiveWallExhausted);
         }
         Ok(self.live.remove(0))
+    }
+
+    /// Draw a rinshan tile and reveal the next dora indicator after a kan.
+    pub fn apply_kan(&mut self) -> Result<(Tile, Tile), Error> {
+        let rinshan_index = 4 + self.rinshan_taken as usize;
+        let dora_index = 2 * (self.kan_count as usize + 1);
+
+        if rinshan_index >= DEAD_WALL_SIZE {
+            return Err(Error::RinshanExhausted);
+        }
+        if dora_index >= DEAD_WALL_SIZE {
+            return Err(Error::DoraRevealExhausted);
+        }
+
+        self.kan_count += 1;
+        self.rinshan_taken += 1;
+        Ok((self.dead[rinshan_index], self.dead[dora_index]))
     }
 
     pub fn validate(&self) -> Result<(), Error> {

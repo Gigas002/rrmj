@@ -1,3 +1,4 @@
+mod identity;
 mod kind;
 
 #[cfg(test)]
@@ -6,6 +7,7 @@ mod tests;
 use std::fmt;
 use std::str::FromStr;
 
+pub use identity::TileIdentity;
 pub use kind::{Dragon, Suit, TileKind, Wind};
 
 /// A single mahjong tile.

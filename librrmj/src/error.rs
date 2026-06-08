@@ -2,6 +2,7 @@ use thiserror::Error;
 
 use crate::action::Action;
 use crate::hand::MeldKind;
+use crate::state::CallKind;
 use crate::state::HandPhase;
 use crate::tile::Tile;
 
@@ -65,4 +66,22 @@ pub enum Error {
 
     #[error("expected {expected} tiles in play, found {actual}")]
     TileConservation { expected: usize, actual: usize },
+
+    #[error("invalid chii sequence: {tiles:?}")]
+    InvalidChiSequence { tiles: [Tile; 3] },
+
+    #[error("{kind:?} call invalid: {reason}")]
+    InvalidCall { kind: CallKind, reason: &'static str },
+
+    #[error("seat {seat} cannot respond to this discard")]
+    NotReactingSeat { seat: usize },
+
+    #[error("seat {seat} already responded")]
+    AlreadyResponded { seat: usize },
+
+    #[error("rinshan tiles exhausted")]
+    RinshanExhausted,
+
+    #[error("no more dora indicators to reveal")]
+    DoraRevealExhausted,
 }

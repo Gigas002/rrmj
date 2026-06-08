@@ -113,6 +113,14 @@ impl Wall {
     pub fn draw_live(&mut self) -> Result<Tile, Error> {
         self.layout.draw_live()
     }
+
+    pub fn apply_kan(&mut self) -> Result<(Tile, Tile), Error> {
+        self.layout.apply_kan()
+    }
+
+    pub const fn kan_count(&self) -> u8 {
+        self.layout.kan_count()
+    }
 }
 
 impl DealResult {

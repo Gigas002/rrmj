@@ -1,3 +1,4 @@
+use crate::hand::MeldKind;
 use crate::tile::Tile;
 
 /// A state change that has been applied to the hand.
@@ -9,6 +10,17 @@ pub enum Event {
     Drawn { seat: usize, tile: Tile },
     /// A seat discarded a tile to the river.
     Discarded { seat: usize, tile: Tile },
-    /// Live wall exhausted; hand ends without calls or scoring (phase 2).
+    /// A seat called the last discard.
+    Called {
+        seat: usize,
+        from: usize,
+        meld: MeldKind,
+        tiles: Vec<Tile>,
+    },
+    /// A new dora indicator was revealed after a kan.
+    DoraRevealed { tile: Tile },
+    /// A rinshan draw after a kan.
+    RinshanDrawn { seat: usize, tile: Tile },
+    /// Live wall exhausted; hand ends without scoring (pre-win phases).
     HandEnded,
 }

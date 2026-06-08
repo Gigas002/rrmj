@@ -401,9 +401,9 @@ Whenever a phase is marked complete:
 
 ### Phase 3 — Calls (chi, pon, dakaikan)
 
-- [ ] `Reaction` phase and call priority (ron > pon/kan > chii).
-- [ ] Open melds update `hand/`; kan updates dora indicator (if rules say so).
-- [ ] After call, caller discards (except closed kan edge cases per rules).
+- [x] `Reaction` phase and call priority (ron > pon/kan > chii).
+- [x] Open melds update `hand/`; kan updates dora indicator (if rules say so).
+- [x] After call, caller discards (except closed kan edge cases per rules).
 
 **Verify**: table tests for each call type; rejection of illegal calls.
 

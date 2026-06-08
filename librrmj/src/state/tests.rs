@@ -37,6 +37,12 @@ fn turn_rotates_draw_then_discard() {
             tile
         }]
     );
+    assert_eq!(state.phase(), HandPhase::Reaction);
+
+    for seat in 1..4 {
+        state.apply(seat, Action::Pass).unwrap();
+    }
+
     assert_eq!(state.current_actor(), 1);
     assert_eq!(state.phase(), HandPhase::Draw);
 
@@ -61,10 +67,9 @@ fn wrong_actor_and_phase_are_rejected() {
     let tile = state.hand(1).concealed().tiles()[0];
     state.apply(1, Action::Discard(tile)).unwrap();
 
-    let tile = state.hand(2).concealed().tiles()[0];
     assert!(matches!(
-        state.apply(2, Action::Discard(tile)),
-        Err(Error::WrongPhase { .. })
+        state.apply(2, Action::Draw),
+        Err(Error::IllegalAction { .. })
     ));
 }
 
@@ -86,7 +91,7 @@ fn scripted_play_conserves_tiles() {
 }
 
 #[test]
-fn pass_is_illegal_in_phase_two() {
+fn pass_is_illegal_during_dealer_discard() {
     let rules = RulesConfig::standard();
     let mut wall = Wall::new(&rules, StdRng::seed_from_u64(4));
     let deal = wall.deal(0).unwrap();

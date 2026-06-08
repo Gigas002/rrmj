@@ -1,19 +1,26 @@
 use crate::action::Action;
 use crate::event::Event;
-use crate::hand::Hand;
+use crate::hand::{Hand, MeldKind};
+use crate::state::calls::{
+    chi_actions, closed_kan_options, kamicha, resolve_chi, resolve_closed_kan, resolve_open_kan,
+    resolve_pon, CallKind,
+};
+use crate::state::reaction::{call_kind, ReactionState};
 use crate::tile::Tile;
 use crate::wall::{DealResult, Wall, WALL_SIZE};
 use crate::Error;
 
 pub const SEAT_COUNT: usize = 4;
 
-/// Phase of an in-progress hand (phase-2 subset).
+/// Phase of an in-progress hand.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HandPhase {
     /// Active seat must draw from the live wall.
     Draw,
     /// Active seat must discard (dealer's first turn skips draw).
     Discard,
+    /// Seats may call or pass on the last discard.
+    Reaction,
     /// Live wall exhausted; no further actions.
     Ended,
 }
@@ -27,6 +34,7 @@ pub struct HandState {
     hands: [Hand; 4],
     discards: [Vec<Tile>; SEAT_COUNT],
     wall: Wall,
+    reaction: Option<ReactionState>,
 }
 
 impl HandState {
@@ -38,6 +46,7 @@ impl HandState {
             hands: deal.hands,
             discards: std::array::from_fn(|_| Vec::new()),
             wall,
+            reaction: None,
         }
     }
 
@@ -73,42 +82,60 @@ impl HandState {
         self.phase == HandPhase::Ended
     }
 
-    pub fn legal_actions(&self) -> Vec<Action> {
+    pub fn legal_actions_for(&self, seat: usize) -> Vec<Action> {
         match self.phase {
-            HandPhase::Draw => vec![Action::Draw],
-            HandPhase::Discard => self.hands[self.current_actor]
-                .concealed()
-                .tiles()
-                .iter()
-                .copied()
-                .map(Action::Discard)
-                .collect(),
-            HandPhase::Ended => Vec::new(),
+            HandPhase::Draw if seat == self.current_actor => vec![Action::Draw],
+            HandPhase::Discard if seat == self.current_actor => {
+                let mut actions: Vec<Action> = self.hands[seat]
+                    .concealed()
+                    .tiles()
+                    .iter()
+                    .copied()
+                    .map(Action::Discard)
+                    .collect();
+                for tile in closed_kan_options(self.hands[seat].concealed()) {
+                    actions.push(Action::ClosedKan { tile });
+                }
+                actions
+            }
+            HandPhase::Reaction => self.legal_reaction_actions(seat),
+            _ => Vec::new(),
         }
+    }
+
+    pub fn legal_actions(&self) -> Vec<Action> {
+        self.legal_actions_for(self.current_actor)
     }
 
     pub fn apply(&mut self, seat: usize, action: Action) -> Result<Vec<Event>, Error> {
         if self.phase == HandPhase::Ended {
             return Err(Error::HandEnded);
         }
-        if seat != self.current_actor {
-            return Err(Error::WrongActor {
-                expected: self.current_actor,
-                actual: seat,
-            });
-        }
 
-        match action {
-            Action::Draw => self.apply_draw(seat),
-            Action::Discard(tile) => self.apply_discard(seat, tile),
-            Action::Pass => Err(Error::IllegalAction {
-                action,
-                phase: self.phase,
-            }),
+        match self.phase {
+            HandPhase::Ended => Err(Error::HandEnded),
+            HandPhase::Reaction => self.apply_reaction(seat, action),
+            HandPhase::Draw | HandPhase::Discard => {
+                if seat != self.current_actor {
+                    return Err(Error::WrongActor {
+                        expected: self.current_actor,
+                        actual: seat,
+                    });
+                }
+                match action {
+                    Action::Draw => self.apply_draw(seat),
+                    Action::Discard(tile) => self.apply_discard(seat, tile),
+                    Action::ClosedKan { tile } => self.apply_closed_kan(seat, tile),
+                    _ => Err(Error::IllegalAction {
+                        action,
+                        phase: self.phase,
+                    }),
+                }
+            }
         }
     }
 
-    /// Applies [`Action::Draw`] then [`Action::Discard`] until the live wall is empty.
+    /// Applies draw/discard/reaction passes until the live wall is empty.
     pub fn play_out_discards<F>(&mut self, mut pick_discard: F) -> Result<Vec<Event>, Error>
     where
         F: FnMut(&HandState, usize) -> Tile,
@@ -126,6 +153,13 @@ impl HandState {
                     let seat = self.current_actor;
                     let tile = pick_discard(self, seat);
                     events.extend(self.apply(seat, Action::Discard(tile))?);
+                }
+                HandPhase::Reaction => {
+                    for seat in 0..SEAT_COUNT {
+                        if self.can_respond(seat) {
+                            events.extend(self.apply(seat, Action::Pass)?);
+                        }
+                    }
                 }
                 HandPhase::Ended => break,
             }
@@ -150,6 +184,42 @@ impl HandState {
             });
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub fn set_concealed(&mut self, seat: usize, tiles: Vec<Tile>) {
+        *self.hands[seat].concealed_mut() = crate::hand::Concealed::from_tiles(tiles);
+    }
+
+    fn can_respond(&self, seat: usize) -> bool {
+        self.reaction
+            .as_ref()
+            .is_some_and(|reaction| reaction.can_respond(seat))
+    }
+
+    fn legal_reaction_actions(&self, seat: usize) -> Vec<Action> {
+        let Some(reaction) = &self.reaction else {
+            return Vec::new();
+        };
+        if !reaction.can_respond(seat) {
+            return Vec::new();
+        }
+
+        let mut actions = vec![Action::Pass];
+        let concealed = self.hands[seat].concealed();
+        let called = reaction.tile;
+
+        if seat == kamicha(reaction.discarder) {
+            actions.extend(chi_actions(concealed, called));
+        }
+        if crate::state::calls::can_pon(concealed, called) {
+            actions.push(Action::Pon);
+        }
+        if crate::state::calls::can_open_kan(concealed, called) {
+            actions.push(Action::OpenKan);
+        }
+
+        actions
     }
 
     fn apply_draw(&mut self, seat: usize) -> Result<Vec<Event>, Error> {
@@ -179,18 +249,174 @@ impl HandState {
         self.hands[seat].concealed_mut().remove(tile)?;
         self.discards[seat].push(tile);
 
-        let next = super::next_seat(seat);
         let mut events = vec![Event::Discarded { seat, tile }];
 
         if self.wall.live_remaining() == 0 {
-            self.current_actor = next;
+            self.current_actor = super::next_seat(seat);
             self.phase = HandPhase::Ended;
+            self.reaction = None;
             events.push(Event::HandEnded);
         } else {
-            self.current_actor = next;
-            self.phase = HandPhase::Draw;
+            self.current_actor = super::next_seat(seat);
+            self.phase = HandPhase::Reaction;
+            self.reaction = Some(ReactionState::new(seat, tile));
         }
 
         Ok(events)
+    }
+
+    fn apply_closed_kan(&mut self, seat: usize, tile: Tile) -> Result<Vec<Event>, Error> {
+        let meld = resolve_closed_kan(self.hands[seat].concealed(), tile)?;
+        let tiles: Vec<Tile> = meld.tiles().to_vec();
+
+        for meld_tile in meld.tiles() {
+            self.hands[seat].concealed_mut().remove(*meld_tile)?;
+        }
+        self.hands[seat].melds_mut().push(meld);
+
+        let (rinshan, dora) = self.wall.apply_kan()?;
+        self.hands[seat].concealed_mut().push(rinshan);
+        self.hands[seat].sort_concealed();
+
+        Ok(vec![
+            Event::Called {
+                seat,
+                from: seat,
+                meld: MeldKind::ClosedKan,
+                tiles,
+            },
+            Event::DoraRevealed { tile: dora },
+            Event::RinshanDrawn { seat, tile: rinshan },
+        ])
+    }
+
+    fn apply_reaction(&mut self, seat: usize, action: Action) -> Result<Vec<Event>, Error> {
+        let Some(reaction) = &self.reaction else {
+            return Err(Error::WrongPhase {
+                expected: HandPhase::Reaction,
+                actual: self.phase,
+            });
+        };
+
+        if seat == reaction.discarder {
+            return Err(Error::NotReactingSeat { seat });
+        }
+        if !reaction.can_respond(seat) {
+            return Err(Error::AlreadyResponded { seat });
+        }
+
+        if action != Action::Pass {
+            self.validate_call_action(seat, action)?;
+        }
+
+        self.reaction.as_mut().unwrap().record(seat, action);
+
+        if !self.reaction.as_ref().unwrap().is_complete() {
+            return Ok(Vec::new());
+        }
+
+        self.resolve_reaction()
+    }
+
+    fn validate_call_action(&self, seat: usize, action: Action) -> Result<(), Error> {
+        let reaction = self.reaction.as_ref().expect("reaction");
+        let called = reaction.tile;
+
+        match action {
+            Action::Chi { tiles } => {
+                if seat != kamicha(reaction.discarder) {
+                    return Err(Error::InvalidCall {
+                        kind: CallKind::Chi,
+                        reason: "chii only from kamicha",
+                    });
+                }
+                resolve_chi(self.hands[seat].concealed(), called, tiles)?;
+            }
+            Action::Pon => {
+                if !crate::state::calls::can_pon(self.hands[seat].concealed(), called) {
+                    return Err(Error::InvalidCall {
+                        kind: CallKind::Pon,
+                        reason: "cannot pon",
+                    });
+                }
+            }
+            Action::OpenKan => {
+                if !crate::state::calls::can_open_kan(self.hands[seat].concealed(), called) {
+                    return Err(Error::InvalidCall {
+                        kind: CallKind::OpenKan,
+                        reason: "cannot open kan",
+                    });
+                }
+            }
+            _ => {
+                return Err(Error::IllegalAction {
+                    action,
+                    phase: HandPhase::Reaction,
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    fn resolve_reaction(&mut self) -> Result<Vec<Event>, Error> {
+        let reaction = self.reaction.take().expect("reaction state");
+        let Some((caller, action)) = reaction.winning_call() else {
+            self.phase = HandPhase::Draw;
+            self.current_actor = kamicha(reaction.discarder);
+            return Ok(Vec::new());
+        };
+
+        let called = reaction.tile;
+        let discarder = reaction.discarder;
+        let resolved = match action {
+            Action::Chi { tiles } => resolve_chi(self.hands[caller].concealed(), called, tiles)?,
+            Action::Pon => resolve_pon(self.hands[caller].concealed(), called)?,
+            Action::OpenKan => resolve_open_kan(self.hands[caller].concealed(), called)?,
+            _ => unreachable!("winning call must be chi/pon/open kan"),
+        };
+
+        let meld_kind = resolved.meld.kind();
+        let meld_tiles: Vec<Tile> = resolved.meld.tiles().to_vec();
+
+        self.pop_called_discard(discarder)?;
+
+        for tile in resolved.remove_from_concealed {
+            self.hands[caller].concealed_mut().remove(tile)?;
+        }
+
+        self.hands[caller].melds_mut().push(resolved.meld);
+
+        let mut events = vec![Event::Called {
+            seat: caller,
+            from: discarder,
+            meld: meld_kind,
+            tiles: meld_tiles,
+        }];
+
+        if matches!(call_kind(action), Some(CallKind::OpenKan)) {
+            let (rinshan, dora) = self.wall.apply_kan()?;
+            self.hands[caller].concealed_mut().push(rinshan);
+            self.hands[caller].sort_concealed();
+            events.push(Event::DoraRevealed { tile: dora });
+            events.push(Event::RinshanDrawn {
+                seat: caller,
+                tile: rinshan,
+            });
+        }
+
+        self.current_actor = caller;
+        self.phase = HandPhase::Discard;
+        Ok(events)
+    }
+
+    fn pop_called_discard(&mut self, discarder: usize) -> Result<(), Error> {
+        self.discards[discarder]
+            .pop()
+            .ok_or(Error::InvalidCall {
+                kind: CallKind::Pon,
+                reason: "no discard to call",
+            })?;
+        Ok(())
     }
 }
