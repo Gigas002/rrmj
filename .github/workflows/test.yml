@@ -1,0 +1,60 @@
+name: Test and coverage
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  test-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - name: Build cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Run tests (default features)
+        run: cargo test --workspace --verbose
+      - name: Run tests (--all-features)
+        run: cargo test --workspace --all-features --verbose
+      - name: Run tests (--no-default-features)
+        run: cargo test --workspace --no-default-features --verbose
+      - name: Generate coverage report (librrmj)
+        run: |
+          cargo llvm-cov --all-features -p librrmj --lcov --output-path lcov-librrmj.info
+      - name: Generate coverage report (rrmj-tui)
+        run: |
+          cargo llvm-cov --all-features -p rrmj-tui --lcov --output-path lcov-rrmj-tui.info
+      - name: Upload librrmj coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          files: ./lcov-librrmj.info
+          flags: librrmj
+          name: librrmj
+          fail_ci_if_error: false
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload rrmj-tui coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          files: ./lcov-rrmj-tui.info
+          flags: rrmj-tui
+          name: rrmj-tui
+          fail_ci_if_error: false
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

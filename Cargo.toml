@@ -1,0 +1,12 @@
+[workspace]
+members = ["librrmj", "rrmj-tui"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "GPL-3.0-only"
+homepage = "https://github.com/Gigas002/rrmj"
+description = "Rust riichi mahjong rules engine and terminal client"
+keywords = ["mahjong", "riichi", "game"]
+repository = "https://github.com/Gigas002/rrmj"
+version = "0.1.0"

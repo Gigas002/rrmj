@@ -1,0 +1,20 @@
+[package]
+name = "librrmj"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Riichi mahjong rules engine."
+keywords = ["mahjong", "riichi", "game"]
+
+[features]
+default = []
+ai = []
+serde = ["dep:serde"]
+test-util = []
+
+[dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+thiserror = "2"
+tracing = "0.1"
