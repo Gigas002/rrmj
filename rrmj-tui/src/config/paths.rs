@@ -8,6 +8,10 @@ pub fn config_dir() -> PathBuf {
     dirs_home().join(".config").join("rrmj")
 }
 
+pub fn config_path() -> PathBuf {
+    config_dir().join("config.toml")
+}
+
 pub fn keybinds_path() -> PathBuf {
     config_dir().join("keybinds.toml")
 }

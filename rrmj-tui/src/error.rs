@@ -10,4 +10,6 @@ pub enum AppError {
     Terminal(#[from] std::io::Error),
     #[error("keybinds at {path}: {detail}")]
     Keybinds { path: PathBuf, detail: String },
+    #[error("config at {path}: {detail}")]
+    Config { path: PathBuf, detail: String },
 }

@@ -110,9 +110,25 @@ impl Keybinds {
             .unwrap_or_else(|| fallback_chord(action))
     }
 
-    pub fn action_for(&self, event: crossterm::event::KeyEvent) -> Option<BindAction> {
+    pub fn action_for(&self, event: &crossterm::event::KeyEvent) -> Option<BindAction> {
         let chord = KeyChord::new(event.code, event.modifiers);
         self.reverse.get(&chord).copied()
+    }
+
+    /// Whether `event` matches the chord bound to `action` (forward lookup).
+    ///
+    /// Prefer this over `action_for` when several actions share the same key
+    /// (e.g. Enter → select, confirm, and continue).
+    pub fn is_bound(&self, event: &crossterm::event::KeyEvent, action: BindAction) -> bool {
+        self.chord(action) == KeyChord::new(event.code, event.modifiers)
+    }
+
+    pub fn is_any_bound(
+        &self,
+        event: &crossterm::event::KeyEvent,
+        actions: &[BindAction],
+    ) -> bool {
+        actions.iter().any(|action| self.is_bound(event, *action))
     }
 
     pub fn entries(&self) -> Vec<(BindAction, KeyChord)> {
@@ -154,6 +170,7 @@ fn parse_action_key(key: &str) -> Option<BindAction> {
         "table.tile_next" => Some(BindAction::TileNext),
         "table.confirm" => Some(BindAction::Confirm),
         "overlay.continue" => Some(BindAction::Continue),
+        "overlay.rules" => Some(BindAction::RulesReference),
         _ => None,
     }
 }
@@ -182,6 +199,7 @@ fn default_entries() -> &'static [(BindAction, &'static str)] {
         (BindAction::TileNext, "right"),
         (BindAction::Confirm, "enter"),
         (BindAction::Continue, "enter"),
+        (BindAction::RulesReference, "?"),
     ]
 }
 
@@ -218,6 +236,7 @@ pub fn action_label(action: BindAction) -> &'static str {
         BindAction::TileNext => "Next tile",
         BindAction::Confirm => "Confirm",
         BindAction::Continue => "Continue",
+        BindAction::RulesReference => "Rules / yaku reference",
     }
 }
 

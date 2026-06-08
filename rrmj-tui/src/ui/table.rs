@@ -1,59 +1,51 @@
-use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
-use crate::app::{App, TableMode, phase_label, seat_label, sorted_tiles};
-use crate::ui::widgets::{meld_line, tile_span, tiles_line};
+use crate::app::{App, TableMode};
+use crate::theme::Theme;
+use crate::ui::board::{PlayfieldContext, draw_playfield};
+use crate::ui::widgets::tile_span;
 
-pub fn draw_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
+pub fn draw_table(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &Theme) {
     let Some(view) = app.player_view() else {
         return;
     };
     let human = app.human_seat_active();
+    let mut sorted_hand = view.own_concealed.clone();
+    sorted_hand.sort();
 
     let root = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),
-            Constraint::Min(8),
+            Constraint::Min(14),
             Constraint::Length(6),
             Constraint::Length(3),
         ])
         .split(area);
 
-    let dora: String = view
-        .dora_indicators
-        .iter()
-        .map(|t| format!("[{t}]"))
-        .collect();
-    let header = format!(
-        "{} {}-{} honba {} | {} | dora {dora} | riichi sticks {}",
-        view.round_wind.as_str().to_uppercase(),
-        view.kyoku,
-        view.dealer + 1,
-        view.honba,
-        phase_label(view.phase),
-        view.table_riichi_sticks
-    );
-    frame.render_widget(
-        Paragraph::new(header).block(Block::default().borders(Borders::ALL).title("Table")),
-        root[0],
-    );
+    let ctx = PlayfieldContext {
+        view: &view,
+        human,
+        theme,
+        live_remaining: app.wall_remaining().unwrap_or(0),
+        actor_seat: app.actor_seat(),
+        selected_hand: pick_selected_index(app, &sorted_hand),
+        sorted_hand: &sorted_hand,
+    };
+    draw_playfield(frame, root[0], &ctx);
 
-    let table_area = root[1];
-    let positions = table_layout(table_area);
-    render_seat(frame, positions[2], &view, human, 2, app);
-    render_seat(frame, positions[3], &view, human, 3, app);
-    render_seat(frame, positions[0], &view, human, 0, app);
-    render_seat(frame, positions[1], &view, human, 1, app);
-
-    let action_lines = action_help(app);
     frame.render_widget(
-        Paragraph::new(action_lines)
+        Paragraph::new(action_help(app, theme))
             .wrap(Wrap { trim: true })
-            .block(Block::default().borders(Borders::ALL).title("Actions")),
-        root[2],
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(theme.block_style())
+                    .title("Actions"),
+            ),
+        root[1],
     );
 
     let status = if app.is_human_pending() {
@@ -63,108 +55,11 @@ pub fn draw_table(frame: &mut ratatui::Frame, area: Rect, app: &App) {
     };
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled(status, Style::default().fg(Color::Yellow)),
+            Span::styled(status, theme.status_style()),
             Span::raw("  "),
             Span::raw(app.status()),
         ])),
-        root[3],
-    );
-}
-
-fn table_layout(area: Rect) -> [Rect; 4] {
-    let cols = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(25),
-            Constraint::Percentage(50),
-            Constraint::Percentage(25),
-        ])
-        .split(area);
-
-    let left = cols[0];
-    let center = cols[1];
-    let right = cols[2];
-
-    let center_rows = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(center);
-
-    [center_rows[1], right, center_rows[0], left]
-}
-
-fn render_seat(
-    frame: &mut ratatui::Frame,
-    area: Rect,
-    view: &librrmj::agent::PlayerView,
-    human: usize,
-    rel: usize,
-    app: &App,
-) {
-    let seat = (human + rel) % 4;
-    let seat_view = &view.seats[seat];
-    let is_you = rel == 0;
-    let is_actor = view.current_actor == seat
-        || (view.phase == librrmj::state::HandPhase::Reaction
-            && app
-                .match_game()
-                .and_then(|g| g.hand().pending_reaction_seat())
-                == Some(seat));
-
-    let mut lines = vec![
-        Line::from(Span::styled(
-            seat_label(seat, human),
-            if is_actor {
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-            },
-        )),
-        Line::from(format!(
-            "Score: {}  tiles: {}{}",
-            view.scores[seat],
-            seat_view.concealed_count,
-            if seat_view.riichi { "  RIICHI" } else { "" }
-        )),
-    ];
-
-    for meld in &seat_view.melds {
-        lines.push(meld_line(meld));
-    }
-
-    let discards = sorted_tiles(&seat_view.discards);
-    if !discards.is_empty() {
-        lines.push(Line::from(Span::raw("River:")));
-        lines.push(tiles_line(&discards, None));
-    }
-
-    if is_you {
-        let mut hand = view.own_concealed.clone();
-        hand.sort();
-        let selected = pick_selected_index(app, &hand);
-        lines.push(Line::from(Span::styled(
-            "Hand:",
-            Style::default().add_modifier(Modifier::BOLD),
-        )));
-        lines.push(tiles_line(&hand, selected));
-    }
-
-    let title = if seat == view.dealer {
-        "Dealer"
-    } else {
-        "Seat"
-    };
-    frame.render_widget(
-        Paragraph::new(lines)
-            .alignment(if is_you {
-                Alignment::Center
-            } else {
-                Alignment::Left
-            })
-            .block(Block::default().borders(Borders::ALL).title(title)),
-        area,
+        root[2],
     );
 }
 
@@ -187,9 +82,12 @@ fn pick_selected_index(app: &App, hand: &[librrmj::tile::Tile]) -> Option<usize>
     }
 }
 
-fn action_help(app: &App) -> Vec<Line<'static>> {
+fn action_help(app: &App, theme: &Theme) -> Vec<Line<'static>> {
     if !app.is_human_pending() {
-        return vec![Line::from("Opponents are playing…")];
+        return vec![Line::from(Span::styled(
+            "Opponents are playing…",
+            theme.muted_style(),
+        ))];
     }
     let menu = app.action_menu();
     let binds = app.keybinds();
@@ -197,7 +95,12 @@ fn action_help(app: &App) -> Vec<Line<'static>> {
 
     if menu.is_reaction() {
         if menu.can_ron {
-            lines.push(bind_line("Ron", binds, crate::input::BindAction::Ron));
+            lines.push(action_line(
+                "Ron",
+                binds,
+                crate::input::BindAction::Ron,
+                Style::default().fg(theme.danger),
+            ));
         }
         if menu.can_pon {
             lines.push(bind_line("Pon", binds, crate::input::BindAction::Pon));
@@ -210,7 +113,7 @@ fn action_help(app: &App) -> Vec<Line<'static>> {
                     Span::raw(if sel { "  > " } else { "    " }),
                     Span::raw(format!("chi {}: ", i + 1)),
                 ];
-                spans.extend(chi.iter().map(|t| tile_span(*t, false)));
+                spans.extend(chi.iter().map(|t| tile_span(*t, theme, false)));
                 lines.push(Line::from(spans));
             }
         }
@@ -222,7 +125,12 @@ fn action_help(app: &App) -> Vec<Line<'static>> {
             ));
         }
         if menu.can_pass {
-            lines.push(bind_line("Pass", binds, crate::input::BindAction::Pass));
+            lines.push(action_line(
+                "Pass",
+                binds,
+                crate::input::BindAction::Pass,
+                Style::default().fg(theme.safe),
+            ));
         }
         return lines;
     }
@@ -257,7 +165,10 @@ fn action_help(app: &App) -> Vec<Line<'static>> {
             app.table_mode(),
             TableMode::PickDiscard | TableMode::PickRiichi | TableMode::PickClosedKan
         ) {
-            lines.push(Line::from("←/→ select tile, enter confirm, esc cancel"));
+            lines.push(Line::from(Span::styled(
+                "←/→ select tile, enter confirm, esc cancel",
+                theme.muted_style(),
+            )));
         }
     }
     lines
@@ -268,9 +179,21 @@ fn bind_line(
     binds: &crate::input::Keybinds,
     action: crate::input::BindAction,
 ) -> Line<'static> {
-    Line::from(format!(
-        "{} ({})",
-        label,
-        crate::input::format_chord(binds.chord(action))
+    action_line(label, binds, action, Style::default())
+}
+
+fn action_line(
+    label: &str,
+    binds: &crate::input::Keybinds,
+    action: crate::input::BindAction,
+    style: Style,
+) -> Line<'static> {
+    Line::from(Span::styled(
+        format!(
+            "{} ({})",
+            label,
+            crate::input::format_chord(binds.chord(action))
+        ),
+        style,
     ))
 }

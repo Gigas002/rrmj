@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use tempfile::NamedTempFile;
 
 use crate::input::key::{BindAction, KeyChord, parse_key_spec};
@@ -39,6 +39,16 @@ unknown_action = "x"
     let err = Keybinds::from_file(file.path()).unwrap_err();
     let msg = err.to_string();
     assert!(msg.contains("unknown action"));
+}
+
+#[test]
+fn enter_binds_multiple_activate_actions() {
+    let binds = Keybinds::default_map();
+    let enter = KeyEvent::new(KeyCode::Enter, KeyModifiers::empty());
+    assert!(binds.action_for(&enter).is_some());
+    assert!(binds.is_bound(&enter, BindAction::MenuSelect));
+    assert!(binds.is_bound(&enter, BindAction::Confirm));
+    assert!(binds.is_bound(&enter, BindAction::Continue));
 }
 
 #[test]

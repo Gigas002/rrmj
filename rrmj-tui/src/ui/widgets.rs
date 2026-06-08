@@ -1,40 +1,45 @@
 use librrmj::hand::Meld;
 use librrmj::tile::Tile;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 
-pub fn tile_span(tile: Tile, selected: bool) -> Span<'static> {
-    let label = format!("[{tile}]");
-    let style = if tile.is_red() {
-        Style::default().fg(Color::Red)
-    } else {
-        Style::default()
-    };
-    let style = if selected {
-        style.add_modifier(Modifier::REVERSED | Modifier::BOLD)
-    } else {
-        style
-    };
-    Span::styled(label, style)
+use crate::theme::Theme;
+use crate::ui::render::{meld_kind_label, tile_label};
+
+pub fn tile_span(tile: Tile, theme: &Theme, selected: bool) -> Span<'static> {
+    Span::styled(tile_label(tile), theme.tile_style(tile.is_red(), selected))
 }
 
-pub fn tiles_line(tiles: &[Tile], selected: Option<usize>) -> Line<'static> {
-    let spans: Vec<Span> = tiles
+pub fn tiles_line(tiles: &[Tile], theme: &Theme, selected: Option<usize>) -> Line<'static> {
+    Line::from(
+        tiles
+            .iter()
+            .enumerate()
+            .map(|(i, t)| tile_span(*t, theme, selected == Some(i)))
+            .collect::<Vec<_>>(),
+    )
+}
+
+pub fn meld_line(meld: &Meld, theme: &Theme) -> Line<'static> {
+    let kind = meld_kind_label(meld.kind());
+    let tiles: String = meld
+        .tiles()
         .iter()
-        .enumerate()
-        .map(|(i, t)| tile_span(*t, selected == Some(i)))
+        .map(|t| tile_label(*t))
         .collect();
-    Line::from(spans)
+    Line::from(Span::styled(
+        format!("{kind}: {tiles}"),
+        Style::default().fg(theme.primary),
+    ))
 }
 
-pub fn meld_line(meld: &Meld) -> Line<'static> {
-    let kind = match meld.kind() {
-        librrmj::hand::MeldKind::Chi => "chi",
-        librrmj::hand::MeldKind::Pon => "pon",
-        librrmj::hand::MeldKind::OpenKan => "minkan",
-        librrmj::hand::MeldKind::ClosedKan => "ankan",
-        librrmj::hand::MeldKind::AddedKan => "kakan",
-    };
-    let tiles: String = meld.tiles().iter().map(|t| format!("[{t}]")).collect();
-    Line::from(format!("{kind}: {tiles}"))
+pub fn riichi_badge(theme: &Theme, pulsing: bool) -> Span<'static> {
+    Span::styled(" RIICHI", theme.riichi_style(pulsing))
+}
+
+pub fn muted_span(text: impl Into<String>, theme: &Theme) -> Span<'static> {
+    Span::styled(
+        text.into(),
+        Style::default().fg(theme.muted).add_modifier(Modifier::DIM),
+    )
 }

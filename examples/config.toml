@@ -1,0 +1,45 @@
+# rrmj TUI — example configuration
+#
+# Copy to your config directory (defaults shown below) and edit as needed:
+#   $XDG_CONFIG_HOME/rrmj/config.toml
+#   ~/.config/rrmj/config.toml
+#
+# Override path at launch:
+#   rrmj-tui --config /path/to/config.toml
+#
+# Settings changed in the in-game Settings screen are written back to this file
+# when you press Esc.
+
+# ---------------------------------------------------------------------------
+# theme — active color palette name
+# ---------------------------------------------------------------------------
+# Built-in palettes (see also examples/theme.toml for token reference):
+#   "default"        — dark terminal palette (green accent, cyan borders)
+#   "high-contrast"  — bold white-on-black emphasis; motion over hue shifts
+#
+# Custom theme files under $XDG_CONFIG_HOME/rrmj/themes/<name>.toml are
+# planned but not loaded in v0.1; unknown names fall back to "default".
+theme = "default"
+
+# ---------------------------------------------------------------------------
+# default_difficulty — CPU strength for new-game setup defaults
+# ---------------------------------------------------------------------------
+# One of: "easy" | "medium" | "hard"
+#
+#   easy   — random legal moves; takes obvious tsumo/ron
+#   medium — shanten-based discards; basic calls and defense
+#   hard   — better efficiency and defensive play vs riichi opponents
+#
+# Per-seat difficulty can still be changed on the new-game setup screen.
+default_difficulty = "medium"
+
+# ---------------------------------------------------------------------------
+# human_seat — preferred seat when starting a new game (0–3)
+# ---------------------------------------------------------------------------
+#   0 = East (dealer at hand start)
+#   1 = South
+#   2 = West
+#   3 = North
+#
+# The new-game setup screen lets you move "your seat" before confirming.
+human_seat = 0

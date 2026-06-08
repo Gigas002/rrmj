@@ -1,0 +1,79 @@
+# rrmj TUI — example keybind map
+#
+# Copy to your config directory:
+#   $XDG_CONFIG_HOME/rrmj/keybinds.toml
+#   ~/.config/rrmj/keybinds.toml
+#
+# Override path at launch:
+#   rrmj-tui --keybinds /path/to/keybinds.toml
+#
+# If this file is missing, built-in defaults are used. Any action omitted here
+# is filled in from those defaults, so you can override only what you need.
+#
+# Key spec syntax (case-insensitive):
+#   Single character     — a, d, ?, q
+#   Named keys           — enter, esc, space, tab, up, down, left, right,
+#                          pageup, pagedown, home, backspace
+#   Chords (modifiers+)  — ctrl+q, alt+enter, shift+tab
+#
+# Each physical key maps to one action. Duplicate chords in one file: last
+# wins. Unknown action names cause a parse error at startup.
+#
+# Rules overlay: `y` also opens/closes the rules reference (hard-coded alternate
+# to overlay.rules); scrolling uses Up/Down while the overlay is open.
+
+# ---------------------------------------------------------------------------
+# [global] — available on every screen (when no modal captures input)
+# ---------------------------------------------------------------------------
+[global]
+# Quit the application
+quit = "q"
+# Full keybind list overlay
+help = "h"
+# Back / cancel (menus, tile pickers, overlays)
+back = "esc"
+
+# ---------------------------------------------------------------------------
+# [menu] — main menu, settings, new-game setup
+# ---------------------------------------------------------------------------
+[menu]
+# Move selection up / down
+up = "up"
+down = "down"
+# Activate highlighted item (also starts match on setup confirm row)
+select = "enter"
+# Toggle seat Human/CPU on setup screen
+toggle = "space"
+# Cycle CPU difficulty (settings default, or CPU seat on setup)
+cycle = "tab"
+
+# ---------------------------------------------------------------------------
+# [table] — in-match actions (only shown when legal for your seat)
+# ---------------------------------------------------------------------------
+[table]
+# Reaction phase
+pass = "p"
+ron = "r"
+pon = "o"
+chi = "c"
+open_kan = "k"
+# Your turn
+tsumo = "t"
+riichi = "i"
+closed_kan = "g"
+discard = "d"
+# Dealer first-turn abortive draw (when legal)
+abort_nine_terminals = "a"
+# Tile picker (discard / riichi / closed kan / chi variant)
+tile_prev = "left"
+tile_next = "right"
+confirm = "enter"
+
+# ---------------------------------------------------------------------------
+# [overlay] — hand result, match summary, and shared overlay actions
+# ---------------------------------------------------------------------------
+[overlay]
+# Continue after hand result or match summary
+continue = "enter"
+# Rules and yaku reference (also bound to y in the client)
+rules = "?"

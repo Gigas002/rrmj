@@ -1,9 +1,11 @@
 mod actions;
 mod hand_result;
+mod settings;
 mod setup;
 
 pub use actions::ActionMenu;
 pub use hand_result::HandResultSummary;
+pub use settings::SettingsField;
 pub use setup::{NewGameSetup, SetupField, difficulty_label};
 
 use std::io;
@@ -11,33 +13,30 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use crossterm::ExecutableCommand;
-use crossterm::event::{self, Event, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
 use librrmj::action::Action;
 use librrmj::agent::{PlayerSlot, PlayerView};
-use librrmj::ai::{Difficulty, MatchSetup, SeatAgent};
+use librrmj::ai::{MatchSetup, SeatAgent};
 use librrmj::event::Event as GameEvent;
 use librrmj::game::Match;
 use librrmj::rules::RulesConfig;
 use librrmj::state::HandPhase;
-use librrmj::tile::Tile;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
+use crate::config::{AppConfig, cycle_theme};
 use crate::error::AppError;
-use crate::input::{BindAction, Keybinds};
+use crate::input::{BindAction, Keybinds, normalize_key_event};
+use crate::theme::Theme;
 use crate::ui;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
     MainMenu,
-    NewGameSetup,
-    Settings,
     Table,
-    HandResult,
-    MatchSummary,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,8 +53,9 @@ pub struct App {
     screen: Screen,
     keybinds: Keybinds,
     keybinds_path: Option<PathBuf>,
-    default_difficulty: Difficulty,
-    human_seat: usize,
+    config: AppConfig,
+    config_path: PathBuf,
+    settings_field: SettingsField,
     menu_index: usize,
     setup: Option<NewGameSetup>,
     match_game: Option<Match>,
@@ -68,18 +68,27 @@ pub struct App {
     hand_result: Option<HandResultSummary>,
     match_summary: Option<[i32; 4]>,
     help_open: bool,
+    settings_open: bool,
+    rules_open: bool,
+    rules_scroll: usize,
     status: String,
     quit: bool,
 }
 
 impl App {
-    pub fn new(keybinds: Keybinds, keybinds_path: Option<PathBuf>) -> Self {
+    pub fn new(
+        keybinds: Keybinds,
+        keybinds_path: Option<PathBuf>,
+        config: AppConfig,
+        config_path: PathBuf,
+    ) -> Self {
         Self {
             screen: Screen::MainMenu,
             keybinds,
             keybinds_path,
-            default_difficulty: Difficulty::Medium,
-            human_seat: 0,
+            config,
+            config_path,
+            settings_field: SettingsField::Theme,
             menu_index: 0,
             setup: None,
             match_game: None,
@@ -92,6 +101,9 @@ impl App {
             hand_result: None,
             match_summary: None,
             help_open: false,
+            settings_open: false,
+            rules_open: false,
+            rules_scroll: 0,
             status: String::new(),
             quit: false,
         }
@@ -118,13 +130,18 @@ impl App {
     ) -> Result<(), AppError> {
         while !self.quit {
             self.tick_cpu()?;
-            terminal.draw(|frame| ui::draw(frame, self))?;
+            let theme = self.theme();
+            terminal.draw(|frame| ui::draw(frame, self, &theme))?;
 
-            if event::poll(Duration::from_millis(50))?
-                && let Event::Key(key) = event::read()?
-                && key.kind == KeyEventKind::Press
-            {
-                self.handle_key(key)?;
+            if event::poll(Duration::from_millis(50))? {
+                while let Ok(Event::Key(key)) = event::read() {
+                    if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
+                        self.handle_key(key)?;
+                    }
+                    if !event::poll(Duration::ZERO)? {
+                        break;
+                    }
+                }
             }
         }
         Ok(())
@@ -164,29 +181,54 @@ impl App {
         Ok(())
     }
 
-    fn handle_key(&mut self, key: crossterm::event::KeyEvent) -> Result<(), AppError> {
+    fn handle_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        let key = normalize_key_event(key);
+
         if self.help_open {
             return self.handle_help_key(key);
         }
+        if self.rules_open {
+            return self.handle_rules_key(key);
+        }
+        if self.settings_open {
+            return self.handle_settings_key(key);
+        }
+        if self.setup.is_some() && self.screen == Screen::MainMenu {
+            return self.handle_setup_key(key);
+        }
 
-        let action = self.keybinds.action_for(key);
+        let action = self.keybinds.action_for(&key);
         if matches!(action, Some(BindAction::Help)) {
             self.help_open = true;
             return Ok(());
         }
+        let rules_hotkey = matches!(action, Some(BindAction::RulesReference))
+            || (key.code == KeyCode::Char('y') && key.modifiers == KeyModifiers::empty());
+        if rules_hotkey {
+            self.rules_open = true;
+            self.rules_scroll = 0;
+            return Ok(());
+        }
 
         match self.screen {
-            Screen::MainMenu => self.handle_main_menu(action),
-            Screen::NewGameSetup => self.handle_setup(action),
-            Screen::Settings => self.handle_settings(action),
-            Screen::Table => self.handle_table(action),
-            Screen::HandResult => self.handle_hand_result(action),
-            Screen::MatchSummary => self.handle_match_summary(action),
+            Screen::MainMenu => self.handle_main_menu(&key, action),
+            Screen::Table => self.handle_table(&key, action),
         }
     }
 
-    fn handle_help_key(&mut self, key: crossterm::event::KeyEvent) -> Result<(), AppError> {
-        let action = self.keybinds.action_for(key);
+    fn is_activate(&self, key: &KeyEvent) -> bool {
+        self.keybinds.is_any_bound(
+            key,
+            &[
+                BindAction::MenuSelect,
+                BindAction::Confirm,
+                BindAction::Continue,
+            ],
+        )
+    }
+
+    fn handle_help_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        let action = self.keybinds.action_for(&key);
         if matches!(
             action,
             Some(BindAction::Help) | Some(BindAction::Back) | Some(BindAction::Quit)
@@ -196,7 +238,55 @@ impl App {
         Ok(())
     }
 
-    fn handle_main_menu(&mut self, action: Option<BindAction>) -> Result<(), AppError> {
+    fn handle_rules_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        let action = self.keybinds.action_for(&key);
+        let close = matches!(
+            action,
+            Some(BindAction::RulesReference) | Some(BindAction::Back) | Some(BindAction::Quit)
+        ) || (key.code == KeyCode::Char('y') && key.modifiers == KeyModifiers::empty());
+        if close {
+            self.rules_open = false;
+            return Ok(());
+        }
+        match key.code {
+            KeyCode::Up => {
+                self.rules_scroll = self.rules_scroll.saturating_sub(1);
+            }
+            KeyCode::Down => {
+                let max = ui::rules_line_count().saturating_sub(1);
+                self.rules_scroll = (self.rules_scroll + 1).min(max);
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_main_menu(
+        &mut self,
+        key: &KeyEvent,
+        action: Option<BindAction>,
+    ) -> Result<(), AppError> {
+        if self.is_activate(key) {
+            return match self.menu_index {
+                0 => {
+                    self.setup = Some(NewGameSetup::new(
+                        self.config.default_difficulty,
+                        self.config.human_seat,
+                    ));
+                    Ok(())
+                }
+                1 => {
+                    self.settings_field = SettingsField::Theme;
+                    self.settings_open = true;
+                    Ok(())
+                }
+                _ => {
+                    self.quit = true;
+                    Ok(())
+                }
+            };
+        }
+
         match action {
             Some(BindAction::MenuUp) => {
                 self.menu_index = self.menu_index.saturating_sub(1);
@@ -204,51 +294,84 @@ impl App {
             Some(BindAction::MenuDown) => {
                 self.menu_index = (self.menu_index + 1).min(2);
             }
-            Some(BindAction::MenuSelect) | Some(BindAction::Confirm) => match self.menu_index {
-                0 => {
-                    self.setup = Some(NewGameSetup::new(self.default_difficulty, self.human_seat));
-                    self.screen = Screen::NewGameSetup;
-                }
-                1 => self.screen = Screen::Settings,
-                _ => self.quit = true,
-            },
             Some(BindAction::Quit) => self.quit = true,
             _ => {}
         }
         Ok(())
     }
 
-    fn handle_settings(&mut self, action: Option<BindAction>) -> Result<(), AppError> {
+    fn handle_settings_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        let action = self.keybinds.action_for(&key);
+        if self.keybinds.is_bound(&key, BindAction::Back) {
+            self.save_config()?;
+            self.settings_open = false;
+            return Ok(());
+        }
         match action {
-            Some(BindAction::Back) | Some(BindAction::Quit) => self.screen = Screen::MainMenu,
-            Some(BindAction::MenuCycle) | Some(BindAction::MenuToggle) => {
-                self.default_difficulty = setup::cycle_difficulty(self.default_difficulty);
+            Some(BindAction::Quit) => self.quit = true,
+            Some(BindAction::MenuUp) => {
+                self.settings_field = self.settings_field.prev();
             }
-            Some(BindAction::MenuSelect) => {
-                self.human_seat = (self.human_seat + 1) % 4;
+            Some(BindAction::MenuDown) => {
+                self.settings_field = self.settings_field.next();
+            }
+            Some(BindAction::MenuCycle) | Some(BindAction::MenuToggle) => {
+                self.apply_settings_change();
+            }
+            _ if self.is_activate(&key) => {
+                self.apply_settings_change();
             }
             _ => {}
         }
         Ok(())
     }
 
-    fn handle_setup(&mut self, action: Option<BindAction>) -> Result<(), AppError> {
+    fn apply_settings_change(&mut self) {
+        match self.settings_field {
+            SettingsField::Theme => {
+                self.config.theme = cycle_theme(&self.config.theme);
+            }
+            SettingsField::DefaultDifficulty => {
+                self.config.default_difficulty =
+                    setup::cycle_difficulty(self.config.default_difficulty);
+            }
+            SettingsField::HumanSeat => {
+                self.config.human_seat = (self.config.human_seat + 1) % 4;
+            }
+        }
+    }
+
+    fn save_config(&mut self) -> Result<(), AppError> {
+        self.config.save(&self.config_path)
+    }
+
+    fn handle_setup_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        let action = self.keybinds.action_for(&key);
+        if self.keybinds.is_bound(&key, BindAction::Back) {
+            self.setup = None;
+            return Ok(());
+        }
+        if self.is_activate(&key) {
+            let confirm = self
+                .setup
+                .as_ref()
+                .is_some_and(|setup| setup.selected == SetupField::Confirm);
+            if confirm {
+                return self.start_match();
+            }
+            if let Some(setup) = self.setup.as_mut() {
+                setup.toggle_selected();
+            }
+            return Ok(());
+        }
         let Some(setup) = self.setup.as_mut() else {
             return Ok(());
         };
         match action {
-            Some(BindAction::Back) => self.screen = Screen::MainMenu,
             Some(BindAction::MenuUp) => setup.select_prev(),
             Some(BindAction::MenuDown) => setup.select_next(),
             Some(BindAction::MenuToggle) => setup.toggle_selected(),
             Some(BindAction::MenuCycle) => setup.cycle_selected(),
-            Some(BindAction::MenuSelect) | Some(BindAction::Confirm) => {
-                if setup.selected == SetupField::Confirm {
-                    self.start_match()?;
-                } else {
-                    setup.toggle_selected();
-                }
-            }
             Some(BindAction::Quit) => self.quit = true,
             _ => {}
         }
@@ -277,43 +400,47 @@ impl App {
         Ok(())
     }
 
-    fn handle_hand_result(&mut self, action: Option<BindAction>) -> Result<(), AppError> {
-        match action {
-            Some(BindAction::Continue)
-            | Some(BindAction::Confirm)
-            | Some(BindAction::MenuSelect) => {
-                self.hand_result = None;
-                if self.match_summary.is_some() {
-                    self.screen = Screen::MatchSummary;
-                } else {
-                    self.screen = Screen::Table;
-                    self.table_mode = TableMode::Normal;
-                }
-            }
-            Some(BindAction::Quit) => self.quit = true,
-            _ => {}
+    fn handle_hand_result(
+        &mut self,
+        key: &KeyEvent,
+        action: Option<BindAction>,
+    ) -> Result<(), AppError> {
+        if self.is_activate(key) {
+            self.hand_result = None;
+            self.table_mode = TableMode::Normal;
+            return Ok(());
+        }
+        if matches!(action, Some(BindAction::Quit)) {
+            self.quit = true;
         }
         Ok(())
     }
 
-    fn handle_match_summary(&mut self, action: Option<BindAction>) -> Result<(), AppError> {
-        match action {
-            Some(BindAction::Continue) | Some(BindAction::Confirm) | Some(BindAction::Back) => {
-                self.match_game = None;
-                self.agents = None;
-                self.setup_meta = None;
-                self.match_summary = None;
-                self.screen = Screen::MainMenu;
-            }
-            Some(BindAction::Quit) => self.quit = true,
-            _ => {}
+    fn handle_match_summary(
+        &mut self,
+        key: &KeyEvent,
+        action: Option<BindAction>,
+    ) -> Result<(), AppError> {
+        if self.is_activate(key) || self.keybinds.is_bound(key, BindAction::Back) {
+            self.match_game = None;
+            self.agents = None;
+            self.setup_meta = None;
+            self.match_summary = None;
+            self.screen = Screen::MainMenu;
+            return Ok(());
+        }
+        if matches!(action, Some(BindAction::Quit)) {
+            self.quit = true;
         }
         Ok(())
     }
 
-    fn handle_table(&mut self, action: Option<BindAction>) -> Result<(), AppError> {
+    fn handle_table(&mut self, key: &KeyEvent, action: Option<BindAction>) -> Result<(), AppError> {
         if self.hand_result.is_some() {
-            return self.handle_hand_result(action);
+            return self.handle_hand_result(key, action);
+        }
+        if self.match_summary.is_some() {
+            return self.handle_match_summary(key, action);
         }
 
         let human_turn = self.is_human_turn();
@@ -325,7 +452,7 @@ impl App {
             return Ok(());
         }
 
-        if let Some(chosen) = self.map_table_action(action)? {
+        if let Some(chosen) = self.map_table_action(key, action)? {
             let seat = self
                 .match_game
                 .as_ref()
@@ -342,8 +469,18 @@ impl App {
         Ok(())
     }
 
-    fn map_table_action(&mut self, action: Option<BindAction>) -> Result<Option<Action>, AppError> {
+    fn map_table_action(
+        &mut self,
+        key: &KeyEvent,
+        action: Option<BindAction>,
+    ) -> Result<Option<Action>, AppError> {
         let menu = self.current_action_menu();
+        if self.is_activate(key) {
+            if let Some(action) = self.confirm_table_pick()? {
+                return Ok(Some(action));
+            }
+            return Ok(None);
+        }
         match action {
             Some(BindAction::Back) => {
                 self.table_mode = TableMode::Normal;
@@ -377,11 +514,6 @@ impl App {
             }
             Some(BindAction::TilePrev) => self.bump_tile_index(-1),
             Some(BindAction::TileNext) => self.bump_tile_index(1),
-            Some(BindAction::Confirm) | Some(BindAction::MenuSelect) => {
-                if let Some(action) = self.confirm_table_pick()? {
-                    return Ok(Some(action));
-                }
-            }
             Some(BindAction::Quit) => self.quit = true,
             _ => {}
         }
@@ -454,7 +586,6 @@ impl App {
     fn on_game_events(&mut self, events: &[GameEvent]) {
         if let Some(summary) = hand_result::summary_from_events(events) {
             self.hand_result = Some(summary);
-            self.screen = Screen::HandResult;
         }
         if let Some(GameEvent::MatchEnded { scores }) = events
             .iter()
@@ -503,12 +634,20 @@ impl App {
         self.keybinds_path.as_ref()
     }
 
-    pub const fn default_difficulty(&self) -> Difficulty {
-        self.default_difficulty
+    pub fn config(&self) -> &AppConfig {
+        &self.config
     }
 
-    pub const fn human_seat(&self) -> usize {
-        self.human_seat
+    pub fn config_path(&self) -> &PathBuf {
+        &self.config_path
+    }
+
+    pub const fn settings_field(&self) -> SettingsField {
+        self.settings_field
+    }
+
+    pub fn theme(&self) -> Theme {
+        Theme::resolve(&self.config.theme)
     }
 
     pub const fn menu_index(&self) -> usize {
@@ -519,8 +658,8 @@ impl App {
         self.setup.as_ref()
     }
 
-    pub fn match_game(&self) -> Option<&Match> {
-        self.match_game.as_ref()
+    pub fn setup_open(&self) -> bool {
+        self.setup.is_some()
     }
 
     pub const fn human_seat_active(&self) -> usize {
@@ -551,6 +690,18 @@ impl App {
         self.help_open
     }
 
+    pub const fn settings_open(&self) -> bool {
+        self.settings_open
+    }
+
+    pub const fn rules_open(&self) -> bool {
+        self.rules_open
+    }
+
+    pub const fn rules_scroll(&self) -> usize {
+        self.rules_scroll
+    }
+
     pub fn status(&self) -> &str {
         &self.status
     }
@@ -566,6 +717,20 @@ impl App {
 
     pub fn is_human_pending(&self) -> bool {
         self.screen == Screen::Table && self.is_human_turn() && self.hand_result.is_none()
+    }
+
+    pub fn wall_remaining(&self) -> Option<usize> {
+        Some(self.match_game.as_ref()?.hand().wall().live_remaining())
+    }
+
+    pub fn actor_seat(&self) -> Option<usize> {
+        let game = self.match_game.as_ref()?;
+        let hand = game.hand();
+        if hand.phase() == HandPhase::Reaction {
+            hand.pending_reaction_seat()
+        } else {
+            Some(hand.current_actor())
+        }
     }
 }
 
@@ -592,12 +757,6 @@ pub fn seat_label(seat: usize, human: usize) -> String {
         _ => unreachable!(),
     };
     format!("{} ({})", names[seat], pos)
-}
-
-pub fn sorted_tiles(tiles: &[Tile]) -> Vec<Tile> {
-    let mut out = tiles.to_vec();
-    out.sort();
-    out
 }
 
 pub fn phase_label(phase: HandPhase) -> &'static str {

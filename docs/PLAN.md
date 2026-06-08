@@ -301,7 +301,7 @@ trait Agent {
 ### 6.1 Stack
 
 - **`ratatui`** + **`crossterm`** (or `ratatui` default backend) — no alternate GUI stack in v0.
-- **60 fps not required**; redraw on state change or input.
+- **60 fps not required** for normal play; redraw on state change or input. Short **presentation animations** in ASCII mode may tick at a modest fixed rate (e.g. 10–15 Hz) for the duration of a scripted effect only.
 - **`librrmj` has zero presentation concerns** — no colors, themes, or key names in the engine.
 
 ### 6.2 Launch flow (v0)
@@ -355,13 +355,23 @@ Both overlays are **presentation**; engine types stay unchanged.
 - **Themes** control ratatui colors/styles (borders, selected tile, riichi indicator, score emphasis).
 - Shipped built-ins: at least **default** (dark) and one alternate (e.g. **high-contrast**).
 - Theme name in `config.toml`; optional per-theme override files under `$XDG_CONFIG_HOME/rrmj/themes/`.
+- **`ascii_mode`** in `config.toml` (default **`true`**): tile/table rendering uses plain ASCII glyphs (e.g. `2m`, `E`, `P`); themes apply colors and emphasis to those glyphs. A **`unicode`** (or `enhanced`) render mode remains available for terminals that support it — current block/box style — but ASCII is the default because it reads more clearly on more setups.
+- **ASCII animations** (default **on** when `ascii_mode` is on; disable via `animations = false` in `config.toml`): colorful, theme-driven motion layered on top of ASCII glyphs — not a separate renderer. Effects are **client-side only**, triggered from applied `Event`s / visible state deltas; the engine does not wait on them. Target set for v0.1:
+  - **Discard** — tile slides or “pops” from hand to river with a brief color trail.
+  - **Call / kan** — meld assembly flash; kan reveals dora with a highlight sweep.
+  - **Riichi** — stick deposit + pulsing riichi indicator on the seat.
+  - **Draw / rinshan** — subtle flip or glow on the drawn tile in hand.
+  - **Win** — short celebratory burst (score lines, winner seat, optional confetti-style `*`/`+` rain in theme accent colors).
+  - **Turn / reaction** — active seat border or prompt color cycle so “who acts” is obvious.
+  - Animations respect the active **theme palette** (primary, accent, danger/safe discard colors); high-contrast theme uses motion + bold more than hue shifts.
+  - Input is **blocked only during short mandatory cues** (e.g. win banner); otherwise CPU steps and overlays behave as today. Unicode mode may ship with a **reduced** animation set or static emphasis only.
 - `librrmj` does not define or parse theme data.
 
 ### 6.7 Config files (`rrmj-tui`)
 
 | File | Path | Purpose |
 | ---- | ---- | ------- |
-| General settings | `$XDG_CONFIG_HOME/rrmj/config.toml` | Default CPU difficulty, theme name, player seat preference |
+| General settings | `$XDG_CONFIG_HOME/rrmj/config.toml` | Default CPU difficulty, theme name, `ascii_mode` (default on), `animations` (default on in ASCII mode), player seat preference |
 | Keybinds | `$XDG_CONFIG_HOME/rrmj/keybinds.toml` | Full hotkey map; **sane defaults** baked into the binary when file is missing |
 | CLI override | `--config`, `--keybinds` | Explicit paths |
 
@@ -517,26 +527,28 @@ Whenever a phase is marked complete:
 
 ### Phase 10 — TUI polish + first release
 
-- [ ] `config.toml` (theme, defaults) + CLI `--config` / `--keybinds`.
-- [ ] **Theming**: built-in palettes; theme selectable in settings.
-- [ ] **Rules / yaku reference** overlay (dedicated hotkey); content aligned with `docs/RULES.md`.
-- [ ] README: build, run, config paths, rules pointer, difficulty description.
-- [ ] CHANGELOG; tag **v0.1.0**.
+- [x] `config.toml` (theme, defaults, `ascii_mode`, `animations`) + CLI `--config` / `--keybinds`.
+- [x] **ASCII render mode** (default **`ascii_mode = true`**): tiles, melds, rivers, and table chrome drawn with plain ASCII; themes colorize glyphs (selected tile, riichi, dora, scores). Keep current Unicode/block-style layout as an alternate **`unicode`** (or `enhanced`) mode for capable terminals.
+- [x] **ASCII animations** (default **on**): theme-colored motion for discard, calls/kan/dora, riichi, draw, win, and turn/reaction cues — driven by `Event`s in `rrmj-tui` only; `animations = false` disables. Implement as a small `ui/anim/` timeline (queued effects, fixed tick during playback).
+- [x] **Theming**: built-in palettes; theme selectable in settings; works in both ASCII and Unicode render modes; animation accents read from theme tokens.
+- [x] **Rules / yaku reference** overlay (dedicated hotkey); content aligned with `docs/RULES.md`.
+- [x] README: build, run, config paths, `ascii_mode` vs Unicode rendering, animations toggle, rules pointer, difficulty description.
+- [x] CHANGELOG; tag **v0.1.0**.
 
-**Verify**: full §8 gates; fresh clone `cargo install` path documented; missing keybinds file uses sane defaults.
+**Verify**: full §8 gates; fresh clone `cargo install` path documented; missing keybinds file uses sane defaults; default config uses ASCII mode with at least discard + win animations visible; `animations = false` restores static ASCII; themes apply visibly on a plain terminal.
 
 ---
 
 ## 10. Definition of done (v0.1 / first release)
 
-- [ ] `librrmj` plays full 4-player riichi per `docs/RULES.md` locally with event log API.
-- [ ] `rrmj-tui` supports a full match vs 3 CPU opponents at **easy / medium / hard**.
-- [ ] No ratatui/crossterm in `librrmj`; no game rules in `rrmj-tui`.
-- [ ] CI green on default / all-features / no-default-features; docs build.
-- [ ] **Online multiplayer not required**; event log + `Agent` trait demonstrate extensibility.
-- [ ] **One rules profile** (`standard`) implemented, but all scoring/match-policy calls go through **`RulesProfile`** (§3.5).
-- [ ] **Bevy client not required**; crate boundary documented for future `rrmj-bevy`.
-- [ ] **Replay file export/import not required**; in-memory `Replay` + serde groundwork in place.
+- [x] `librrmj` plays full 4-player riichi per `docs/RULES.md` locally with event log API.
+- [x] `rrmj-tui` supports a full match vs 3 CPU opponents at **easy / medium / hard**.
+- [x] No ratatui/crossterm in `librrmj`; no game rules in `rrmj-tui`.
+- [x] CI green on default / all-features / no-default-features; docs build.
+- [x] **Online multiplayer not required**; event log + `Agent` trait demonstrate extensibility.
+- [x] **One rules profile** (`standard`) implemented, but all scoring/match-policy calls go through **`RulesProfile`** (§3.5).
+- [x] **Bevy client not required**; crate boundary documented for future `rrmj-bevy`.
+- [x] **Replay file export/import not required**; in-memory `Replay` + serde groundwork in place.
 
 ---
 

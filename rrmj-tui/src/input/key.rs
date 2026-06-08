@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Logical binding target used by the TUI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -28,6 +28,8 @@ pub enum BindAction {
     TileNext,
     Confirm,
     Continue,
+    // overlays
+    RulesReference,
 }
 
 /// A parsed key chord.
@@ -40,6 +42,20 @@ pub struct KeyChord {
 impl KeyChord {
     pub const fn new(code: KeyCode, modifiers: KeyModifiers) -> Self {
         Self { code, modifiers }
+    }
+}
+
+/// Normalize terminal-specific enter variants before keybind lookup.
+pub fn normalize_key_event(key: KeyEvent) -> KeyEvent {
+    let code = match key.code {
+        KeyCode::Char('\r') | KeyCode::Char('\n') => KeyCode::Enter,
+        other => other,
+    };
+    KeyEvent {
+        code,
+        modifiers: key.modifiers,
+        kind: key.kind,
+        state: key.state,
     }
 }
 

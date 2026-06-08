@@ -1,0 +1,88 @@
+# rrmj TUI — example theme palette (reference)
+#
+# v0.1 ships two built-in themes selected via config.toml:
+#   theme = "default"        — see theme/mod.rs `default()`
+#   theme = "high-contrast"  — see theme/mod.rs `high_contrast()`
+#
+# Per-theme override files are described in docs/PLAN.md for a future release:
+#   $XDG_CONFIG_HOME/rrmj/themes/<name>.toml
+#
+# This example documents the token names and roles so custom themes can be
+# authored consistently once file loading is implemented. Colors use ratatui
+# named colors (see ratatui::style::Color); hex strings may be supported later.
+
+# Display name shown in Settings (optional metadata)
+label = "Example custom"
+
+# ---------------------------------------------------------------------------
+# Core text and chrome
+# ---------------------------------------------------------------------------
+
+# Default foreground for tiles, meld text, and body copy
+primary = "white"
+
+# Menu selection, section titles, "Hand:" labels
+accent = "green"
+
+# Panel borders and block outlines
+border = "cyan"
+
+# Selected tile in hand (combined with reversed + bold in code)
+selected = "yellow"
+
+# De-emphasized hints and footer help text
+muted = "dark_gray"
+
+# Main menu logo color
+logo = "yellow"
+
+# ---------------------------------------------------------------------------
+# Table / match emphasis
+# ---------------------------------------------------------------------------
+
+# Active seat name, turn border, draw/call/discard pulse
+actor = "green"
+
+# Riichi indicator text (" RIICHI")
+riichi = "magenta"
+
+# Dora indicator tiles in the header; kan reveal flash when animated
+dora = "light_red"
+
+# Score line in the status bar
+score = "yellow"
+
+# ---------------------------------------------------------------------------
+# Action hints (table action panel)
+# ---------------------------------------------------------------------------
+
+# Ron action label styling
+danger = "red"
+
+# Pass action label styling
+safe = "blue"
+
+# ---------------------------------------------------------------------------
+# Tiles and effects
+# ---------------------------------------------------------------------------
+
+# Aka dora (red five) tile glyphs: 5mr, 5pr, 5sr
+red_tile = "red"
+
+# Win celebration burst and winner seat flash (ASCII animations)
+win_burst = "light_yellow"
+
+# ---------------------------------------------------------------------------
+# Built-in reference values (do not copy blindly — tune for your terminal)
+# ---------------------------------------------------------------------------
+#
+# [default]
+# primary = "white"      accent = "green"       border = "cyan"
+# selected = "yellow"    actor = "green"        riichi = "magenta"
+# dora = "light_red"     danger = "red"         safe = "blue"
+# muted = "dark_gray"    red_tile = "red"       score = "yellow"
+# win_burst = "light_yellow"  logo = "yellow"
+#
+# [high-contrast]
+# All emphasis tokens = "white" except muted = "gray", selected = "black"
+# (motion and bold carry most of the contrast in animation cues)

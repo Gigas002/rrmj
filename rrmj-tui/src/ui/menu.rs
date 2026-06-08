@@ -1,32 +1,41 @@
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
-use crate::app::App;
+use crate::app::{App, SettingsField, difficulty_label};
+use crate::config::theme_names;
+use crate::theme::Theme;
+use crate::ui::popup;
+use crate::ui::widgets::muted_span;
 
 const LOGO: &str = r"
-  ██████  ██████  ███    ███
-  ██   ██ ██   ██ ████  ████
-  ██████  ██████  ██ ████ ██
-  ██   ██ ██   ██ ██  ██  ██
-  ██   ██ ██   ██ ██      ██
+ ██████  ██████  ███    ███   ███
+ ██   ██ ██   ██ ████  ████    ██
+ ██████  ██████  ██ ████ ██    ██
+ ██   ██ ██   ██ ██  ██  ██ ██ ██
+ ██   ██ ██   ██ ██      ██  ████
 ";
 
-pub fn draw_main_menu(frame: &mut ratatui::Frame, area: Rect, app: &App) {
+pub fn draw_main_menu(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &Theme) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(7),
+            Constraint::Length(8),
             Constraint::Min(6),
             Constraint::Length(3),
         ])
         .split(area);
 
     let logo = Paragraph::new(LOGO)
-        .style(Style::default().fg(Color::Yellow))
+        .style(Style::default().fg(theme.logo))
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL).title("rrmj"));
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(theme.block_style())
+                .title("rrmj"),
+        );
     frame.render_widget(logo, chunks[0]);
 
     let items = ["Start game", "Settings", "Exit"];
@@ -36,46 +45,77 @@ pub fn draw_main_menu(frame: &mut ratatui::Frame, area: Rect, app: &App) {
         .map(|(i, label)| {
             let prefix = if i == app.menu_index() { "> " } else { "  " };
             let style = if i == app.menu_index() {
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD)
+                theme.menu_selected_style()
             } else {
-                Style::default()
+                Style::default().fg(theme.primary)
             };
             Line::from(Span::styled(format!("{prefix}{label}"), style))
         })
         .collect();
 
-    let menu = Paragraph::new(lines)
-        .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL).title("Main menu"));
+    let menu = Paragraph::new(lines).alignment(Alignment::Center).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(theme.block_style())
+            .title("Main menu"),
+    );
     frame.render_widget(menu, chunks[1]);
 
     let help = Paragraph::new(Line::from(vec![
         Span::raw("↑/↓ "),
-        Span::styled("navigate", Style::default().fg(Color::DarkGray)),
+        muted_span("navigate", theme),
         Span::raw("  enter "),
-        Span::styled("select", Style::default().fg(Color::DarkGray)),
+        muted_span("select", theme),
         Span::raw("  h "),
-        Span::styled("help", Style::default().fg(Color::DarkGray)),
+        muted_span("help", theme),
+        Span::raw("  ? "),
+        muted_span("rules", theme),
     ]))
     .alignment(Alignment::Center);
     frame.render_widget(help, chunks[2]);
 }
 
-pub fn draw_settings(frame: &mut ratatui::Frame, area: Rect, app: &App) {
+/// Centered settings dialog over the main menu.
+pub fn draw_settings_popup(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &Theme) {
+    let popup = popup::open_popup(frame, area, 80, 70);
+    draw_settings_content(frame, popup, app, theme);
+}
+
+fn draw_settings_content(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &Theme) {
+    let cfg = app.config();
+    let field = app.settings_field();
+    let theme_label = Theme::resolve(&cfg.theme).label;
+
+    let row = |label: &str, value: &str, selected: bool| -> Line<'static> {
+        let prefix = if selected { "> " } else { "  " };
+        let style = if selected {
+            theme.menu_selected_style()
+        } else {
+            Style::default().fg(theme.primary)
+        };
+        Line::from(Span::styled(format!("{prefix}{label}: {value}"), style))
+    };
+
     let lines = vec![
-        Line::from("Settings (in-memory until config.toml in v0.1)"),
+        Line::from("Settings — changes saved when you press Esc"),
+        Line::from(""),
+        row("Theme", theme_label, field == SettingsField::Theme),
+        row(
+            "Default CPU difficulty",
+            difficulty_label(cfg.default_difficulty),
+            field == SettingsField::DefaultDifficulty,
+        ),
+        row(
+            "Preferred human seat",
+            crate::app::NewGameSetup::seat_name(cfg.human_seat),
+            field == SettingsField::HumanSeat,
+        ),
         Line::from(""),
         Line::from(format!(
-            "Default CPU difficulty: {}",
-            crate::app::difficulty_label(app.default_difficulty())
+            "Config dir: {}",
+            crate::config::config_dir().display()
         )),
-        Line::from(format!(
-            "Preferred human seat: {}",
-            crate::app::NewGameSetup::seat_name(app.human_seat())
-        )),
-        Line::from(""),
+        Line::from(format!("Config file: {}", app.config_path().display())),
         Line::from(format!(
             "Keybinds: {}",
             app.keybinds_path()
@@ -85,17 +125,21 @@ pub fn draw_settings(frame: &mut ratatui::Frame, area: Rect, app: &App) {
                     crate::input::KeybindsSource::File(p) => p.display().to_string(),
                 })
         )),
-        Line::from(format!(
-            "Config dir: {}",
-            crate::config::config_dir().display()
-        )),
+        Line::from(format!("Built-in themes: {}", theme_names().join(", "))),
         Line::from(""),
-        Line::from("tab — cycle default difficulty"),
-        Line::from("enter — cycle human seat"),
-        Line::from("esc — back"),
+        Line::from(Span::styled(
+            "↑/↓ navigate  enter/space/tab change  esc save & back",
+            Style::default().fg(theme.muted),
+        )),
     ];
 
-    let widget =
-        Paragraph::new(lines).block(Block::default().borders(Borders::ALL).title("Settings"));
+    let widget = Paragraph::new(lines)
+        .wrap(Wrap { trim: true })
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(theme.block_style())
+                .title("Settings"),
+        );
     frame.render_widget(widget, area);
 }
