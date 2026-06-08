@@ -7,6 +7,12 @@ pub enum Action {
     Draw,
     /// Discard a tile from the concealed hand.
     Discard(Tile),
+    /// Declare riichi and discard the chosen tile.
+    Riichi { discard: Tile },
+    /// Win on a self-draw.
+    Tsumo,
+    /// Win on another player's discard.
+    Ron,
     /// Decline to call on another player's discard.
     Pass,
     /// Complete a chii using the last discard and two concealed tiles.

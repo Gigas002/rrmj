@@ -1,12 +1,10 @@
 mod calls;
 mod hand_state;
 mod reaction;
+mod win;
 
 #[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-mod calls_tests;
 
 pub use calls::CallKind;
 pub use hand_state::{HandPhase, HandState, SEAT_COUNT};

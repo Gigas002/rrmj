@@ -66,6 +66,14 @@ impl Wall {
         self.layout.dora_indicator()
     }
 
+    pub fn dora_indicators(&self) -> Vec<Tile> {
+        self.layout.dora_indicators()
+    }
+
+    pub fn ura_dora_indicators(&self) -> Vec<Tile> {
+        self.layout.ura_dora_indicators()
+    }
+
     pub fn live_drawn(&self) -> usize {
         self.layout.live_drawn()
     }

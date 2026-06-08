@@ -10,6 +10,8 @@ pub enum Event {
     Drawn { seat: usize, tile: Tile },
     /// A seat discarded a tile to the river.
     Discarded { seat: usize, tile: Tile },
+    /// A seat declared riichi with a discard.
+    RiichiDeclared { seat: usize, discard: Tile },
     /// A seat called the last discard.
     Called {
         seat: usize,
@@ -21,6 +23,10 @@ pub enum Event {
     DoraRevealed { tile: Tile },
     /// A rinshan draw after a kan.
     RinshanDrawn { seat: usize, tile: Tile },
-    /// Live wall exhausted; hand ends without scoring (pre-win phases).
-    HandEnded,
+    /// A seat won the hand.
+    Won { seat: usize, han: u8, fu: u8 },
+    /// Score transfers applied to all seats.
+    ScoresAdjusted { deltas: [i32; 4] },
+    /// Live wall exhausted without a win.
+    ExhaustiveDraw { deltas: [i32; 4] },
 }

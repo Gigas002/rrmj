@@ -1,6 +1,8 @@
 use crate::action::Action;
 use crate::event::Event;
 use crate::hand::{Hand, MeldKind};
+use crate::rules::RulesConfig;
+use crate::scoring::WinType;
 use crate::state::calls::{
     chi_actions, closed_kan_options, kamicha, resolve_chi, resolve_closed_kan, resolve_open_kan,
     resolve_pon, CallKind,
@@ -15,13 +17,9 @@ pub const SEAT_COUNT: usize = 4;
 /// Phase of an in-progress hand.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HandPhase {
-    /// Active seat must draw from the live wall.
     Draw,
-    /// Active seat must discard (dealer's first turn skips draw).
     Discard,
-    /// Seats may call or pass on the last discard.
     Reaction,
-    /// Live wall exhausted; no further actions.
     Ended,
 }
 
@@ -30,15 +28,22 @@ pub enum HandPhase {
 pub struct HandState {
     dealer: usize,
     current_actor: usize,
-    phase: HandPhase,
+    pub(crate) phase: HandPhase,
     hands: [Hand; 4],
     discards: [Vec<Tile>; SEAT_COUNT],
     wall: Wall,
-    reaction: Option<ReactionState>,
+    pub(crate) reaction: Option<ReactionState>,
+    pub(crate) config: RulesConfig,
+    pub(crate) scores: [i32; 4],
+    pub(crate) riichi: [bool; 4],
+    pub(crate) table_riichi_sticks: u8,
+    pub(crate) honba: u8,
+    pub(crate) last_draw: Option<Tile>,
 }
 
 impl HandState {
-    pub fn from_deal(wall: Wall, deal: DealResult) -> Self {
+    pub fn from_deal(wall: Wall, deal: DealResult, config: RulesConfig) -> Self {
+        let starting = config.starting_points;
         Self {
             dealer: deal.dealer,
             current_actor: deal.dealer,
@@ -47,6 +52,12 @@ impl HandState {
             discards: std::array::from_fn(|_| Vec::new()),
             wall,
             reaction: None,
+            config,
+            scores: [starting; 4],
+            riichi: [false; 4],
+            table_riichi_sticks: 0,
+            honba: 0,
+            last_draw: None,
         }
     }
 
@@ -86,13 +97,18 @@ impl HandState {
         match self.phase {
             HandPhase::Draw if seat == self.current_actor => vec![Action::Draw],
             HandPhase::Discard if seat == self.current_actor => {
-                let mut actions: Vec<Action> = self.hands[seat]
-                    .concealed()
-                    .tiles()
-                    .iter()
-                    .copied()
-                    .map(Action::Discard)
-                    .collect();
+                let mut actions = Vec::new();
+                if self.can_tsumo(seat) {
+                    actions.push(Action::Tsumo);
+                }
+                if self.can_declare_riichi(seat) {
+                    for &tile in self.hands[seat].concealed().tiles() {
+                        actions.push(Action::Riichi { discard: tile });
+                    }
+                }
+                for tile in self.hands[seat].concealed().tiles().iter().copied() {
+                    actions.push(Action::Discard(tile));
+                }
                 for tile in closed_kan_options(self.hands[seat].concealed()) {
                     actions.push(Action::ClosedKan { tile });
                 }
@@ -125,6 +141,11 @@ impl HandState {
                 match action {
                     Action::Draw => self.apply_draw(seat),
                     Action::Discard(tile) => self.apply_discard(seat, tile),
+                    Action::Riichi { discard } => self.apply_riichi(seat, discard),
+                    Action::Tsumo => {
+                        let tile = self.last_draw.ok_or(Error::CannotWin)?;
+                        self.resolve_win(seat, WinType::Tsumo, tile)
+                    }
                     Action::ClosedKan { tile } => self.apply_closed_kan(seat, tile),
                     _ => Err(Error::IllegalAction {
                         action,
@@ -135,7 +156,6 @@ impl HandState {
         }
     }
 
-    /// Applies draw/discard/reaction passes until the live wall is empty.
     pub fn play_out_discards<F>(&mut self, mut pick_discard: F) -> Result<Vec<Event>, Error>
     where
         F: FnMut(&HandState, usize) -> Tile,
@@ -191,6 +211,11 @@ impl HandState {
         *self.hands[seat].concealed_mut() = crate::hand::Concealed::from_tiles(tiles);
     }
 
+    #[cfg(test)]
+    pub fn push_discard_for_test(&mut self, seat: usize, tile: Tile) {
+        self.discards[seat].push(tile);
+    }
+
     fn can_respond(&self, seat: usize) -> bool {
         self.reaction
             .as_ref()
@@ -206,6 +231,10 @@ impl HandState {
         }
 
         let mut actions = vec![Action::Pass];
+        if self.can_ron(seat) {
+            actions.push(Action::Ron);
+        }
+
         let concealed = self.hands[seat].concealed();
         let called = reaction.tile;
 
@@ -233,12 +262,22 @@ impl HandState {
         let tile = self.wall.draw_live()?;
         self.hands[seat].concealed_mut().push(tile);
         self.hands[seat].sort_concealed();
+        self.last_draw = Some(tile);
         self.phase = HandPhase::Discard;
 
         Ok(vec![Event::Drawn { seat, tile }])
     }
 
     fn apply_discard(&mut self, seat: usize, tile: Tile) -> Result<Vec<Event>, Error> {
+        self.apply_discard_inner(seat, tile, false)
+    }
+
+    pub(crate) fn apply_discard_inner(
+        &mut self,
+        seat: usize,
+        tile: Tile,
+        riichi: bool,
+    ) -> Result<Vec<Event>, Error> {
         if self.phase != HandPhase::Discard {
             return Err(Error::WrongPhase {
                 expected: HandPhase::Discard,
@@ -248,20 +287,25 @@ impl HandState {
 
         self.hands[seat].concealed_mut().remove(tile)?;
         self.discards[seat].push(tile);
+        self.last_draw = None;
 
-        let mut events = vec![Event::Discarded { seat, tile }];
+        let events = if riichi {
+            vec![
+                Event::RiichiDeclared { seat, discard: tile },
+                Event::Discarded { seat, tile },
+            ]
+        } else {
+            vec![Event::Discarded { seat, tile }]
+        };
 
         if self.wall.live_remaining() == 0 {
             self.current_actor = super::next_seat(seat);
-            self.phase = HandPhase::Ended;
-            self.reaction = None;
-            events.push(Event::HandEnded);
-        } else {
-            self.current_actor = super::next_seat(seat);
-            self.phase = HandPhase::Reaction;
-            self.reaction = Some(ReactionState::new(seat, tile));
+            return self.resolve_exhaustive_draw(events);
         }
 
+        self.current_actor = super::next_seat(seat);
+        self.phase = HandPhase::Reaction;
+        self.reaction = Some(ReactionState::new(seat, tile));
         Ok(events)
     }
 
@@ -277,6 +321,7 @@ impl HandState {
         let (rinshan, dora) = self.wall.apply_kan()?;
         self.hands[seat].concealed_mut().push(rinshan);
         self.hands[seat].sort_concealed();
+        self.last_draw = Some(rinshan);
 
         Ok(vec![
             Event::Called {
@@ -303,6 +348,17 @@ impl HandState {
         }
         if !reaction.can_respond(seat) {
             return Err(Error::AlreadyResponded { seat });
+        }
+
+        if action == Action::Ron {
+            if self.is_furiten(seat, reaction.tile) {
+                return Err(Error::Furiten);
+            }
+            let from = reaction.discarder;
+            let win_tile = reaction.tile;
+            self.reaction.take();
+            self.pop_called_discard(from)?;
+            return self.resolve_win(seat, WinType::Ron { from }, win_tile);
         }
 
         if action != Action::Pass {
@@ -398,6 +454,7 @@ impl HandState {
             let (rinshan, dora) = self.wall.apply_kan()?;
             self.hands[caller].concealed_mut().push(rinshan);
             self.hands[caller].sort_concealed();
+            self.last_draw = Some(rinshan);
             events.push(Event::DoraRevealed { tile: dora });
             events.push(Event::RinshanDrawn {
                 seat: caller,

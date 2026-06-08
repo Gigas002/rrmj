@@ -42,7 +42,7 @@ This document is the **human roadmap** and **agent playbook** for **rrmj** (Rust
 - **No** Bevy / wgpu graphical client in v0 (architecture note only; separate plan after v0.1).
 - **No** additional rulesets beyond **standard** in v0 (no three-player, HK, or custom house-rule packs yet) — but the **`RulesProfile`** architecture in §3.5 must be in place from the first scoring phase so new rulesets are additive, not a rewrite.
 - **No** voice, emotes, or account systems.
-- **No** embedded tutorial beyond minimal TUI help text.
+- **No** full interactive tutorial in v0; TUI provides a **rules / yaku reference** overlay (see §6.5) instead of a guided walkthrough.
 
 ### 1.4 Definitions
 
@@ -98,7 +98,8 @@ rrmj/                          # workspace root
       app/                     # App state: bridge UI ↔ librrmj
       ui/                      # ratatui widgets (hand, river, status, menu)
       input/                   # keymap, action picker
-      config/                  # TOML: difficulty, colors, keybinds
+      config/                  # TOML: difficulty, theme, keybinds
+      theme/                   # color palettes / ratatui styles (presentation only)
       cli/
   docs/
     PLAN.md                    # this file
@@ -300,27 +301,78 @@ trait Agent {
 
 - **`ratatui`** + **`crossterm`** (or `ratatui` default backend) — no alternate GUI stack in v0.
 - **60 fps not required**; redraw on state change or input.
+- **`librrmj` has zero presentation concerns** — no colors, themes, or key names in the engine.
 
-### 6.2 Screens (minimal v0)
+### 6.2 Launch flow (v0)
 
-| Screen        | Purpose                                                |
-| ------------- | ------------------------------------------------------ |
-| Main menu     | New game (difficulty), quit                            |
-| Table         | Hands (concealed for player), rivers, melds, dora      |
-| Call menu     | Chi / pon / kan / ron / pass when in `Reaction`      |
-| Discard select| Choose tile to discard / riichi / tsumo                |
-| Hand result   | Scoring breakdown, continue                          |
-| Match summary | Final placements                                       |
+On startup the TUI opens the **main menu** first (not the table). Minimum entries:
 
-### 6.3 Input model
+| Entry        | Action |
+| ------------ | ------ |
+| Logo / title | Branding only (ASCII or styled text) |
+| Start game   | Opens **new-game setup** (see below) |
+| Settings     | Theme, default difficulty, config paths |
+| Exit         | Quit cleanly |
 
-- Map keys → `Action` candidates; engine validates.
+**New-game setup** (after Start game):
+
+- Per seat (East → North): **Human** or **CPU**.
+- For each CPU seat: difficulty (**Easy / Medium / Hard**).
+- Optional: player seat preference (which seat the human occupies).
+- Confirm → build `Match` from `librrmj` and enter table screen.
+
+Additional main-menu entries (post-v0 or stretch): **Play replay**, **Rules profile** picker.
+
+### 6.3 Screens (in-match and post-hand)
+
+| Screen         | Purpose |
+| -------------- | ------- |
+| Table          | Hands (concealed for player), rivers, melds, dora, scores, turn indicator |
+| Call menu      | Chi / pon / kan / ron / pass when in `Reaction` |
+| Discard select | Choose tile to discard / riichi / tsumo |
+| Hand result    | Scoring breakdown, continue |
+| Match summary  | Final placements |
+
+### 6.4 Input model — hotkeys only
+
+- **Every** TUI action is reachable via keyboard hotkeys (no mouse required).
+- Keys map to UI intents first; table actions map to `Action` candidates; **`librrmj` validates** legality.
 - Show **only legal** options in menus (no “illegal move” spam).
+- **Modal overlays** (help, rules reference) capture input until dismissed; game state does not advance underneath.
 
-### 6.4 Config (`rrmj-tui`)
+### 6.5 Overlays (always available in-game)
 
-- XDG path: `$XDG_CONFIG_HOME/rrmj/config.toml` + `--config` override.
-- Keys: default CPU difficulty, player seat preference, colors, keymap overrides.
+| Overlay | Default key | Purpose |
+| ------- | ----------- | ------- |
+| Keybind help | `h` | Full-screen list of **all** current bindings (navigation, table, menus, overlays). Must work from any screen including modals that allow it. |
+| Rules / yaku reference | `?` (or `y` if `?` is awkward on some layouts) | Scrollable reference: yaku list with han values, brief rule notes (dora, riichi, furiten, exhaustive draw). Content sourced from TUI strings mirroring `docs/RULES.md` — not duplicated in `librrmj`. |
+
+Both overlays are **presentation**; engine types stay unchanged.
+
+### 6.6 Theming (`rrmj-tui` only)
+
+- **Themes** control ratatui colors/styles (borders, selected tile, riichi indicator, score emphasis).
+- Shipped built-ins: at least **default** (dark) and one alternate (e.g. **high-contrast**).
+- Theme name in `config.toml`; optional per-theme override files under `$XDG_CONFIG_HOME/rrmj/themes/`.
+- `librrmj` does not define or parse theme data.
+
+### 6.7 Config files (`rrmj-tui`)
+
+| File | Path | Purpose |
+| ---- | ---- | ------- |
+| General settings | `$XDG_CONFIG_HOME/rrmj/config.toml` | Default CPU difficulty, theme name, player seat preference |
+| Keybinds | `$XDG_CONFIG_HOME/rrmj/keybinds.toml` | Full hotkey map; **sane defaults** baked into the binary when file is missing |
+| CLI override | `--config`, `--keybinds` | Explicit paths |
+
+`keybinds.toml` structure (conceptual):
+
+- Sections: `global`, `menu`, `table`, `overlay`.
+- Each binding: logical action name → key(s); support chord vs single key as needed.
+- Unknown action names in TOML → parse error with line hint (tested in `rrmj-tui`).
+
+### 6.8 TUI tests
+
+- `rrmj-tui`: parse `config.toml` / `keybinds.toml`, default keymap completeness, action-name → `librrmj::Action` mapping — **no** full terminal driver required in CI.
 
 ---
 
@@ -359,7 +411,8 @@ Whenever a phase is marked complete:
 
 ### 8.1 Test discipline
 
-- Unit tests in **`tests.rs`** next to `mod.rs` per directory module.
+- Unit tests in **exactly one `tests.rs`** next to `mod.rs` per **directory module** (`state/tests.rs`, `tile/tests.rs`, `rules/standard/tests.rs`, …).
+- **Forbidden**: extra sibling test modules such as `calls_tests.rs`, `win_tests.rs`, or `#[cfg(test)] mod tests` inside logic files — use section comments inside the single `tests.rs` instead (`// --- calls ---`, etc.).
 - Integration tests under `librrmj/tests/` for full hands, scoring tables, AI smoke tests.
 - `rrmj-tui`: lightweight tests for config parse and action mapping (no full terminal driver required).
 
@@ -409,12 +462,12 @@ Whenever a phase is marked complete:
 
 ### Phase 4 — Wins, yaku, scoring + rules profile boundary
 
-- [ ] Introduce `RulesProfile` trait, `RulesProfileId`, `RulesRegistry`; **`standard`** as sole registration.
-- [ ] Win detection (tsumo/ron); `rules/standard/` yaku table per `docs/RULES.md`.
-- [ ] Fu calculation, han aggregation, limit hands, payment matrix (ron/tsumo, dealer/non-dealer) via profile.
-- [ ] Riichi declaration, riichi stick, dora/ura/aka in scoring.
-- [ ] `HandEnd` → score transfer; `ExhaustiveDraw` (tenpai/noten payments).
-- [ ] No rule-specific branches in `state/` outside profile dispatch.
+- [x] Introduce `RulesProfile` trait, `RulesProfileId`, `RulesRegistry`; **`standard`** as sole registration.
+- [x] Win detection (tsumo/ron); `rules/standard/` yaku table per `docs/RULES.md`.
+- [x] Fu calculation, han aggregation, limit hands, payment matrix (ron/tsumo, dealer/non-dealer) via profile.
+- [x] Riichi declaration, riichi stick, dora/ura/aka in scoring.
+- [x] `HandEnd` → score transfer; `ExhaustiveDraw` (tenpai/noten payments).
+- [x] No rule-specific branches in `state/` outside profile dispatch.
 
 **Verify**: extensive scoring fixtures; cross-check sample hands against manual calculations or known calculators; grep/architecture review — yaku/scoring logic only under `rules/standard/`.
 
@@ -452,20 +505,24 @@ Whenever a phase is marked complete:
 
 ### Phase 9 — TUI vertical slice
 
-- [ ] `rrmj-tui`: main menu → new game vs 3 CPU (pick difficulty).
+- [ ] App shell: **main menu** on launch (logo, start game, settings, exit).
+- [ ] **New-game setup**: per-seat human/CPU, CPU difficulty, confirm → `Match`.
 - [ ] Table view: hand, river, melds, dora, scores, turn indicator.
-- [ ] Call / discard / riichi / win menus from legal actions only.
+- [ ] Call / discard / riichi / win menus from legal actions only; **all via hotkeys**.
 - [ ] Hand result screen + continue.
+- [ ] Default `keybinds.toml` + loader (`~/.config/rrmj/keybinds.toml`); `h` → full keybind help overlay.
 
-**Verify**: manual playtest — complete one full hand and one multi-hand match.
+**Verify**: manual playtest — menu → setup → complete one full hand; `h` shows complete binding list.
 
 ### Phase 10 — TUI polish + first release
 
-- [ ] Config file + CLI; keymap help overlay.
-- [ ] README: build, run, rules pointer, difficulty description.
+- [ ] `config.toml` (theme, defaults) + CLI `--config` / `--keybinds`.
+- [ ] **Theming**: built-in palettes; theme selectable in settings.
+- [ ] **Rules / yaku reference** overlay (dedicated hotkey); content aligned with `docs/RULES.md`.
+- [ ] README: build, run, config paths, rules pointer, difficulty description.
 - [ ] CHANGELOG; tag **v0.1.0**.
 
-**Verify**: full §8 gates; fresh clone `cargo install` path documented.
+**Verify**: full §8 gates; fresh clone `cargo install` path documented; missing keybinds file uses sane defaults.
 
 ---
 

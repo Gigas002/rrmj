@@ -43,6 +43,16 @@ impl WallLayout {
         self.dead[0]
     }
 
+    pub fn dora_indicators(&self) -> Vec<Tile> {
+        let count = 1 + self.kan_count as usize;
+        (0..count).map(|index| self.dead[index * 2]).collect()
+    }
+
+    pub fn ura_dora_indicators(&self) -> Vec<Tile> {
+        let count = 1 + self.kan_count as usize;
+        (0..count).map(|index| self.dead[index * 2 + 1]).collect()
+    }
+
     pub fn draw_live(&mut self) -> Result<Tile, Error> {
         if self.live.is_empty() {
             return Err(Error::LiveWallExhausted);

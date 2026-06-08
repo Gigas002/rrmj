@@ -84,4 +84,13 @@ pub enum Error {
 
     #[error("no more dora indicators to reveal")]
     DoraRevealExhausted,
+
+    #[error("seat cannot win with the current hand")]
+    CannotWin,
+
+    #[error("seat cannot declare riichi")]
+    CannotDeclareRiichi,
+
+    #[error("seat is in furiten")]
+    Furiten,
 }

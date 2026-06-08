@@ -42,11 +42,10 @@ impl ReactionState {
             let Some(action) = self.responses[seat] else {
                 continue;
             };
-            let Some(kind) = call_kind(action) else {
+            let Some(priority) = reaction_priority(action) else {
                 continue;
             };
 
-            let priority = call_priority(kind);
             let distance = seat_priority(self.discarder, seat);
             if best.is_none_or(|(_, _, p, d)| priority > p || (priority == p && distance < d)) {
                 best = Some((seat, action, priority, distance));
@@ -54,6 +53,16 @@ impl ReactionState {
         }
 
         best.map(|(seat, action, _, _)| (seat, action))
+    }
+}
+
+pub fn reaction_priority(action: Action) -> Option<u8> {
+    match action {
+        Action::Ron => Some(3),
+        Action::OpenKan => Some(call_priority(CallKind::OpenKan)),
+        Action::Pon => Some(call_priority(CallKind::Pon)),
+        Action::Chi { .. } => Some(call_priority(CallKind::Chi)),
+        _ => None,
     }
 }
 
