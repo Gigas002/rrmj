@@ -1,9 +1,9 @@
+use crate::Error;
 use crate::event::Event;
 use crate::rules::{RulesRegistry, WinContext};
 use crate::scoring::WinType;
-use crate::state::{HandPhase, HandState};
+use crate::state::{HandEndReason, HandPhase, HandState};
 use crate::tile::Tile;
-use crate::Error;
 
 impl HandState {
     pub fn config(&self) -> &crate::rules::RulesConfig {
@@ -96,8 +96,10 @@ impl HandState {
 
         let result = profile.score_win(&ctx, &self.config);
         self.apply_deltas(&result.deltas);
+        self.table_riichi_sticks = 0;
         self.phase = HandPhase::Ended;
         self.reaction = None;
+        self.end_reason = Some(HandEndReason::Win { winner });
 
         Ok(vec![
             Event::Won {
@@ -120,6 +122,7 @@ impl HandState {
         self.apply_deltas(&deltas);
         self.phase = HandPhase::Ended;
         self.reaction = None;
+        self.end_reason = Some(HandEndReason::ExhaustiveDraw);
         prior.push(Event::ExhaustiveDraw { deltas });
         Ok(prior)
     }

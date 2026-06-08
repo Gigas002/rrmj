@@ -23,4 +23,6 @@ pub enum Action {
     OpenKan,
     /// Closed kan (ankan) on the current turn using four matching concealed tiles.
     ClosedKan { tile: Tile },
+    /// Dealer aborts on the first turn with nine or more terminal/honor types.
+    AbortiveNineTerminals,
 }

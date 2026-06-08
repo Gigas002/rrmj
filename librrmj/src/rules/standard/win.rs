@@ -36,7 +36,9 @@ fn is_chiitoitsu(tiles: &[Tile]) -> bool {
     if tiles.len() != 14 {
         return false;
     }
-    tiles.chunks(2).all(|pair| pair.len() == 2 && pair[0] == pair[1])
+    tiles
+        .chunks(2)
+        .all(|pair| pair.len() == 2 && pair[0] == pair[1])
 }
 
 fn can_form_mentsu_and_pair(tiles: &[Tile], sets_needed: usize) -> bool {
@@ -125,7 +127,10 @@ pub fn is_simple(tile: Tile) -> bool {
 
 pub fn hand_contains_yakuhai(hand: &Hand, tile: Tile) -> bool {
     let identity = tile.identity();
-    hand.concealed().tiles().iter().any(|t| t.identity() == identity)
+    hand.concealed()
+        .tiles()
+        .iter()
+        .any(|t| t.identity() == identity)
         || hand.melds().iter().any(|meld| {
             meld.tiles()
                 .iter()
@@ -157,4 +162,3 @@ pub fn is_pinfu_hand(hand: &Hand, win_tile: Tile) -> bool {
     }
     is_winning_hand(hand, Some(win_tile))
 }
-

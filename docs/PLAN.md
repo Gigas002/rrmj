@@ -83,7 +83,7 @@ rrmj/                          # workspace root
         profile/               # trait + shared rule helpers
         standard/              # v0 Japanese riichi (only profile in v0)
       scoring/                 # shared payment types; profile-specific math in rules/*
-      match_/                  # multi-hand flow, honba, renchan
+      game/                    # multi-hand flow, honba, renchan
       agent/                   # Agent trait, PlayerSlot { Human, Cpu, Remote }
       ai/                      # behind `ai` feature
         easy/
@@ -251,7 +251,7 @@ trait Agent {
 2. **Legality** (`action`) — given snapshot + active **`RulesProfile`**, list legal `Action`s.
 3. **Application** (`event`, `state`) — apply one action → one or more events → new snapshot; profile consulted for rule checks inside transitions.
 4. **Scoring** (`rules/<profile>/`) — on win, delegate to `RulesProfile::score_win`; shared result types in `scoring/`.
-5. **Match flow** (`match_`) — rotate dealer, carry scores, detect match end; policy hooks from `RulesProfile::match_flow()`.
+5. **Match flow** (`game`) — rotate dealer, carry scores, detect match end; policy hooks from `RulesProfile::match_flow()`.
 
 ### 4.2 Winning and waits
 
@@ -473,9 +473,9 @@ Whenever a phase is marked complete:
 
 ### Phase 5 — Match flow + special draws
 
-- [ ] `match_/`: east/south rounds, honba, renchan, dealer rotation.
-- [ ] Abortive draws (if enabled in `RulesConfig`).
-- [ ] Match end condition (e.g. south 4 ends, or optional “first to 30k” in config).
+- [x] `game/`: east/south rounds, honba, renchan, dealer rotation.
+- [x] Abortive draws (if enabled in `RulesConfig`).
+- [x] Match end condition (e.g. south 4 ends, or optional “first to 30k” in config).
 
 **Verify**: multi-hand integration test to completion with scripted wins/draws.
 

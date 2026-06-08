@@ -1,3 +1,4 @@
+mod abortive;
 mod dora;
 mod fu;
 mod score;
@@ -8,9 +9,11 @@ mod yaku;
 mod tests;
 
 use crate::hand::Hand;
-use crate::rules::profile_trait::{RulesProfile, WinContext};
+use crate::game::{AbortiveDrawKind, AbortiveTrigger};
 use crate::rules::RulesConfig;
 use crate::rules::RulesProfileId;
+use crate::rules::flow::{MatchFlowPolicy, StandardMatchFlow};
+use crate::rules::profile_trait::{RulesProfile, WinContext};
 use crate::scoring::ScoringResult;
 use crate::state::HandState;
 
@@ -41,5 +44,18 @@ impl RulesProfile for StandardRules {
 
     fn score_exhaustive_draw(&self, state: &HandState, _config: &RulesConfig) -> [i32; 4] {
         score::score_exhaustive_draw(state)
+    }
+
+    fn detect_abortive(
+        &self,
+        state: &HandState,
+        config: &RulesConfig,
+        trigger: AbortiveTrigger,
+    ) -> Option<AbortiveDrawKind> {
+        abortive::detect_abortive(state, config, trigger)
+    }
+
+    fn match_flow(&self) -> &dyn MatchFlowPolicy {
+        &StandardMatchFlow
     }
 }

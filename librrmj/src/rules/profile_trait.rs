@@ -1,6 +1,8 @@
 use crate::hand::Hand;
+use crate::game::{AbortiveDrawKind, AbortiveTrigger};
 use crate::rules::RulesConfig;
 use crate::rules::RulesProfileId;
+use crate::rules::flow::MatchFlowPolicy;
 use crate::scoring::{ScoringResult, WinType};
 use crate::state::HandState;
 use crate::tile::Tile;
@@ -39,4 +41,13 @@ pub trait RulesProfile: Send + Sync {
     fn score_win(&self, ctx: &WinContext<'_>, config: &RulesConfig) -> ScoringResult;
 
     fn score_exhaustive_draw(&self, state: &HandState, config: &RulesConfig) -> [i32; 4];
+
+    fn detect_abortive(
+        &self,
+        state: &HandState,
+        config: &RulesConfig,
+        trigger: AbortiveTrigger,
+    ) -> Option<AbortiveDrawKind>;
+
+    fn match_flow(&self) -> &dyn MatchFlowPolicy;
 }

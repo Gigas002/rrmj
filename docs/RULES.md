@@ -9,7 +9,7 @@ This document describes the **standard** rules profile implemented in `librrmj/s
 | Profile ID | `RulesProfileId::Standard` |
 | Tiles | 136 (4×34, including red fives when `aka_dora` is enabled) |
 | Starting points | 25,000 per player |
-| Rounds | Single-hand scoring only in v0 (match flow is Phase 5) |
+| Rounds | Hanchan (East 1–4, South 1–4) or East-only via `MatchLength` |
 
 ## Winning
 
@@ -60,6 +60,26 @@ When the live wall is empty after a discard:
 
 - Tenpai players split 3,000 points from noten players.
 - If everyone is tenpai or everyone is noten, no payments.
+
+## Match flow
+
+- **Honba** — increments when the dealer wins or is tenpai at an exhaustive/abortive draw (four kongs / four riichis); resets on dealer rotation.
+- **Renchan** — dealer keeps seat when they win or are tenpai at exhaustive draw.
+- **Dealer rotation** — advances after a non-dealer win or exhaustive draw without dealer tenpai; wraps East 4 → South 1 in hanchan.
+- **Match end** — after South 4 (`MatchLength::Hanchan`) or East 4 (`MatchLength::EastOnly`), or when any seat reaches `target_score` if set.
+
+## Abortive draws
+
+Enabled individually in `RulesConfig`:
+
+| Draw | When |
+|------|------|
+| Nine terminals | Dealer's first turn with ≥9 distinct terminal/honor types |
+| Four winds | All four first discards are the same wind |
+| Four kongs | Fourth kan declared |
+| Four riichis | Fourth riichi declaration |
+
+Nine terminals and four winds keep dealer and honba unchanged; four kongs and four riichis follow exhaustive-draw dealer rotation rules.
 
 ## Architecture boundary
 

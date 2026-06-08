@@ -1,14 +1,14 @@
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 use super::{HandPhase, HandState};
+use crate::Error;
 use crate::action::Action;
 use crate::event::Event;
 use crate::hand::MeldKind;
 use crate::rules::RulesConfig;
 use crate::tile::{Suit, Tile};
 use crate::wall::Wall;
-use crate::Error;
 
 // --- turn flow ---
 
@@ -34,13 +34,7 @@ fn turn_rotates_draw_then_discard() {
 
     let tile = state.hand(0).concealed().tiles()[0];
     let events = state.apply(0, Action::Discard(tile)).unwrap();
-    assert_eq!(
-        events,
-        vec![Event::Discarded {
-            seat: 0,
-            tile
-        }]
-    );
+    assert_eq!(events, vec![Event::Discarded { seat: 0, tile }]);
     assert_eq!(state.phase(), HandPhase::Reaction);
 
     for seat in 1..4 {
@@ -89,8 +83,18 @@ fn scripted_play_conserves_tiles() {
         .unwrap();
 
     assert!(state.is_ended());
-    assert!(events.iter().any(|e| matches!(e, Event::ExhaustiveDraw { .. })));
-    assert!(events.iter().filter(|e| matches!(e, Event::Drawn { .. })).count() > 10);
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::ExhaustiveDraw { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .filter(|e| matches!(e, Event::Drawn { .. }))
+            .count()
+            > 10
+    );
     state.validate_tile_conservation().unwrap();
 }
 
@@ -127,12 +131,7 @@ fn build_hand(seat: usize, mut tiles: Vec<Tile>) -> Vec<Tile> {
     tiles
 }
 
-fn start_reaction(
-    seed: u64,
-    dealer: usize,
-    discarded: Tile,
-    hands: [Vec<Tile>; 4],
-) -> HandState {
+fn start_reaction(seed: u64, dealer: usize, discarded: Tile, hands: [Vec<Tile>; 4]) -> HandState {
     let rules = RulesConfig::standard();
     let mut wall = Wall::new(&rules, StdRng::seed_from_u64(seed));
     let deal = wall.deal(dealer).unwrap();
@@ -239,12 +238,7 @@ fn open_kan_reveals_dora_and_draws_rinshan() {
         discarded,
         [
             vec![discarded, Tile::pin(1), Tile::pin(2)],
-            vec![
-                Tile::sou(6),
-                Tile::sou(6),
-                Tile::sou(6),
-                Tile::pin(9),
-            ],
+            vec![Tile::sou(6), Tile::sou(6), Tile::sou(6), Tile::pin(9)],
             vec![Tile::man(1), Tile::man(2), Tile::man(3)],
             vec![Tile::sou(4), Tile::sou(5), Tile::sou(7)],
         ],
@@ -254,12 +248,16 @@ fn open_kan_reveals_dora_and_draws_rinshan() {
     state.apply(2, Action::Pass).unwrap();
     let events = state.apply(3, Action::Pass).unwrap();
 
-    assert!(events
-        .iter()
-        .any(|event| matches!(event, Event::DoraRevealed { .. })));
-    assert!(events
-        .iter()
-        .any(|event| matches!(event, Event::RinshanDrawn { seat: 1, .. })));
+    assert!(
+        events
+            .iter()
+            .any(|event| matches!(event, Event::DoraRevealed { .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|event| matches!(event, Event::RinshanDrawn { seat: 1, .. }))
+    );
     assert_eq!(state.hand(1).melds()[0].kind(), MeldKind::OpenKan);
     assert_eq!(state.hand(1).total_tiles(), 15);
     assert_eq!(state.wall().kan_count(), 1);
@@ -343,9 +341,11 @@ fn closed_kan_on_own_turn_stays_on_discard() {
     let events = state
         .apply(0, Action::ClosedKan { tile: Tile::pin(3) })
         .unwrap();
-    assert!(events
-        .iter()
-        .any(|event| matches!(event, Event::DoraRevealed { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|event| matches!(event, Event::DoraRevealed { .. }))
+    );
     assert_eq!(state.phase(), HandPhase::Discard);
     assert_eq!(state.current_actor(), 0);
     assert_eq!(state.hand(0).melds()[0].kind(), MeldKind::ClosedKan);
@@ -389,8 +389,16 @@ fn tsumo_ends_hand_and_adjusts_scores() {
 
     let events = state.apply(1, Action::Tsumo).unwrap();
     assert!(state.is_ended());
-    assert!(events.iter().any(|e| matches!(e, Event::Won { seat: 1, .. })));
-    assert!(events.iter().any(|e| matches!(e, Event::ScoresAdjusted { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::Won { seat: 1, .. }))
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::ScoresAdjusted { .. }))
+    );
     assert!(state.scores()[1] > state.config().starting_points);
 }
 
@@ -411,7 +419,11 @@ fn ron_on_discard_wins_immediately() {
     let events = state.apply(1, Action::Ron).unwrap();
 
     assert!(state.is_ended());
-    assert!(events.iter().any(|e| matches!(e, Event::Won { seat: 1, .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::Won { seat: 1, .. }))
+    );
     assert!(state.scores()[0] < state.config().starting_points);
     assert!(state.scores()[1] > state.config().starting_points);
 }
@@ -433,7 +445,11 @@ fn riichi_declaration_costs_stick_and_ends_in_reaction() {
     assert_eq!(state.table_riichi_sticks(), 1);
     assert_eq!(state.scores()[2], state.config().starting_points - 1_000);
     assert_eq!(state.phase(), HandPhase::Reaction);
-    assert!(events.iter().any(|e| matches!(e, Event::RiichiDeclared { .. })));
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::RiichiDeclared { .. }))
+    );
 }
 
 #[test]

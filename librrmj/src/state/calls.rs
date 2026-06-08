@@ -1,7 +1,7 @@
+use crate::Error;
 use crate::action::Action;
 use crate::hand::{Concealed, Meld};
 use crate::tile::{Tile, TileIdentity};
-use crate::Error;
 
 use super::next_seat;
 
@@ -133,11 +133,7 @@ pub fn resolve_pon(concealed: &Concealed, called: Tile) -> Result<ResolvedCall, 
     }
     let remove_from_concealed = remove_from_concealed[..2].to_vec();
 
-    let tiles = [
-        remove_from_concealed[0],
-        remove_from_concealed[1],
-        called,
-    ];
+    let tiles = [remove_from_concealed[0], remove_from_concealed[1], called];
     let meld = Meld::pon(tiles, called)?;
     Ok(ResolvedCall {
         kind: CallKind::Pon,
@@ -179,12 +175,7 @@ pub fn resolve_closed_kan(concealed: &Concealed, tile: Tile) -> Result<Meld, Err
         });
     }
 
-    Meld::closed_kan([
-        matching[0],
-        matching[1],
-        matching[2],
-        matching[3],
-    ])
+    Meld::closed_kan([matching[0], matching[1], matching[2], matching[3]])
 }
 
 pub fn call_priority(kind: CallKind) -> u8 {
@@ -227,11 +218,7 @@ fn pick_chi_tiles(
         pick_index += 1;
     }
 
-    if pick_index == 3 {
-        Ok(picked)
-    } else {
-        Err(())
-    }
+    if pick_index == 3 { Ok(picked) } else { Err(()) }
 }
 
 fn is_valid_chi_sequence(tiles: [Tile; 3]) -> bool {

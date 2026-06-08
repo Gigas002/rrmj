@@ -71,7 +71,10 @@ pub enum Error {
     InvalidChiSequence { tiles: [Tile; 3] },
 
     #[error("{kind:?} call invalid: {reason}")]
-    InvalidCall { kind: CallKind, reason: &'static str },
+    InvalidCall {
+        kind: CallKind,
+        reason: &'static str,
+    },
 
     #[error("seat {seat} cannot respond to this discard")]
     NotReactingSeat { seat: usize },
@@ -93,4 +96,7 @@ pub enum Error {
 
     #[error("seat is in furiten")]
     Furiten,
+
+    #[error("match has ended")]
+    MatchEnded,
 }

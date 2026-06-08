@@ -1,5 +1,5 @@
 use crate::action::Action;
-use crate::state::calls::{call_priority, seat_priority, CallKind};
+use crate::state::calls::{CallKind, call_priority, seat_priority};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReactionState {

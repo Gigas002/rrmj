@@ -1,5 +1,5 @@
-use crate::rules::profile_trait::WinContext;
 use crate::rules::RulesConfig;
+use crate::rules::profile_trait::WinContext;
 use crate::rules::standard::win;
 use crate::scoring::{WinType, Yaku};
 use crate::tile::{Dragon, Tile, Wind};

@@ -1,4 +1,5 @@
 use crate::hand::MeldKind;
+use crate::game::{AbortiveDrawKind, RoundWind};
 use crate::tile::Tile;
 
 /// A state change that has been applied to the hand.
@@ -29,4 +30,15 @@ pub enum Event {
     ScoresAdjusted { deltas: [i32; 4] },
     /// Live wall exhausted without a win.
     ExhaustiveDraw { deltas: [i32; 4] },
+    /// A new hand began within the match.
+    HandStarted {
+        dealer: usize,
+        round_wind: RoundWind,
+        kyoku: u8,
+        honba: u8,
+    },
+    /// Hand ended in an abortive draw.
+    AbortiveDraw { kind: AbortiveDrawKind },
+    /// Match completed.
+    MatchEnded { scores: [i32; 4] },
 }

@@ -1,16 +1,17 @@
+use crate::Error;
 use crate::action::Action;
 use crate::event::Event;
 use crate::hand::{Hand, MeldKind};
 use crate::rules::RulesConfig;
 use crate::scoring::WinType;
 use crate::state::calls::{
-    chi_actions, closed_kan_options, kamicha, resolve_chi, resolve_closed_kan, resolve_open_kan,
-    resolve_pon, CallKind,
+    CallKind, chi_actions, closed_kan_options, kamicha, resolve_chi, resolve_closed_kan,
+    resolve_open_kan, resolve_pon,
 };
-use crate::state::reaction::{call_kind, ReactionState};
+use crate::state::end_reason::HandEndReason;
+use crate::state::reaction::{ReactionState, call_kind};
 use crate::tile::Tile;
-use crate::wall::{DealResult, Wall, WALL_SIZE};
-use crate::Error;
+use crate::wall::{DealResult, WALL_SIZE, Wall};
 
 pub const SEAT_COUNT: usize = 4;
 
@@ -39,11 +40,25 @@ pub struct HandState {
     pub(crate) table_riichi_sticks: u8,
     pub(crate) honba: u8,
     pub(crate) last_draw: Option<Tile>,
+    pub(crate) first_discards: [Option<Tile>; SEAT_COUNT],
+    pub(crate) is_dealer_first_turn: bool,
+    pub(crate) end_reason: Option<HandEndReason>,
 }
 
 impl HandState {
     pub fn from_deal(wall: Wall, deal: DealResult, config: RulesConfig) -> Self {
         let starting = config.starting_points;
+        Self::from_deal_with_carry(wall, deal, config, [starting; 4], 0, 0)
+    }
+
+    pub fn from_deal_with_carry(
+        wall: Wall,
+        deal: DealResult,
+        config: RulesConfig,
+        scores: [i32; 4],
+        honba: u8,
+        table_riichi_sticks: u8,
+    ) -> Self {
         Self {
             dealer: deal.dealer,
             current_actor: deal.dealer,
@@ -53,12 +68,19 @@ impl HandState {
             wall,
             reaction: None,
             config,
-            scores: [starting; 4],
+            scores,
             riichi: [false; 4],
-            table_riichi_sticks: 0,
-            honba: 0,
+            table_riichi_sticks,
+            honba,
             last_draw: None,
+            first_discards: [None; SEAT_COUNT],
+            is_dealer_first_turn: true,
+            end_reason: None,
         }
+    }
+
+    pub fn end_reason(&self) -> Option<HandEndReason> {
+        self.end_reason
     }
 
     pub const fn dealer(&self) -> usize {
@@ -89,6 +111,10 @@ impl HandState {
         &mut self.wall
     }
 
+    pub fn first_discard(&self, seat: usize) -> Option<Tile> {
+        self.first_discards[seat]
+    }
+
     pub fn is_ended(&self) -> bool {
         self.phase == HandPhase::Ended
     }
@@ -98,6 +124,9 @@ impl HandState {
             HandPhase::Draw if seat == self.current_actor => vec![Action::Draw],
             HandPhase::Discard if seat == self.current_actor => {
                 let mut actions = Vec::new();
+                if self.can_abort_nine_terminals(seat) {
+                    actions.push(Action::AbortiveNineTerminals);
+                }
                 if self.can_tsumo(seat) {
                     actions.push(Action::Tsumo);
                 }
@@ -147,6 +176,7 @@ impl HandState {
                         self.resolve_win(seat, WinType::Tsumo, tile)
                     }
                     Action::ClosedKan { tile } => self.apply_closed_kan(seat, tile),
+                    Action::AbortiveNineTerminals => self.apply_abortive_nine_terminals(seat),
                     _ => Err(Error::IllegalAction {
                         action,
                         phase: self.phase,
@@ -289,9 +319,19 @@ impl HandState {
         self.discards[seat].push(tile);
         self.last_draw = None;
 
+        if self.first_discards[seat].is_none() {
+            self.first_discards[seat] = Some(tile);
+        }
+        if seat == self.dealer {
+            self.is_dealer_first_turn = false;
+        }
+
         let events = if riichi {
             vec![
-                Event::RiichiDeclared { seat, discard: tile },
+                Event::RiichiDeclared {
+                    seat,
+                    discard: tile,
+                },
                 Event::Discarded { seat, tile },
             ]
         } else {
@@ -301,6 +341,16 @@ impl HandState {
         if self.wall.live_remaining() == 0 {
             self.current_actor = super::next_seat(seat);
             return self.resolve_exhaustive_draw(events);
+        }
+
+        if let Some(kind) = self.check_abortive_after_discard(seat, tile) {
+            return self.resolve_abortive_draw(kind, events);
+        }
+
+        if riichi
+            && let Some(kind) = self.check_abortive_after_riichi()
+        {
+            return self.resolve_abortive_draw(kind, events);
         }
 
         self.current_actor = super::next_seat(seat);
@@ -323,7 +373,7 @@ impl HandState {
         self.hands[seat].sort_concealed();
         self.last_draw = Some(rinshan);
 
-        Ok(vec![
+        let mut events = vec![
             Event::Called {
                 seat,
                 from: seat,
@@ -331,8 +381,17 @@ impl HandState {
                 tiles,
             },
             Event::DoraRevealed { tile: dora },
-            Event::RinshanDrawn { seat, tile: rinshan },
-        ])
+            Event::RinshanDrawn {
+                seat,
+                tile: rinshan,
+            },
+        ];
+
+        if let Some(kind) = self.check_abortive_after_kan() {
+            events.extend(self.resolve_abortive_draw(kind, Vec::new())?);
+        }
+
+        Ok(events)
     }
 
     fn apply_reaction(&mut self, seat: usize, action: Action) -> Result<Vec<Event>, Error> {
@@ -460,6 +519,11 @@ impl HandState {
                 seat: caller,
                 tile: rinshan,
             });
+
+            if let Some(kind) = self.check_abortive_after_kan() {
+                events.extend(self.resolve_abortive_draw(kind, Vec::new())?);
+                return Ok(events);
+            }
         }
 
         self.current_actor = caller;
@@ -468,12 +532,10 @@ impl HandState {
     }
 
     fn pop_called_discard(&mut self, discarder: usize) -> Result<(), Error> {
-        self.discards[discarder]
-            .pop()
-            .ok_or(Error::InvalidCall {
-                kind: CallKind::Pon,
-                reason: "no discard to call",
-            })?;
+        self.discards[discarder].pop().ok_or(Error::InvalidCall {
+            kind: CallKind::Pon,
+            reason: "no discard to call",
+        })?;
         Ok(())
     }
 }

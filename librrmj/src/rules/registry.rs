@@ -1,7 +1,7 @@
-use crate::rules::profile_trait::RulesProfile;
-use crate::rules::RulesProfileId;
-use crate::rules::standard::StandardRules;
 use crate::Error;
+use crate::rules::RulesProfileId;
+use crate::rules::profile_trait::RulesProfile;
+use crate::rules::standard::StandardRules;
 
 pub struct RulesRegistry;
 

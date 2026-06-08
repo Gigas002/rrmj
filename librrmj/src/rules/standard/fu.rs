@@ -1,6 +1,6 @@
 use crate::hand::MeldKind;
-use crate::rules::profile_trait::WinContext;
 use crate::rules::RulesConfig;
+use crate::rules::profile_trait::WinContext;
 use crate::scoring::{WinType, Yaku};
 
 pub fn calculate_fu(ctx: &WinContext<'_>, yaku: &[Yaku], config: &RulesConfig) -> u8 {
