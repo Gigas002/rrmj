@@ -119,6 +119,15 @@ impl HandState {
         self.phase == HandPhase::Ended
     }
 
+    pub fn pending_call(&self) -> Option<crate::agent::PendingCall> {
+        self.reaction
+            .as_ref()
+            .map(|reaction| crate::agent::PendingCall {
+                discarder: reaction.discarder,
+                tile: reaction.tile,
+            })
+    }
+
     pub fn legal_actions_for(&self, seat: usize) -> Vec<Action> {
         match self.phase {
             HandPhase::Draw if seat == self.current_actor => vec![Action::Draw],

@@ -7,7 +7,7 @@ mod tests;
 use crate::action::Action;
 
 pub use slot::PlayerSlot;
-pub use view::{PlayerView, SeatView};
+pub use view::{PendingCall, PlayerView, SeatView};
 
 /// Chooses a legal action given what a seat is allowed to see.
 pub trait Agent {

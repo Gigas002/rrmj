@@ -4,6 +4,8 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub mod action;
 pub mod agent;
+#[cfg(feature = "ai")]
+pub mod ai;
 pub mod error;
 pub mod event;
 pub mod game;
@@ -16,7 +18,9 @@ pub mod tile;
 pub mod wall;
 
 pub use action::Action;
-pub use agent::{Agent, FnAgent, PlayerSlot, PlayerView, SeatView};
+pub use agent::{Agent, FnAgent, PendingCall, PlayerSlot, PlayerView, SeatView};
+#[cfg(feature = "ai")]
+pub use ai::{AiConfig, CpuAgent, Difficulty, EasyAgent, MatchSetup, MediumAgent, SeatAgent};
 pub use error::Error;
 pub use event::Event;
 pub use game::{

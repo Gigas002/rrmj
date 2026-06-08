@@ -33,17 +33,17 @@ pub fn chi_actions(concealed: &Concealed, called: Tile) -> Vec<Action> {
 
     let mut actions = Vec::new();
     for &[low, mid, high] in &[
-        [rank - 2, rank - 1, rank],
-        [rank - 1, rank, rank + 1],
-        [rank, rank + 1, rank + 2],
+        [rank as i16 - 2, rank as i16 - 1, rank as i16],
+        [rank as i16 - 1, rank as i16, rank as i16 + 1],
+        [rank as i16, rank as i16 + 1, rank as i16 + 2],
     ] {
         if low < 1 || high > 9 {
             continue;
         }
         let sequence = [
-            Tile::numbered(suit, low),
-            Tile::numbered(suit, mid),
-            Tile::numbered(suit, high),
+            Tile::numbered(suit, low as u8),
+            Tile::numbered(suit, mid as u8),
+            Tile::numbered(suit, high as u8),
         ];
         if let Ok(tiles) = pick_chi_tiles(concealed, called, sequence) {
             actions.push(Action::Chi { tiles });

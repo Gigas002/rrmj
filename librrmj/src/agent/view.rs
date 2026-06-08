@@ -4,6 +4,13 @@ use crate::hand::Meld;
 use crate::state::{HandPhase, HandState, SEAT_COUNT};
 use crate::tile::Tile;
 
+/// A discard other seats may react to during [`HandPhase::Reaction`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PendingCall {
+    pub discarder: usize,
+    pub tile: Tile,
+}
+
 /// Public information about one seat as visible from the table.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeatView {
@@ -28,6 +35,7 @@ pub struct PlayerView {
     pub seats: [SeatView; SEAT_COUNT],
     pub dora_indicators: Vec<Tile>,
     pub table_riichi_sticks: u8,
+    pub pending_call: Option<PendingCall>,
 }
 
 impl PlayerView {
@@ -81,6 +89,7 @@ impl PlayerView {
             seats,
             dora_indicators: hand.wall().dora_indicators(),
             table_riichi_sticks: hand.table_riichi_sticks(),
+            pending_call: hand.pending_call(),
         }
     }
 }

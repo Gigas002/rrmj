@@ -17,6 +17,9 @@ use crate::rules::profile_trait::{RulesProfile, WinContext};
 use crate::scoring::ScoringResult;
 use crate::state::HandState;
 
+#[cfg(feature = "ai")]
+pub use win::is_winning_hand;
+
 pub struct StandardRules;
 
 impl RulesProfile for StandardRules {

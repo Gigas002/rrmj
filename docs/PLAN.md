@@ -491,9 +491,9 @@ Whenever a phase is marked complete:
 
 ### Phase 7 — AI: Easy + Medium
 
-- [ ] `ai/easy/`: random legal action with obvious win capture.
-- [ ] `ai/medium/`: shanten-based discard; basic call acceptance.
-- [ ] `AiConfig` wired into `Match` setup.
+- [x] `ai/easy/`: random legal action with obvious win capture.
+- [x] `ai/medium/`: shanten-based discard; basic call acceptance.
+- [x] `AiConfig` wired into `Match` setup.
 
 **Verify**: AI vs AI smoke test completes a hand without panic; easy always legal.
 
