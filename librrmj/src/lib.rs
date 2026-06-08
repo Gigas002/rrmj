@@ -3,10 +3,12 @@
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub mod action;
+pub mod agent;
 pub mod error;
 pub mod event;
-pub mod hand;
 pub mod game;
+pub mod hand;
+pub mod replay;
 pub mod rules;
 pub mod scoring;
 pub mod state;
@@ -14,10 +16,14 @@ pub mod tile;
 pub mod wall;
 
 pub use action::Action;
+pub use agent::{Agent, FnAgent, PlayerSlot, PlayerView, SeatView};
 pub use error::Error;
 pub use event::Event;
+pub use game::{
+    AbortiveDrawKind, HandOutcome, Match, MatchLength, MatchPhase, RoundWind, StepResult,
+};
 pub use hand::{Concealed, Hand, Meld, MeldKind};
-pub use game::{AbortiveDrawKind, HandOutcome, Match, MatchLength, MatchPhase, RoundWind};
+pub use replay::{MatchSnapshot, Replay};
 pub use rules::{RulesConfig, RulesProfile, RulesProfileId, RulesRegistry, WinContext};
 pub use scoring::{ScoringResult, WinType, Yaku};
 pub use state::{HandPhase, HandState, SEAT_COUNT};

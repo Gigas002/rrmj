@@ -220,3 +220,22 @@ pub fn standard_set(aka_dora: bool) -> Vec<Tile> {
     debug_assert_eq!(tiles.len(), 136);
     tiles
 }
+
+#[cfg(feature = "serde")]
+mod serde_impl {
+    use super::Tile;
+    use std::str::FromStr;
+
+    impl serde::Serialize for Tile {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            serializer.serialize_str(&self.to_string())
+        }
+    }
+
+    impl<'de> serde::Deserialize<'de> for Tile {
+        fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            let value = String::deserialize(deserializer)?;
+            Self::from_str(&value).map_err(serde::de::Error::custom)
+        }
+    }
+}

@@ -3,6 +3,7 @@ use crate::game::MatchLength;
 
 /// Tunable parameters within a [`RulesProfileId`].
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RulesConfig {
     pub profile: RulesProfileId,
     pub starting_points: i32,

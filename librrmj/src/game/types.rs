@@ -1,5 +1,6 @@
 /// Table wind for the current round (East or South half).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RoundWind {
     East,
     South,
@@ -16,6 +17,7 @@ impl RoundWind {
 
 /// How many round winds to play before the match ends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MatchLength {
     /// East 1–4 only.
     EastOnly,
@@ -25,6 +27,7 @@ pub enum MatchLength {
 
 /// Reason an in-progress hand ended in an abortive draw.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AbortiveDrawKind {
     NineTerminals,
     FourWinds,

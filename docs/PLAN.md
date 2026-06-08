@@ -85,6 +85,7 @@ rrmj/                          # workspace root
       scoring/                 # shared payment types; profile-specific math in rules/*
       game/                    # multi-hand flow, honba, renchan
       agent/                   # Agent trait, PlayerSlot { Human, Cpu, Remote }
+      replay/                  # in-memory Replay + event re-apply API
       ai/                      # behind `ai` feature
         easy/
         medium/
@@ -481,10 +482,10 @@ Whenever a phase is marked complete:
 
 ### Phase 6 — Agent loop + event log API
 
-- [ ] `agent/`: `Agent` trait, `PlayerSlot`, `PlayerView` (information hiding).
-- [ ] `Match::step()` / `apply_action()` public API for clients.
-- [ ] `Replay` struct: `rules_profile`, `rules_config`, `seed`, `events`; optional `serde` feature; round-trip test.
-- [ ] Stable in-memory replay API (`Replay::from_match`, `Replay::apply_all`) ready for post-v0 file format (§11.4).
+- [x] `agent/`: `Agent` trait, `PlayerSlot`, `PlayerView` (information hiding).
+- [x] `Match::step()` / `apply_action()` public API for clients.
+- [x] `Replay` struct: `rules_profile`, `rules_config`, `seed`, `events`; optional `serde` feature; round-trip test.
+- [x] Stable in-memory replay API (`Replay::from_match`, `Replay::apply_all`) ready for post-v0 file format (§11.4).
 
 **Verify**: drive full hand via `Vec<Action>` in test; replay from log matches live play.
 

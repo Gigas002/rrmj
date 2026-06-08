@@ -1,7 +1,7 @@
 use crate::Error;
 use crate::action::Action;
 use crate::event::Event;
-use crate::hand::{Hand, MeldKind};
+use crate::hand::{Hand, Meld, MeldKind};
 use crate::rules::RulesConfig;
 use crate::scoring::WinType;
 use crate::state::calls::{
@@ -150,6 +150,23 @@ impl HandState {
 
     pub fn legal_actions(&self) -> Vec<Action> {
         self.legal_actions_for(self.current_actor)
+    }
+
+    /// Next seat that must submit a reaction, if any.
+    pub fn pending_reaction_seat(&self) -> Option<usize> {
+        if self.phase != HandPhase::Reaction {
+            return None;
+        }
+        (0..SEAT_COUNT).find(|&seat| self.can_respond(seat))
+    }
+
+    pub(crate) fn resolve_all_passed_reaction(&mut self) -> Result<(), Error> {
+        let reaction = self.reaction.take().ok_or(Error::ReplayMismatch {
+            detail: "reaction resolve without reaction state",
+        })?;
+        self.phase = HandPhase::Draw;
+        self.current_actor = super::calls::kamicha(reaction.discarder);
+        Ok(())
     }
 
     pub fn apply(&mut self, seat: usize, action: Action) -> Result<Vec<Event>, Error> {
@@ -347,9 +364,7 @@ impl HandState {
             return self.resolve_abortive_draw(kind, events);
         }
 
-        if riichi
-            && let Some(kind) = self.check_abortive_after_riichi()
-        {
+        if riichi && let Some(kind) = self.check_abortive_after_riichi() {
             return self.resolve_abortive_draw(kind, events);
         }
 
@@ -537,5 +552,155 @@ impl HandState {
             reason: "no discard to call",
         })?;
         Ok(())
+    }
+
+    /// Applies one recorded event (for replay). Does not validate wall tile order.
+    pub fn apply_event(&mut self, event: &Event) -> Result<(), Error> {
+        match event {
+            Event::Dealt { dealer } => {
+                if self.dealer != *dealer {
+                    return Err(Error::ReplayMismatch {
+                        detail: "dealer does not match dealt event",
+                    });
+                }
+            }
+            Event::HandStarted { .. } => {}
+            Event::Drawn { seat, tile } => {
+                self.hands[*seat].concealed_mut().push(*tile);
+                self.hands[*seat].sort_concealed();
+                self.last_draw = Some(*tile);
+                self.current_actor = *seat;
+                self.phase = HandPhase::Discard;
+                let _ = self.wall.draw_live();
+            }
+            Event::Discarded { seat, tile } => {
+                self.hands[*seat].concealed_mut().remove(*tile)?;
+                self.discards[*seat].push(*tile);
+                self.last_draw = None;
+                if self.first_discards[*seat].is_none() {
+                    self.first_discards[*seat] = Some(*tile);
+                }
+                if *seat == self.dealer {
+                    self.is_dealer_first_turn = false;
+                }
+            }
+            Event::RiichiDeclared { seat, discard: _ } => {
+                self.scores[*seat] -= 1_000;
+                self.table_riichi_sticks += 1;
+                self.riichi[*seat] = true;
+            }
+            Event::Called {
+                seat,
+                from,
+                meld,
+                tiles,
+            } => {
+                let called = *self.discards[*from].last().ok_or(Error::ReplayMismatch {
+                    detail: "no discard to complete call event",
+                })?;
+                self.discards[*from].pop().ok_or(Error::ReplayMismatch {
+                    detail: "no discard to complete call event",
+                })?;
+                let meld = replay_build_meld(*meld, tiles, Some(called))?;
+                for tile in meld.tiles() {
+                    if meld.called() != Some(*tile) {
+                        self.hands[*seat].concealed_mut().remove(*tile)?;
+                    }
+                }
+                self.hands[*seat].melds_mut().push(meld);
+                self.current_actor = *seat;
+                self.phase = HandPhase::Discard;
+                self.reaction = None;
+            }
+            Event::DoraRevealed { tile: _ } => {
+                let _ = self.wall.apply_kan();
+            }
+            Event::RinshanDrawn { seat, tile } => {
+                self.hands[*seat].concealed_mut().push(*tile);
+                self.hands[*seat].sort_concealed();
+                self.last_draw = Some(*tile);
+            }
+            Event::Won { seat, .. } => {
+                self.phase = HandPhase::Ended;
+                self.reaction = None;
+                self.end_reason = Some(HandEndReason::Win { winner: *seat });
+            }
+            Event::ScoresAdjusted { deltas } => {
+                self.apply_deltas(deltas);
+            }
+            Event::ExhaustiveDraw { deltas } => {
+                self.apply_deltas(deltas);
+                self.phase = HandPhase::Ended;
+                self.reaction = None;
+                self.end_reason = Some(HandEndReason::ExhaustiveDraw);
+            }
+            Event::AbortiveDraw { kind } => {
+                self.phase = HandPhase::Ended;
+                self.reaction = None;
+                self.end_reason = Some(HandEndReason::AbortiveDraw(*kind));
+            }
+            Event::MatchEnded { .. } => {}
+        }
+        Ok(())
+    }
+
+    /// Completes reaction-phase bookkeeping after a discard event in replay.
+    pub fn apply_discard_followup(&mut self, seat: usize) -> Result<(), Error> {
+        if self.wall.live_remaining() == 0 {
+            self.current_actor = super::next_seat(seat);
+            let profile = crate::rules::RulesRegistry::get(self.config.profile)?;
+            let deltas = profile.score_exhaustive_draw(self, &self.config);
+            self.apply_deltas(&deltas);
+            self.phase = HandPhase::Ended;
+            self.reaction = None;
+            self.end_reason = Some(HandEndReason::ExhaustiveDraw);
+            return Ok(());
+        }
+        self.current_actor = super::next_seat(seat);
+        self.phase = HandPhase::Reaction;
+        let tile = *self.discards[seat].last().ok_or(Error::ReplayMismatch {
+            detail: "discard follow-up without tile",
+        })?;
+        self.reaction = Some(ReactionState::new(seat, tile));
+        Ok(())
+    }
+}
+
+fn replay_build_meld(kind: MeldKind, tiles: &[Tile], called: Option<Tile>) -> Result<Meld, Error> {
+    match kind {
+        MeldKind::Chi => {
+            let arr: [Tile; 3] = tiles.try_into().map_err(|_| Error::ReplayMismatch {
+                detail: "chi event has wrong tile count",
+            })?;
+            let called = called.ok_or(Error::ReplayMismatch {
+                detail: "chi event missing called tile",
+            })?;
+            Meld::chi(arr, called)
+        }
+        MeldKind::Pon => {
+            let arr: [Tile; 3] = tiles.try_into().map_err(|_| Error::ReplayMismatch {
+                detail: "pon event has wrong tile count",
+            })?;
+            let called = called.ok_or(Error::ReplayMismatch {
+                detail: "pon event missing called tile",
+            })?;
+            Meld::pon(arr, called)
+        }
+        MeldKind::OpenKan => {
+            let arr: [Tile; 4] = tiles.try_into().map_err(|_| Error::ReplayMismatch {
+                detail: "open kan event has wrong tile count",
+            })?;
+            let called = called.ok_or(Error::ReplayMismatch {
+                detail: "open kan event missing called tile",
+            })?;
+            Meld::open_kan(arr, called)
+        }
+        MeldKind::ClosedKan => {
+            let arr: [Tile; 4] = tiles.try_into().map_err(|_| Error::ReplayMismatch {
+                detail: "closed kan event has wrong tile count",
+            })?;
+            Meld::closed_kan(arr)
+        }
+        MeldKind::AddedKan => Meld::added_kan(tiles[0]),
     }
 }

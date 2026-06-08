@@ -1,9 +1,10 @@
-use crate::hand::MeldKind;
 use crate::game::{AbortiveDrawKind, RoundWind};
+use crate::hand::MeldKind;
 use crate::tile::Tile;
 
 /// A state change that has been applied to the hand.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Event {
     /// Initial deal completed; dealer holds 14 tiles, others hold 13.
     Dealt { dealer: usize },

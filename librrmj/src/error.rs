@@ -99,4 +99,7 @@ pub enum Error {
 
     #[error("match has ended")]
     MatchEnded,
+
+    #[error("replay does not match engine state: {detail}")]
+    ReplayMismatch { detail: &'static str },
 }

@@ -8,8 +8,8 @@ mod yaku;
 #[cfg(test)]
 mod tests;
 
-use crate::hand::Hand;
 use crate::game::{AbortiveDrawKind, AbortiveTrigger};
+use crate::hand::Hand;
 use crate::rules::RulesConfig;
 use crate::rules::RulesProfileId;
 use crate::rules::flow::{MatchFlowPolicy, StandardMatchFlow};

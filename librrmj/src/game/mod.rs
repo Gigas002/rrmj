@@ -1,9 +1,11 @@
+mod step;
 mod trigger;
 mod types;
 
 #[cfg(test)]
 mod tests;
 
+pub use step::StepResult;
 pub use trigger::AbortiveTrigger;
 pub use types::{AbortiveDrawKind, HandOutcome, MatchLength, MatchPhase, RoundWind};
 
@@ -32,6 +34,7 @@ pub struct Match {
     hand: HandState,
     phase: MatchPhase,
     hand_index: u32,
+    events: Vec<Event>,
 }
 
 impl Match {
@@ -41,7 +44,7 @@ impl Match {
         let deal = wall.deal(0)?;
         let hand = HandState::from_deal_with_carry(wall, deal, config.clone(), scores, 0, 0);
 
-        Ok(Self {
+        let mut game = Self {
             config,
             seed,
             dealer: 0,
@@ -53,7 +56,10 @@ impl Match {
             hand,
             phase: MatchPhase::InHand,
             hand_index: 0,
-        })
+            events: Vec::new(),
+        };
+        game.record_events(game.start_events());
+        Ok(game)
     }
 
     pub const fn config(&self) -> &RulesConfig {
@@ -92,6 +98,10 @@ impl Match {
         &self.hand
     }
 
+    pub fn events(&self) -> &[Event] {
+        &self.events
+    }
+
     pub fn is_ended(&self) -> bool {
         self.phase == MatchPhase::Ended
     }
@@ -120,7 +130,62 @@ impl Match {
         if self.hand.is_ended() {
             events.extend(self.finish_hand()?);
         }
+        self.record_events(events.clone());
         Ok(events)
+    }
+
+    pub(crate) fn hand_mut(&mut self) -> &mut HandState {
+        &mut self.hand
+    }
+
+    pub(crate) fn sync_scores_from_hand(&mut self) {
+        self.scores = *self.hand.scores();
+    }
+
+    pub(crate) fn assert_hand_metadata(
+        &self,
+        dealer: usize,
+        round_wind: RoundWind,
+        kyoku: u8,
+        honba: u8,
+    ) -> Result<(), Error> {
+        if self.dealer != dealer
+            || self.round_wind != round_wind
+            || self.kyoku != kyoku
+            || self.honba != honba
+        {
+            return Err(Error::ReplayMismatch {
+                detail: "hand metadata mismatch",
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn begin_hand_from_event(
+        &mut self,
+        dealer: usize,
+        round_wind: RoundWind,
+        kyoku: u8,
+        honba: u8,
+    ) -> Result<(), Error> {
+        self.dealer = dealer;
+        self.round_wind = round_wind;
+        self.kyoku = kyoku;
+        self.honba = honba;
+        self.hand_index += 1;
+        let (hand, _) = self.deal_hand()?;
+        self.hand = hand;
+        self.phase = MatchPhase::InHand;
+        Ok(())
+    }
+
+    pub(crate) fn end_with_scores(&mut self, scores: [i32; 4]) {
+        self.scores = scores;
+        self.phase = MatchPhase::Ended;
+    }
+
+    fn record_events(&mut self, events: Vec<Event>) {
+        self.events.extend(events);
     }
 
     fn finish_hand(&mut self) -> Result<Vec<Event>, Error> {
@@ -170,13 +235,10 @@ impl Match {
     }
 
     #[cfg(test)]
-    pub(crate) fn hand_mut(&mut self) -> &mut HandState {
-        &mut self.hand
-    }
-
-    #[cfg(test)]
     pub(crate) fn finish_hand_for_test(&mut self) -> Result<Vec<Event>, Error> {
-        self.finish_hand()
+        let events = self.finish_hand()?;
+        self.record_events(events.clone());
+        Ok(events)
     }
 
     fn deal_hand(&self) -> Result<(HandState, Vec<Event>), Error> {
