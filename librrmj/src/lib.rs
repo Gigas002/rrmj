@@ -20,7 +20,9 @@ pub mod wall;
 pub use action::Action;
 pub use agent::{Agent, FnAgent, PendingCall, PlayerSlot, PlayerView, SeatView};
 #[cfg(feature = "ai")]
-pub use ai::{AiConfig, CpuAgent, Difficulty, EasyAgent, MatchSetup, MediumAgent, SeatAgent};
+pub use ai::{
+    AiConfig, CpuAgent, Difficulty, EasyAgent, HardAgent, MatchSetup, MediumAgent, SeatAgent,
+};
 pub use error::Error;
 pub use event::Event;
 pub use game::{

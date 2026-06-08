@@ -2,6 +2,7 @@ use crate::action::Action;
 use crate::agent::{Agent, PlayerSlot, PlayerView};
 use crate::ai::config::{AiConfig, Difficulty};
 use crate::ai::easy::EasyAgent;
+use crate::ai::hard::HardAgent;
 use crate::ai::medium::MediumAgent;
 
 /// CPU opponent implementing a difficulty tier.
@@ -9,6 +10,7 @@ use crate::ai::medium::MediumAgent;
 pub enum CpuAgent {
     Easy(EasyAgent),
     Medium(MediumAgent),
+    Hard(HardAgent),
 }
 
 impl CpuAgent {
@@ -21,7 +23,7 @@ impl CpuAgent {
         match config.difficulty {
             Difficulty::Easy => Self::Easy(EasyAgent::new(seed)),
             Difficulty::Medium => Self::Medium(MediumAgent::new(seed)),
-            Difficulty::Hard => Self::Medium(MediumAgent::new(seed)),
+            Difficulty::Hard => Self::Hard(HardAgent::new(seed)),
         }
     }
 }
@@ -31,6 +33,7 @@ impl Agent for CpuAgent {
         match self {
             Self::Easy(agent) => agent.decide(view, legal),
             Self::Medium(agent) => agent.decide(view, legal),
+            Self::Hard(agent) => agent.decide(view, legal),
         }
     }
 }
@@ -79,6 +82,24 @@ impl MatchSetup {
 
     pub fn all_medium(match_seed: u64) -> Self {
         Self::all_cpu(AiConfig::medium(match_seed))
+    }
+
+    pub fn all_hard(match_seed: u64) -> Self {
+        Self::all_cpu(AiConfig::hard(match_seed))
+    }
+
+    /// Seats 0 and 2 use hard AI; seats 1 and 3 use medium (for benchmarks).
+    pub fn hard_vs_medium(match_seed: u64) -> Self {
+        Self {
+            slots: [PlayerSlot::Cpu; 4],
+            default_ai: AiConfig::medium(match_seed),
+            seat_ai: [
+                Some(AiConfig::hard(match_seed)),
+                None,
+                Some(AiConfig::hard(match_seed.wrapping_add(1))),
+                None,
+            ],
+        }
     }
 
     pub fn ai_config_for(&self, seat: usize) -> Option<AiConfig> {

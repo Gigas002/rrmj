@@ -88,19 +88,7 @@ fn passes_when_pon_reduces_waiting_potential() {
     ];
     let hand = Hand::new(Concealed::from_tiles(concealed.clone()), vec![]).unwrap();
     let called = Tile::sou(5);
-    let mut after_concealed = concealed.clone();
-    for _ in 0..2 {
-        let pos = after_concealed
-            .iter()
-            .position(|t| t.matches_identity(called))
-            .unwrap();
-        after_concealed.remove(pos);
-    }
-    let after = Hand::new(
-        Concealed::from_tiles(after_concealed),
-        vec![crate::hand::Meld::pon([called, called, called], called).unwrap()],
-    )
-    .unwrap();
+    let after = crate::ai::common::simulate_call(&hand, Action::Pon, called).unwrap();
     assert!(
         shanten::best_waiting_potential(&after) < shanten::best_waiting_potential(&hand),
         "fixture should worsen after pon"

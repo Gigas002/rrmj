@@ -4,7 +4,6 @@
 pub enum Difficulty {
     Easy,
     Medium,
-    /// Reserved for Phase 8.
     Hard,
 }
 
@@ -34,5 +33,9 @@ impl AiConfig {
 
     pub const fn medium(seed: u64) -> Self {
         Self::new(Difficulty::Medium, seed)
+    }
+
+    pub const fn hard(seed: u64) -> Self {
+        Self::new(Difficulty::Hard, seed)
     }
 }

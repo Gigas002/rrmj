@@ -499,8 +499,8 @@ Whenever a phase is marked complete:
 
 ### Phase 8 — AI: Hard
 
-- [ ] `ai/hard/`: improved efficiency metric; defensive discard vs open riichi.
-- [ ] Tunable constants documented in module; no “magic” without comment.
+- [x] `ai/hard/`: improved efficiency metric; defensive discard vs open riichi.
+- [x] Tunable constants documented in module; no “magic” without comment.
 
 **Verify**: hard beats medium >50% in short benchmark (seeded sim, optional statistical tolerance).
 
