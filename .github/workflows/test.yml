@@ -39,7 +39,7 @@ jobs:
         run: |
           cargo llvm-cov --all-features -p rrmj-tui --lcov --output-path lcov-rrmj-tui.info
       - name: Upload librrmj coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./lcov-librrmj.info
           flags: librrmj
@@ -49,7 +49,7 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload rrmj-tui coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./lcov-rrmj-tui.info
           flags: rrmj-tui
