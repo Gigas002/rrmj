@@ -384,9 +384,9 @@ Whenever a phase is marked complete:
 
 ### Phase 1 — Tiles, hand, wall primitives
 
-- [ ] `tile/`: `Tile`, suits, honors, red fives, compare/sort, display helpers (no UI strings in lib — use `Display` or compact `to_string` for logs).
-- [ ] `hand/`: concealed tiles, melds (chi/pon/kan), tile count invariants.
-- [ ] `wall/`: build 136-tile wall, shuffle with injected RNG, deal 13+1 to dealer, dead wall layout.
+- [x] `tile/`: `Tile`, suits, honors, red fives, compare/sort, display helpers (no UI strings in lib — use `Display` or compact `to_string` for logs).
+- [x] `hand/`: concealed tiles, melds (chi/pon/kan), tile count invariants.
+- [x] `wall/`: build 136-tile wall, shuffle with injected RNG, deal 13+1 to dealer, dead wall layout.
 
 **Verify**: unit tests for tile ordering, deal counts, wall exhaustion indices.
 
