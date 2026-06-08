@@ -506,12 +506,12 @@ Whenever a phase is marked complete:
 
 ### Phase 9 — TUI vertical slice
 
-- [ ] App shell: **main menu** on launch (logo, start game, settings, exit).
-- [ ] **New-game setup**: per-seat human/CPU, CPU difficulty, confirm → `Match`.
-- [ ] Table view: hand, river, melds, dora, scores, turn indicator.
-- [ ] Call / discard / riichi / win menus from legal actions only; **all via hotkeys**.
-- [ ] Hand result screen + continue.
-- [ ] Default `keybinds.toml` + loader (`~/.config/rrmj/keybinds.toml`); `h` → full keybind help overlay.
+- [x] App shell: **main menu** on launch (logo, start game, settings, exit).
+- [x] **New-game setup**: per-seat human/CPU, CPU difficulty, confirm → `Match`.
+- [x] Table view: hand, river, melds, dora, scores, turn indicator.
+- [x] Call / discard / riichi / win menus from legal actions only; **all via hotkeys**.
+- [x] Hand result screen + continue.
+- [x] Default `keybinds.toml` + loader (`~/.config/rrmj/keybinds.toml`); `h` → full keybind help overlay.
 
 **Verify**: manual playtest — menu → setup → complete one full hand; `h` shows complete binding list.
 

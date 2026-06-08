@@ -12,10 +12,18 @@ name = "rrmj-tui"
 path = "src/main.rs"
 
 [features]
-default = []
+default = ["ai"]
+ai = ["librrmj/ai"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-librrmj = { path = "../librrmj" }
+crossterm = "0.29"
+librrmj = { path = "../librrmj", features = ["ai"] }
+ratatui = "0.30"
+thiserror = "2"
+toml = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile = "3"
