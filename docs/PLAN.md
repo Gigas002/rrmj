@@ -392,10 +392,10 @@ Whenever a phase is marked complete:
 
 ### Phase 2 — Discard flow + turn order
 
-- [ ] `state/`: `HandState` with seats, current actor, discards per seat.
-- [ ] `action/`: `Discard`, `Draw` (internal), `Pass`.
-- [ ] `event/`: `Dealt`, `Drawn`, `Discarded`; apply updates state.
-- [ ] Turn rotation among four seats; simple “play until wall empty” loop without calls or wins.
+- [x] `state/`: `HandState` with seats, current actor, discards per seat.
+- [x] `action/`: `Discard`, `Draw` (internal), `Pass`.
+- [x] `event/`: `Dealt`, `Drawn`, `Discarded`; apply updates state.
+- [x] Turn rotation among four seats; simple “play until wall empty” loop without calls or wins.
 
 **Verify**: integration test — scripted discards through N turns; tile conservation.
 

@@ -35,4 +35,18 @@ impl Concealed {
     pub fn sort(&mut self) {
         self.tiles.sort();
     }
+
+    pub fn contains(&self, tile: Tile) -> bool {
+        self.tiles.contains(&tile)
+    }
+
+    pub fn remove(&mut self, tile: Tile) -> Result<(), crate::Error> {
+        let pos = self
+            .tiles
+            .iter()
+            .position(|t| *t == tile)
+            .ok_or(crate::Error::TileNotInHand { tile })?;
+        self.tiles.remove(pos);
+        Ok(())
+    }
 }

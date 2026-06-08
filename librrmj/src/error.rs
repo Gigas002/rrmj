@@ -1,6 +1,9 @@
 use thiserror::Error;
 
+use crate::action::Action;
 use crate::hand::MeldKind;
+use crate::state::HandPhase;
+use crate::tile::Tile;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -41,4 +44,25 @@ pub enum Error {
 
     #[error("wall has {actual} tiles, maximum is 136")]
     InvalidWallSize { actual: usize },
+
+    #[error("tile {tile} is not in the concealed hand")]
+    TileNotInHand { tile: Tile },
+
+    #[error("hand has already ended")]
+    HandEnded,
+
+    #[error("expected seat {expected} to act, got {actual}")]
+    WrongActor { expected: usize, actual: usize },
+
+    #[error("expected phase {expected:?}, got {actual:?}")]
+    WrongPhase {
+        expected: HandPhase,
+        actual: HandPhase,
+    },
+
+    #[error("{action:?} is illegal in phase {phase:?}")]
+    IllegalAction { action: Action, phase: HandPhase },
+
+    #[error("expected {expected} tiles in play, found {actual}")]
+    TileConservation { expected: usize, actual: usize },
 }
