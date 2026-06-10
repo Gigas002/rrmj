@@ -123,11 +123,7 @@ impl Keybinds {
         self.chord(action) == KeyChord::new(event.code, event.modifiers)
     }
 
-    pub fn is_any_bound(
-        &self,
-        event: &crossterm::event::KeyEvent,
-        actions: &[BindAction],
-    ) -> bool {
+    pub fn is_any_bound(&self, event: &crossterm::event::KeyEvent, actions: &[BindAction]) -> bool {
         actions.iter().any(|action| self.is_bound(event, *action))
     }
 
@@ -171,6 +167,7 @@ fn parse_action_key(key: &str) -> Option<BindAction> {
         "table.confirm" => Some(BindAction::Confirm),
         "overlay.continue" => Some(BindAction::Continue),
         "overlay.rules" => Some(BindAction::RulesReference),
+        "overlay.scores" => Some(BindAction::Scores),
         _ => None,
     }
 }
@@ -200,6 +197,7 @@ fn default_entries() -> &'static [(BindAction, &'static str)] {
         (BindAction::Confirm, "enter"),
         (BindAction::Continue, "enter"),
         (BindAction::RulesReference, "?"),
+        (BindAction::Scores, "s"),
     ]
 }
 
@@ -237,6 +235,7 @@ pub fn action_label(action: BindAction) -> &'static str {
         BindAction::Confirm => "Confirm",
         BindAction::Continue => "Continue",
         BindAction::RulesReference => "Rules / yaku reference",
+        BindAction::Scores => "Scores",
     }
 }
 

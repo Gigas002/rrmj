@@ -1,8 +1,8 @@
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 
-use super::EasyAgent;
 use crate::action::Action;
+use crate::ai::EasyAgent;
 use crate::tile::Tile;
 
 #[test]

@@ -1,7 +1,7 @@
-use super::MediumAgent;
 use crate::action::Action;
 use crate::agent::Agent;
 use crate::agent::PlayerView;
+use crate::ai::MediumAgent;
 use crate::ai::shanten;
 use crate::game::RoundWind;
 use crate::hand::{Concealed, Hand};
@@ -28,6 +28,7 @@ fn empty_view(concealed: Vec<Tile>, phase: HandPhase) -> PlayerView {
         dora_indicators: Vec::new(),
         table_riichi_sticks: 0,
         pending_call: None,
+        last_draw: None,
     }
 }
 

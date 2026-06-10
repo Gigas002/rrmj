@@ -1,6 +1,6 @@
-use super::HardAgent;
 use crate::action::Action;
 use crate::agent::{Agent, PlayerView, SeatView};
+use crate::ai::HardAgent;
 use crate::ai::defense::{SAFETY_MAX, tile_safety};
 use crate::game::RoundWind;
 use crate::hand::{Concealed, Hand};
@@ -32,6 +32,7 @@ fn view_with_riichi_opponent(concealed: Vec<Tile>, opponent_discards: Vec<Tile>)
         dora_indicators: Vec::new(),
         table_riichi_sticks: 0,
         pending_call: None,
+        last_draw: None,
     }
 }
 
@@ -117,6 +118,7 @@ fn declares_riichi_when_tenpai_and_safe_to_do_so() {
         dora_indicators: Vec::new(),
         table_riichi_sticks: 0,
         pending_call: None,
+        last_draw: None,
     };
     let legal: Vec<Action> = view
         .own_concealed

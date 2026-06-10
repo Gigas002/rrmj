@@ -25,6 +25,12 @@ pub enum Event {
     DoraRevealed { tile: Tile },
     /// A rinshan draw after a kan.
     RinshanDrawn { seat: usize, tile: Tile },
+    /// A seat upgraded an open pon; tile is exposed for chankan until the reaction resolves.
+    KakanDeclared {
+        seat: usize,
+        meld_index: usize,
+        tile: Tile,
+    },
     /// A seat won the hand.
     Won { seat: usize, han: u8, fu: u8 },
     /// Score transfers applied to all seats.

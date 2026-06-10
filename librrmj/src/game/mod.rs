@@ -102,8 +102,38 @@ impl Match {
         &self.events
     }
 
+    pub const fn table_riichi_sticks(&self) -> u8 {
+        self.table_riichi_sticks
+    }
+
+    pub const fn hand_index(&self) -> u32 {
+        self.hand_index
+    }
+
     pub fn is_ended(&self) -> bool {
         self.phase == MatchPhase::Ended
+    }
+
+    /// Reconstruct a match from a validated recording hand snapshot.
+    #[cfg(feature = "serde")]
+    pub(crate) fn restore_from_hand(
+        recording: &crate::replay::MatchRecording,
+        hand: HandState,
+    ) -> Self {
+        Self {
+            config: recording.rules_config.clone(),
+            seed: recording.seed,
+            dealer: recording.dealer,
+            round_wind: recording.round_wind,
+            kyoku: recording.kyoku,
+            honba: recording.honba,
+            scores: recording.scores,
+            table_riichi_sticks: recording.table_riichi_sticks,
+            hand,
+            phase: recording.match_phase,
+            hand_index: recording.hand_index,
+            events: recording.events.clone(),
+        }
     }
 
     /// Events emitted when the first hand is dealt (for callers that need the log).
@@ -234,13 +264,6 @@ impl Match {
         Ok(start_events)
     }
 
-    #[cfg(test)]
-    pub(crate) fn finish_hand_for_test(&mut self) -> Result<Vec<Event>, Error> {
-        let events = self.finish_hand()?;
-        self.record_events(events.clone());
-        Ok(events)
-    }
-
     fn deal_hand(&self) -> Result<(HandState, Vec<Event>), Error> {
         let mut wall = Wall::new(&self.config, hand_rng(self.seed, self.hand_index));
         let deal = wall.deal(self.dealer)?;
@@ -273,9 +296,20 @@ fn hand_rng(seed: u64, hand_index: u32) -> StdRng {
 
 fn hand_outcome(reason: Option<HandEndReason>) -> HandOutcome {
     match reason {
-        Some(HandEndReason::Win { winner }) => HandOutcome::Win { winner },
+        Some(HandEndReason::Win { winners }) => HandOutcome::Win {
+            winners: winners.clone(),
+        },
         Some(HandEndReason::ExhaustiveDraw) => HandOutcome::ExhaustiveDraw,
         Some(HandEndReason::AbortiveDraw(kind)) => HandOutcome::AbortiveDraw(kind),
         None => HandOutcome::ExhaustiveDraw,
+    }
+}
+
+#[cfg(test)]
+impl Match {
+    pub(crate) fn finish_hand_for_test(&mut self) -> Result<Vec<Event>, Error> {
+        let events = self.finish_hand()?;
+        self.record_events(events.clone());
+        Ok(events)
     }
 }

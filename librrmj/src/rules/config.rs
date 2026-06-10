@@ -1,6 +1,11 @@
 use super::RulesProfileId;
 use crate::game::MatchLength;
 
+#[cfg(feature = "serde")]
+fn default_double_ron() -> bool {
+    true
+}
+
 /// Tunable parameters within a [`RulesProfileId`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -16,6 +21,12 @@ pub struct RulesConfig {
     pub abortive_four_winds: bool,
     pub abortive_four_kongs: bool,
     pub abortive_four_riichis: bool,
+    /// Two players may win on the same discard.
+    #[cfg_attr(feature = "serde", serde(default = "default_double_ron"))]
+    pub double_ron: bool,
+    /// Three players may win on the same discard (requires `double_ron`).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub triple_ron: bool,
 }
 
 impl RulesConfig {
@@ -37,7 +48,19 @@ impl RulesConfig {
                 abortive_four_winds: true,
                 abortive_four_kongs: true,
                 abortive_four_riichis: true,
+                double_ron: true,
+                triple_ron: false,
             },
+        }
+    }
+
+    pub fn max_rons(&self) -> usize {
+        if self.triple_ron {
+            3
+        } else if self.double_ron {
+            2
+        } else {
+            1
         }
     }
 }

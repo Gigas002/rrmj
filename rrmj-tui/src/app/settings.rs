@@ -3,10 +3,20 @@ pub enum SettingsField {
     Theme,
     DefaultDifficulty,
     HumanSeat,
+    CpuStepDelay,
+    TurnTimer,
+    ResponseTimer,
 }
 
 impl SettingsField {
-    pub const ALL: [Self; 3] = [Self::Theme, Self::DefaultDifficulty, Self::HumanSeat];
+    pub const ALL: [Self; 6] = [
+        Self::Theme,
+        Self::DefaultDifficulty,
+        Self::HumanSeat,
+        Self::CpuStepDelay,
+        Self::TurnTimer,
+        Self::ResponseTimer,
+    ];
 
     pub fn next(self) -> Self {
         let fields = Self::ALL;

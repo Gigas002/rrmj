@@ -29,13 +29,18 @@ impl Theme {
         }
     }
 
-    pub fn tile_style(&self, red: bool, selected: bool) -> Style {
+    pub fn tile_style(&self, red: bool, selected: bool, drawn: bool, matched: bool) -> Style {
         let mut style = if red {
             Style::default().fg(self.red_tile)
         } else {
             Style::default().fg(self.primary)
         };
-        if selected {
+        if drawn {
+            style = style
+                .fg(self.accent)
+                .add_modifier(Modifier::UNDERLINED | Modifier::BOLD);
+        }
+        if matched || selected {
             style = style
                 .fg(self.selected)
                 .add_modifier(Modifier::REVERSED | Modifier::BOLD);
@@ -82,9 +87,7 @@ impl Theme {
     }
 
     pub fn muted_style(&self) -> Style {
-        Style::default()
-            .fg(self.muted)
-            .add_modifier(Modifier::DIM)
+        Style::default().fg(self.muted).add_modifier(Modifier::DIM)
     }
 
     pub fn dora_style(&self) -> Style {

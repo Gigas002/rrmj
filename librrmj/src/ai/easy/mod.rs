@@ -36,6 +36,3 @@ impl Agent for EasyAgent {
         Self::decide_with_rng(&mut self.rng, legal)
     }
 }
-
-#[cfg(test)]
-mod tests;

@@ -17,6 +17,9 @@ pub mod state;
 pub mod tile;
 pub mod wall;
 
+#[cfg(test)]
+pub mod test_util;
+
 pub use action::Action;
 pub use agent::{Agent, FnAgent, PendingCall, PlayerSlot, PlayerView, SeatView};
 #[cfg(feature = "ai")]
@@ -29,8 +32,14 @@ pub use game::{
     AbortiveDrawKind, HandOutcome, Match, MatchLength, MatchPhase, RoundWind, StepResult,
 };
 pub use hand::{Concealed, Hand, Meld, MeldKind};
+#[cfg(feature = "serde")]
+pub use replay::{
+    FORMAT_VERSION, HandSnapshot, MatchRecording, MatchStatus, PlayerSetup, RecordingMeta,
+};
 pub use replay::{MatchSnapshot, Replay};
-pub use rules::{RulesConfig, RulesProfile, RulesProfileId, RulesRegistry, WinContext};
+pub use rules::{
+    RulesConfig, RulesProfile, RulesProfileId, RulesRegistry, WinContext, WinTimingFlags,
+};
 pub use scoring::{ScoringResult, WinType, Yaku};
 pub use state::{HandPhase, HandState, SEAT_COUNT};
 pub use tile::{Tile, TileIdentity, TileKind, standard_set};

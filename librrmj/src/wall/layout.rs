@@ -35,6 +35,10 @@ impl WallLayout {
         self.kan_count
     }
 
+    pub const fn rinshan_taken(&self) -> u8 {
+        self.rinshan_taken
+    }
+
     pub fn live_drawn(&self) -> usize {
         (WALL_SIZE - DEAD_WALL_SIZE) - self.live.len()
     }
@@ -75,6 +79,22 @@ impl WallLayout {
         self.kan_count += 1;
         self.rinshan_taken += 1;
         Ok((self.dead[rinshan_index], self.dead[dora_index]))
+    }
+
+    pub fn from_parts_with_state(
+        live: Vec<Tile>,
+        dead: Vec<Tile>,
+        kan_count: u8,
+        rinshan_taken: u8,
+    ) -> Result<Self, Error> {
+        let layout = Self {
+            live,
+            dead,
+            kan_count,
+            rinshan_taken,
+        };
+        layout.validate()?;
+        Ok(layout)
     }
 
     pub fn validate(&self) -> Result<(), Error> {

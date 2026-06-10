@@ -2,6 +2,7 @@ use crate::tile::Tile;
 
 /// Tiles held face-down (or before exposure).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Concealed {
     tiles: Vec<Tile>,
 }

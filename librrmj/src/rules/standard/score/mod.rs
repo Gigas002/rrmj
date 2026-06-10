@@ -1,6 +1,48 @@
+#[cfg(test)]
+mod tests;
+
 use crate::rules::{RulesConfig, RulesRegistry, WinContext};
 use crate::scoring::{Payment, ScoringResult, WinType, Yaku};
 use crate::state::HandState;
+
+/// Limit band for basic points before ron/tsumo multipliers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LimitBand {
+    Normal,
+    Mangan,
+    Haneman,
+    Baiman,
+    Sanbaiman,
+    Yakuman,
+}
+
+/// Basic points after mangan thresholds (before payment multipliers).
+pub(crate) fn base_points(han: u8, fu: u8) -> i32 {
+    match limit_band(han, fu) {
+        LimitBand::Normal => fu as i32 * 2i32.pow((han + 2) as u32),
+        LimitBand::Mangan => 2_000,
+        LimitBand::Haneman => 3_000,
+        LimitBand::Baiman => 4_000,
+        LimitBand::Sanbaiman => 6_000,
+        LimitBand::Yakuman => 8_000,
+    }
+}
+
+fn limit_band(han: u8, fu: u8) -> LimitBand {
+    if han >= 13 {
+        LimitBand::Yakuman
+    } else if han >= 11 {
+        LimitBand::Sanbaiman
+    } else if han >= 8 {
+        LimitBand::Baiman
+    } else if han >= 6 {
+        LimitBand::Haneman
+    } else if han >= 5 || (han == 4 && fu >= 40) || (han == 3 && fu >= 70) {
+        LimitBand::Mangan
+    } else {
+        LimitBand::Normal
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn score_hand(
@@ -18,12 +60,14 @@ pub fn score_hand(
     let mut payments = Vec::new();
     let winner = ctx.winner;
     let dealer = ctx.state.dealer();
+    let winner_is_dealer = winner == dealer;
     let honba = ctx.state.honba() as i32;
     let riichi_sticks = ctx.state.table_riichi_sticks() as i32 * 1_000;
 
     match ctx.win_type {
         WinType::Ron { from } => {
-            let total = round_points(base * 4) + honba * 300 + riichi_sticks;
+            let multiplier = if winner_is_dealer { 6 } else { 4 };
+            let total = round_points(base * multiplier) + honba * 300 + riichi_sticks;
             payments.push(Payment {
                 payer: from,
                 payee: winner,
@@ -33,17 +77,12 @@ pub fn score_hand(
             deltas[winner] += total;
         }
         WinType::Tsumo => {
-            let dealer_pays = round_points(base * 2);
-            let child_pays = round_points(base);
             for seat in 0..4 {
                 if seat == winner {
                     continue;
                 }
-                let pay = if seat == dealer {
-                    dealer_pays + honba * 100
-                } else {
-                    child_pays + honba * 100
-                };
+                let share = tsumo_share(base, winner_is_dealer, seat == dealer);
+                let pay = round_points(share) + honba * 100;
                 payments.push(Payment {
                     payer: seat,
                     payee: winner,
@@ -72,6 +111,14 @@ pub fn score_hand(
     }
 }
 
+fn tsumo_share(base: i32, winner_is_dealer: bool, payer_is_dealer: bool) -> i32 {
+    if winner_is_dealer || payer_is_dealer {
+        base * 2
+    } else {
+        base
+    }
+}
+
 pub fn score_exhaustive_draw(state: &HandState) -> [i32; 4] {
     let profile = RulesRegistry::get(state.config().profile).expect("standard profile");
     let mut tenpai = [false; 4];
@@ -97,26 +144,6 @@ pub fn score_exhaustive_draw(state: &HandState) -> [i32; 4] {
         }
     }
     deltas
-}
-
-fn base_points(han: u8, fu: u8) -> i32 {
-    if han >= 13 {
-        return 8_000;
-    }
-    if han >= 11 {
-        return 6_000;
-    }
-    if han >= 8 {
-        return 4_000;
-    }
-    if han >= 6 {
-        return 3_000;
-    }
-    if han >= 5 || (han == 4 && fu >= 40) || (han == 3 && fu >= 70) {
-        return 2_000;
-    }
-    let raw = fu as i32 * 2i32.pow((han + 2) as u32);
-    raw.min(2_000)
 }
 
 fn round_points(points: i32) -> i32 {

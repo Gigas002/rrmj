@@ -28,6 +28,7 @@ impl MeldKind {
 
 /// A called or declared meld on the table.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Meld {
     kind: MeldKind,
     tiles: Vec<Tile>,

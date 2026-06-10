@@ -2,6 +2,7 @@ use crate::action::Action;
 use crate::agent::{Agent, PlayerView};
 use crate::game::Match;
 use crate::rules::RulesConfig;
+use crate::test_util::fixtures::winning_tanyao_tiles;
 use crate::tile::Tile;
 
 #[test]
@@ -39,25 +40,6 @@ fn step_applies_agent_action() {
     let result = game.step(&mut agents).unwrap().expect("step taken");
     assert_eq!(result.seat, dealer);
     assert_eq!(result.action, Action::Discard(discard));
-}
-
-fn winning_tanyao_tiles() -> Vec<Tile> {
-    vec![
-        Tile::man(2),
-        Tile::man(3),
-        Tile::man(4),
-        Tile::pin(3),
-        Tile::pin(4),
-        Tile::pin(5),
-        Tile::sou(6),
-        Tile::sou(7),
-        Tile::sou(8),
-        Tile::sou(9),
-        Tile::sou(9),
-        Tile::sou(9),
-        Tile::pin(2),
-        Tile::pin(2),
-    ]
 }
 
 #[test]

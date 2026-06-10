@@ -1,16 +1,27 @@
 mod actions;
+#[cfg(feature = "debug-menu")]
+mod debug_menu;
+#[cfg(feature = "debug-menu")]
+mod debug_setup;
 mod hand_result;
+mod load_setup;
+mod pause;
 mod settings;
 mod setup;
+mod timers;
 
 pub use actions::ActionMenu;
+#[cfg(feature = "debug-menu")]
+pub use debug_setup::{DebugScenarioSetup, DebugSetupField};
 pub use hand_result::HandResultSummary;
+pub use load_setup::{LoadGameSetup, LoadSetupField};
+pub use pause::PauseItem;
 pub use settings::SettingsField;
 pub use setup::{NewGameSetup, SetupField, difficulty_label};
 
 use std::io;
 use std::path::PathBuf;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crossterm::ExecutableCommand;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -30,14 +41,32 @@ use ratatui::backend::CrosstermBackend;
 use crate::config::{AppConfig, cycle_theme};
 use crate::error::AppError;
 use crate::input::{BindAction, Keybinds, normalize_key_event};
+use crate::save::{
+    RecordingEntry, SavePaths, list_in_progress, read_recording, unix_timestamp_string,
+    write_recording_async,
+};
 use crate::theme::Theme;
+use crate::timers::{TimerKind, format_decision_timer};
 use crate::ui;
+use librrmj::replay::{MatchRecording, RecordingMeta};
+
+use self::timers::{ActionTimerState, timeout_action};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
     MainMenu,
     Table,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MainMenuMode {
+    Root,
+    LoadGame,
+    #[cfg(feature = "debug-menu")]
+    Debug,
+}
+
+pub(crate) const ROOT_MENU_LEN: usize = if cfg!(feature = "debug-menu") { 5 } else { 4 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TableMode {
@@ -57,17 +86,36 @@ pub struct App {
     config_path: PathBuf,
     settings_field: SettingsField,
     menu_index: usize,
+    main_menu_mode: MainMenuMode,
+    load_entries: Vec<RecordingEntry>,
+    #[cfg(feature = "debug-menu")]
+    debug_entries: Vec<crate::scenarios::ScenarioEntry>,
+    #[cfg(feature = "debug-menu")]
+    debug_filter_tag: Option<String>,
+    active_recording_id: Option<String>,
+    active_save_path: Option<PathBuf>,
     setup: Option<NewGameSetup>,
+    load_setup: Option<LoadGameSetup>,
+    #[cfg(feature = "debug-menu")]
+    debug_setup: Option<DebugScenarioSetup>,
     match_game: Option<Match>,
     agents: Option<[SeatAgent; 4]>,
     setup_meta: Option<MatchSetup>,
     human_seat_active: usize,
+    cpu_step_delay_ms: u64,
+    turn_timer_ms: u64,
+    response_timer_ms: u64,
+    cpu_step_wait_until: Option<Instant>,
+    action_timer: ActionTimerState,
     table_mode: TableMode,
     tile_index: usize,
     chi_index: usize,
     hand_result: Option<HandResultSummary>,
     match_summary: Option<[i32; 4]>,
     help_open: bool,
+    pause_open: bool,
+    pause_index: PauseItem,
+    scores_open: bool,
     settings_open: bool,
     rules_open: bool,
     rules_scroll: usize,
@@ -82,6 +130,9 @@ impl App {
         config: AppConfig,
         config_path: PathBuf,
     ) -> Self {
+        let cpu_step_delay_ms = config.cpu_step_delay_ms;
+        let turn_timer_ms = config.turn_timer_ms;
+        let response_timer_ms = config.response_timer_ms;
         Self {
             screen: Screen::MainMenu,
             keybinds,
@@ -90,17 +141,36 @@ impl App {
             config_path,
             settings_field: SettingsField::Theme,
             menu_index: 0,
+            main_menu_mode: MainMenuMode::Root,
+            load_entries: Vec::new(),
+            #[cfg(feature = "debug-menu")]
+            debug_entries: Vec::new(),
+            #[cfg(feature = "debug-menu")]
+            debug_filter_tag: None,
+            active_recording_id: None,
+            active_save_path: None,
             setup: None,
+            load_setup: None,
+            #[cfg(feature = "debug-menu")]
+            debug_setup: None,
             match_game: None,
             agents: None,
             setup_meta: None,
             human_seat_active: 0,
+            cpu_step_delay_ms,
+            turn_timer_ms,
+            response_timer_ms,
+            cpu_step_wait_until: None,
+            action_timer: ActionTimerState::default(),
             table_mode: TableMode::Normal,
             tile_index: 0,
             chi_index: 0,
             hand_result: None,
             match_summary: None,
             help_open: false,
+            pause_open: false,
+            pause_index: PauseItem::Resume,
+            scores_open: false,
             settings_open: false,
             rules_open: false,
             rules_scroll: 0,
@@ -130,6 +200,7 @@ impl App {
     ) -> Result<(), AppError> {
         while !self.quit {
             self.tick_cpu()?;
+            self.tick_action_timers()?;
             let theme = self.theme();
             terminal.draw(|frame| ui::draw(frame, self, &theme))?;
 
@@ -148,8 +219,18 @@ impl App {
     }
 
     fn tick_cpu(&mut self) -> Result<(), AppError> {
-        if self.screen != Screen::Table || self.hand_result.is_some() {
+        if self.screen != Screen::Table
+            || self.hand_result.is_some()
+            || self.pause_open
+            || self.scores_open
+        {
             return Ok(());
+        }
+        if let Some(until) = self.cpu_step_wait_until {
+            if Instant::now() < until {
+                return Ok(());
+            }
+            self.cpu_step_wait_until = None;
         }
         while let Some(seat) = self
             .match_game
@@ -174,16 +255,252 @@ impl App {
             };
             let ended = self.match_game.as_ref().is_some_and(|game| game.is_ended());
             self.on_game_events(&events);
+            self.persist_match();
             if self.hand_result.is_some() || ended {
+                break;
+            }
+            if self.cpu_step_delay_ms > 0 {
+                self.cpu_step_wait_until =
+                    Some(Instant::now() + Duration::from_millis(self.cpu_step_delay_ms));
                 break;
             }
         }
         Ok(())
     }
 
+    fn tick_action_timers(&mut self) -> Result<(), AppError> {
+        if self.screen != Screen::Table
+            || self.pause_open
+            || self.scores_open
+            || self.help_open
+            || self.rules_open
+            || self.hand_result.is_some()
+            || self.match_summary.is_some()
+        {
+            self.action_timer.reset();
+            return Ok(());
+        }
+
+        let Some(game) = self.match_game.as_ref() else {
+            self.action_timer.reset();
+            return Ok(());
+        };
+        let Some(seat) = game.pending_seat() else {
+            self.action_timer.reset();
+            return Ok(());
+        };
+        let phase = game.hand().phase();
+        let menu = ActionMenu::from_legal(&game.hand().legal_actions_for(seat));
+
+        // Nothing to decide — pass immediately, no response timer.
+        if phase == HandPhase::Reaction && menu.is_pass_only() {
+            return self.apply_action_for_seat(seat, Action::Pass);
+        }
+
+        // Draw is automatic at turn start (no timer, no hotkey).
+        if phase == HandPhase::Draw {
+            return self.apply_action_for_seat(seat, Action::Draw);
+        }
+
+        self.action_timer
+            .sync(seat, phase, self.turn_timer_ms, self.response_timer_ms);
+
+        if !self.action_timer.is_expired() {
+            return Ok(());
+        }
+
+        self.force_pending_action()
+    }
+
+    fn force_pending_action(&mut self) -> Result<(), AppError> {
+        let game = self.match_game.as_ref().expect("match present");
+        let seat = game.pending_seat().expect("pending seat");
+        let phase = game.hand().phase();
+        let legal = game.hand().legal_actions_for(seat);
+        let menu = ActionMenu::from_legal(&legal);
+        let Some(action) = timeout_action(&legal, phase, &menu) else {
+            return Ok(());
+        };
+
+        if self.is_human_turn() {
+            self.apply_action_for_seat(seat, action)?;
+        } else {
+            self.cpu_step_wait_until = None;
+            self.apply_action_for_seat(seat, action)?;
+        }
+        Ok(())
+    }
+
+    fn apply_action_for_seat(&mut self, seat: usize, action: Action) -> Result<(), AppError> {
+        let events = self
+            .match_game
+            .as_mut()
+            .expect("match present")
+            .apply_action(seat, action)?;
+        self.on_game_events(&events);
+        self.persist_match();
+        self.table_mode = TableMode::Normal;
+        self.action_timer.reset();
+        Ok(())
+    }
+
+    fn apply_human_action(&mut self, action: Action) -> Result<(), AppError> {
+        let seat = self
+            .match_game
+            .as_ref()
+            .and_then(|g| g.pending_seat())
+            .expect("human action without pending seat");
+        self.apply_action_for_seat(seat, action)
+    }
+
+    fn open_pause_menu(&mut self) {
+        self.scores_open = false;
+        self.pause_open = true;
+        self.pause_index = PauseItem::Resume;
+        self.action_timer.reset();
+    }
+
+    fn close_pause_menu(&mut self) {
+        self.pause_open = false;
+        self.pause_index = PauseItem::Resume;
+    }
+
+    fn return_to_main_menu(&mut self) {
+        self.persist_match();
+        self.match_game = None;
+        self.agents = None;
+        self.setup_meta = None;
+        self.hand_result = None;
+        self.match_summary = None;
+        self.active_recording_id = None;
+        self.active_save_path = None;
+        self.screen = Screen::MainMenu;
+        self.main_menu_mode = MainMenuMode::Root;
+        self.menu_index = 0;
+        self.table_mode = TableMode::Normal;
+        self.cpu_step_wait_until = None;
+        self.action_timer.reset();
+        self.scores_open = false;
+        self.close_pause_menu();
+        self.status = "Returned to main menu".into();
+    }
+
+    fn handle_pause_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        let action = self.keybinds.action_for(&key);
+        if self.keybinds.is_bound(&key, BindAction::Back) {
+            self.close_pause_menu();
+            return Ok(());
+        }
+        if self.is_activate(&key) {
+            return match self.pause_index {
+                PauseItem::Resume => {
+                    self.close_pause_menu();
+                    Ok(())
+                }
+                PauseItem::MainMenu => {
+                    self.return_to_main_menu();
+                    Ok(())
+                }
+                PauseItem::Quit => {
+                    self.quit = true;
+                    Ok(())
+                }
+            };
+        }
+        match action {
+            Some(BindAction::MenuUp) => {
+                self.pause_index = self.pause_index.prev();
+            }
+            Some(BindAction::MenuDown) => {
+                self.pause_index = self.pause_index.next();
+            }
+            Some(BindAction::Quit) => self.quit = true,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn save_paths(&self) -> SavePaths {
+        SavePaths {
+            recordings_dir: self.config.resolved_recordings_dir(),
+        }
+    }
+
+    fn persist_match(&self) {
+        let (Some(game), Some(setup)) = (&self.match_game, &self.setup_meta) else {
+            return;
+        };
+        if game.is_ended() {
+            return;
+        }
+        let id = self
+            .active_recording_id
+            .clone()
+            .unwrap_or_else(|| "autosave".into());
+        let meta = RecordingMeta {
+            recording_id: Some(id.clone()),
+            updated_at: Some(unix_timestamp_string()),
+            client_version: Some(format!("rrmj-tui {}", librrmj::VERSION)),
+            ..RecordingMeta::default()
+        };
+        let recording = MatchRecording::capture(
+            game,
+            setup,
+            self.human_seat_active,
+            self.cpu_step_delay_ms,
+            self.turn_timer_ms,
+            self.response_timer_ms,
+            meta,
+        );
+        let path = self.save_paths().recording_path(&id);
+        write_recording_async(path, recording);
+    }
+
+    fn finalize_finished_match(&mut self) {
+        let (Some(game), Some(setup)) = (&self.match_game, &self.setup_meta) else {
+            return;
+        };
+        if !game.is_ended() {
+            return;
+        }
+        let id = self
+            .active_recording_id
+            .clone()
+            .unwrap_or_else(|| format!("match-{}", game.seed()));
+        let meta = RecordingMeta {
+            recording_id: Some(id.clone()),
+            updated_at: Some(unix_timestamp_string()),
+            client_version: Some(format!("rrmj-tui {}", librrmj::VERSION)),
+            ..RecordingMeta::default()
+        };
+        // Same file path; `capture` sets `match_status = finished` when the match ended.
+        let recording = MatchRecording::capture(
+            game,
+            setup,
+            self.human_seat_active,
+            self.cpu_step_delay_ms,
+            self.turn_timer_ms,
+            self.response_timer_ms,
+            meta,
+        );
+        let path = self
+            .active_save_path
+            .clone()
+            .unwrap_or_else(|| self.save_paths().recording_path(&id));
+        write_recording_async(path, recording);
+        self.active_recording_id = None;
+        self.active_save_path = None;
+    }
+
     fn handle_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
         let key = normalize_key_event(key);
 
+        if self.pause_open {
+            return self.handle_pause_key(key);
+        }
+        if self.scores_open {
+            return self.handle_scores_key(key);
+        }
         if self.help_open {
             return self.handle_help_key(key);
         }
@@ -196,6 +513,11 @@ impl App {
         if self.setup.is_some() && self.screen == Screen::MainMenu {
             return self.handle_setup_key(key);
         }
+        if self.load_setup.is_some() && self.screen == Screen::MainMenu {
+            return self.handle_load_setup_key(key);
+        }
+        #[cfg(feature = "debug-menu")]
+        self.handle_debug_setup_key_if_open(key)?;
 
         let action = self.keybinds.action_for(&key);
         if matches!(action, Some(BindAction::Help)) {
@@ -207,6 +529,14 @@ impl App {
         if rules_hotkey {
             self.rules_open = true;
             self.rules_scroll = 0;
+            return Ok(());
+        }
+        if matches!(action, Some(BindAction::Scores))
+            && self.screen == Screen::Table
+            && self.hand_result.is_none()
+            && self.match_summary.is_none()
+        {
+            self.scores_open = true;
             return Ok(());
         }
 
@@ -225,6 +555,20 @@ impl App {
                 BindAction::Continue,
             ],
         )
+    }
+
+    fn handle_scores_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        let action = self.keybinds.action_for(&key);
+        if matches!(action, Some(BindAction::Quit)) {
+            self.quit = true;
+        }
+        if matches!(
+            action,
+            Some(BindAction::Scores) | Some(BindAction::Back) | Some(BindAction::Quit)
+        ) {
+            self.scores_open = false;
+        }
+        Ok(())
     }
 
     fn handle_help_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
@@ -248,6 +592,7 @@ impl App {
             self.rules_open = false;
             return Ok(());
         }
+        let page = 12usize;
         match key.code {
             KeyCode::Up => {
                 self.rules_scroll = self.rules_scroll.saturating_sub(1);
@@ -255,6 +600,13 @@ impl App {
             KeyCode::Down => {
                 let max = ui::rules_line_count().saturating_sub(1);
                 self.rules_scroll = (self.rules_scroll + 1).min(max);
+            }
+            KeyCode::PageUp => {
+                self.rules_scroll = self.rules_scroll.saturating_sub(page);
+            }
+            KeyCode::PageDown => {
+                let max = ui::rules_line_count().saturating_sub(1);
+                self.rules_scroll = (self.rules_scroll + page).min(max);
             }
             _ => {}
         }
@@ -266,37 +618,205 @@ impl App {
         key: &KeyEvent,
         action: Option<BindAction>,
     ) -> Result<(), AppError> {
-        if self.is_activate(key) {
-            return match self.menu_index {
-                0 => {
-                    self.setup = Some(NewGameSetup::new(
-                        self.config.default_difficulty,
-                        self.config.human_seat,
-                    ));
-                    Ok(())
-                }
-                1 => {
-                    self.settings_field = SettingsField::Theme;
-                    self.settings_open = true;
-                    Ok(())
-                }
-                _ => {
-                    self.quit = true;
-                    Ok(())
-                }
-            };
+        #[cfg(feature = "debug-menu")]
+        {
+            self.handle_debug_mode_menu(key, action)
         }
 
+        #[cfg(not(feature = "debug-menu"))]
+        {
+            if self.main_menu_mode == MainMenuMode::LoadGame {
+                return self.handle_load_game_menu(key, action);
+            }
+
+            if self.is_activate(key) {
+                return match self.menu_index {
+                    0 => {
+                        self.setup = Some(NewGameSetup::new(
+                            self.config.default_difficulty,
+                            self.config.human_seat,
+                            self.config.cpu_step_delay_ms,
+                            self.config.turn_timer_ms,
+                            self.config.response_timer_ms,
+                        ));
+                        Ok(())
+                    }
+                    1 => self.open_load_game_menu(),
+                    2 => {
+                        self.settings_field = SettingsField::Theme;
+                        self.settings_open = true;
+                        Ok(())
+                    }
+                    _ => {
+                        self.quit = true;
+                        Ok(())
+                    }
+                };
+            }
+
+            let max = ROOT_MENU_LEN.saturating_sub(1);
+            match action {
+                Some(BindAction::MenuUp) => {
+                    self.menu_index = self.menu_index.saturating_sub(1);
+                }
+                Some(BindAction::MenuDown) => {
+                    self.menu_index = (self.menu_index + 1).min(max);
+                }
+                Some(BindAction::Quit) => self.quit = true,
+                _ => {}
+            }
+            Ok(())
+        }
+    }
+
+    fn open_load_game_menu(&mut self) -> Result<(), AppError> {
+        self.load_entries = list_in_progress(&self.save_paths())?;
+        self.main_menu_mode = MainMenuMode::LoadGame;
+        self.menu_index = 0;
+        if self.load_entries.is_empty() {
+            self.status = "No in-progress saves found".into();
+        } else {
+            self.status.clear();
+        }
+        Ok(())
+    }
+
+    fn handle_load_game_menu(
+        &mut self,
+        key: &KeyEvent,
+        action: Option<BindAction>,
+    ) -> Result<(), AppError> {
+        if self.keybinds.is_bound(key, BindAction::Back) {
+            self.main_menu_mode = MainMenuMode::Root;
+            self.menu_index = 1;
+            return Ok(());
+        }
+        if self.load_entries.is_empty() {
+            if self.is_activate(key) || self.keybinds.is_bound(key, BindAction::Back) {
+                self.main_menu_mode = MainMenuMode::Root;
+                self.menu_index = 1;
+            }
+            return Ok(());
+        }
+        if self.is_activate(key) {
+            return self.open_load_seat_picker();
+        }
+        let max = self.load_entries.len().saturating_sub(1);
         match action {
             Some(BindAction::MenuUp) => {
                 self.menu_index = self.menu_index.saturating_sub(1);
             }
             Some(BindAction::MenuDown) => {
-                self.menu_index = (self.menu_index + 1).min(2);
+                self.menu_index = (self.menu_index + 1).min(max);
             }
             Some(BindAction::Quit) => self.quit = true,
             _ => {}
         }
+        Ok(())
+    }
+
+    fn open_load_seat_picker(&mut self) -> Result<(), AppError> {
+        let entry = self
+            .load_entries
+            .get(self.menu_index)
+            .cloned()
+            .ok_or_else(|| AppError::Config {
+                path: self.config_path.clone(),
+                detail: "no save selected".into(),
+            })?;
+        let recording = read_recording(&entry.path)?;
+        self.load_setup = Some(LoadGameSetup::new(
+            entry,
+            recording,
+            self.config.human_seat,
+            self.config.cpu_step_delay_ms,
+            self.config.turn_timer_ms,
+            self.config.response_timer_ms,
+        ));
+        self.main_menu_mode = MainMenuMode::Root;
+        Ok(())
+    }
+
+    fn handle_load_setup_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        let action = self.keybinds.action_for(&key);
+        if self.keybinds.is_bound(&key, BindAction::Back) {
+            self.load_setup = None;
+            self.main_menu_mode = MainMenuMode::LoadGame;
+            return Ok(());
+        }
+        if self.is_activate(&key) {
+            let confirm = self
+                .load_setup
+                .as_ref()
+                .is_some_and(|load| load.selected == LoadSetupField::Confirm);
+            if confirm {
+                return self.confirm_load_game();
+            }
+            if let Some(load) = self.load_setup.as_mut() {
+                match load.selected {
+                    LoadSetupField::HumanSeat => load.cycle_seat(),
+                    LoadSetupField::CpuStepDelay => load.cycle_cpu_delay(),
+                    LoadSetupField::TurnTimer => load.cycle_turn_timer(),
+                    LoadSetupField::ResponseTimer => load.cycle_response_timer(),
+                    LoadSetupField::Confirm => {}
+                }
+            }
+            return Ok(());
+        }
+        let Some(load) = self.load_setup.as_mut() else {
+            return Ok(());
+        };
+        match action {
+            Some(BindAction::MenuUp) => load.select_prev(),
+            Some(BindAction::MenuDown) => load.select_next(),
+            Some(BindAction::MenuToggle) | Some(BindAction::MenuCycle) => match load.selected {
+                LoadSetupField::HumanSeat => load.cycle_seat(),
+                LoadSetupField::CpuStepDelay => load.cycle_cpu_delay(),
+                LoadSetupField::TurnTimer => load.cycle_turn_timer(),
+                LoadSetupField::ResponseTimer => load.cycle_response_timer(),
+                LoadSetupField::Confirm => {}
+            },
+            Some(BindAction::Quit) => self.quit = true,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn confirm_load_game(&mut self) -> Result<(), AppError> {
+        let load = self.load_setup.take().expect("load setup present");
+        let human = load.selected_seat;
+        let saved_human_seat = load.saved_human_seat;
+        let using_saved = load.using_saved_seat();
+        let status = if using_saved {
+            format!("Loaded save as {}", LoadGameSetup::seat_name(human))
+        } else {
+            format!(
+                "Loaded save as {} (saved seat was {})",
+                LoadGameSetup::seat_name(human),
+                LoadGameSetup::seat_name(saved_human_seat)
+            )
+        };
+        let setup = load.match_setup_for_load();
+        let seed = load.recording.seed;
+        let agents = setup.build_agents(seed);
+        let game = load.recording.restore()?;
+        self.setup_meta = Some(setup);
+        self.agents = Some(agents);
+        self.match_game = Some(game);
+        self.human_seat_active = human;
+        self.cpu_step_delay_ms = load.cpu_step_delay_ms;
+        self.turn_timer_ms = load.turn_timer_ms;
+        self.response_timer_ms = load.response_timer_ms;
+        self.cpu_step_wait_until = None;
+        self.action_timer.reset();
+        self.active_recording_id = Some(load.entry.recording_id);
+        self.active_save_path = Some(load.entry.path);
+        self.table_mode = TableMode::Normal;
+        self.tile_index = 0;
+        self.hand_result = None;
+        self.match_summary = None;
+        self.screen = Screen::Table;
+        self.status = status;
         Ok(())
     }
 
@@ -337,6 +857,17 @@ impl App {
             }
             SettingsField::HumanSeat => {
                 self.config.human_seat = (self.config.human_seat + 1) % 4;
+            }
+            SettingsField::CpuStepDelay => {
+                self.config.cpu_step_delay_ms =
+                    crate::timers::cycle_cpu(self.config.cpu_step_delay_ms);
+            }
+            SettingsField::TurnTimer => {
+                self.config.turn_timer_ms = crate::timers::cycle_turn(self.config.turn_timer_ms);
+            }
+            SettingsField::ResponseTimer => {
+                self.config.response_timer_ms =
+                    crate::timers::cycle_response(self.config.response_timer_ms);
             }
         }
     }
@@ -388,15 +919,24 @@ impl App {
         let agents = match_setup.build_agents(seed);
         let game = Match::new(RulesConfig::standard(), seed)?;
         self.human_seat_active = setup.human_seat;
+        self.cpu_step_delay_ms = setup.cpu_step_delay_ms;
+        self.turn_timer_ms = setup.turn_timer_ms;
+        self.response_timer_ms = setup.response_timer_ms;
+        self.cpu_step_wait_until = None;
+        self.action_timer.reset();
         self.setup_meta = Some(match_setup);
         self.agents = Some(agents);
         self.match_game = Some(game);
+        let recording_id = format!("match-{seed}");
+        self.active_recording_id = Some(recording_id.clone());
+        self.active_save_path = Some(self.save_paths().recording_path(&recording_id));
         self.table_mode = TableMode::Normal;
         self.tile_index = 0;
         self.hand_result = None;
         self.match_summary = None;
         self.screen = Screen::Table;
         self.status = "Match started".into();
+        self.persist_match();
         Ok(())
     }
 
@@ -443,28 +983,23 @@ impl App {
             return self.handle_match_summary(key, action);
         }
 
+        if matches!(action, Some(BindAction::Back)) && self.table_mode == TableMode::Normal {
+            self.open_pause_menu();
+            return Ok(());
+        }
+
         let human_turn = self.is_human_turn();
         if !human_turn {
             match action {
-                Some(BindAction::Back) | Some(BindAction::Quit) => self.quit = true,
+                Some(BindAction::Back) => self.open_pause_menu(),
+                Some(BindAction::Quit) => self.quit = true,
                 _ => {}
             }
             return Ok(());
         }
 
         if let Some(chosen) = self.map_table_action(key, action)? {
-            let seat = self
-                .match_game
-                .as_ref()
-                .and_then(|g| g.pending_seat())
-                .expect("human turn");
-            let events = self
-                .match_game
-                .as_mut()
-                .unwrap()
-                .apply_action(seat, chosen)?;
-            self.on_game_events(&events);
-            self.table_mode = TableMode::Normal;
+            self.apply_human_action(chosen)?;
         }
         Ok(())
     }
@@ -592,6 +1127,7 @@ impl App {
             .find(|e| matches!(e, GameEvent::MatchEnded { .. }))
         {
             self.match_summary = Some(*scores);
+            self.finalize_finished_match();
         }
         if let Some(last) = events.last() {
             self.status = format!("{last:?}");
@@ -654,12 +1190,32 @@ impl App {
         self.menu_index
     }
 
+    pub const fn main_menu_mode(&self) -> MainMenuMode {
+        self.main_menu_mode
+    }
+
+    pub fn load_entries(&self) -> &[RecordingEntry] {
+        &self.load_entries
+    }
+
     pub fn setup(&self) -> Option<&NewGameSetup> {
         self.setup.as_ref()
     }
 
     pub fn setup_open(&self) -> bool {
         self.setup.is_some()
+    }
+
+    pub fn load_setup(&self) -> Option<&LoadGameSetup> {
+        self.load_setup.as_ref()
+    }
+
+    pub fn load_setup_open(&self) -> bool {
+        self.load_setup.is_some()
+    }
+
+    pub const fn debug_menu_enabled(&self) -> bool {
+        cfg!(feature = "debug-menu")
     }
 
     pub const fn human_seat_active(&self) -> usize {
@@ -688,6 +1244,18 @@ impl App {
 
     pub const fn help_open(&self) -> bool {
         self.help_open
+    }
+
+    pub const fn pause_open(&self) -> bool {
+        self.pause_open
+    }
+
+    pub const fn scores_open(&self) -> bool {
+        self.scores_open
+    }
+
+    pub const fn pause_index(&self) -> PauseItem {
+        self.pause_index
     }
 
     pub const fn settings_open(&self) -> bool {
@@ -723,14 +1291,35 @@ impl App {
         Some(self.match_game.as_ref()?.hand().wall().live_remaining())
     }
 
-    pub fn actor_seat(&self) -> Option<usize> {
+    /// Whose turn it is on the table (discarder until reaction window closes).
+    pub fn turn_highlight_seat(&self) -> Option<usize> {
         let game = self.match_game.as_ref()?;
         let hand = game.hand();
-        if hand.phase() == HandPhase::Reaction {
-            hand.pending_reaction_seat()
-        } else {
-            Some(hand.current_actor())
+        match hand.phase() {
+            HandPhase::Reaction => hand.pending_call().map(|call| call.discarder),
+            HandPhase::Draw | HandPhase::Discard => Some(hand.current_actor()),
+            HandPhase::Ended => None,
         }
+    }
+
+    /// Countdown for the human's pending decision (actions bar only).
+    pub fn human_decision_timer_label(&self) -> Option<String> {
+        if !self.is_human_pending() {
+            return None;
+        }
+        let phase = self.match_game.as_ref()?.hand().phase();
+        if phase == HandPhase::Reaction && self.action_menu().is_pass_only() {
+            return None;
+        }
+        let kind = match phase {
+            HandPhase::Draw => return None,
+            HandPhase::Discard => TimerKind::Turn,
+            HandPhase::Reaction => TimerKind::Response,
+            HandPhase::Ended => return None,
+        };
+        self.action_timer
+            .seat_timer(kind)
+            .map(format_decision_timer)
     }
 }
 

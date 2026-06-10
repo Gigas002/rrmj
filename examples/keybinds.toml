@@ -77,3 +77,5 @@ confirm = "enter"
 continue = "enter"
 # Rules and yaku reference (also bound to y in the client)
 rules = "?"
+# Current scores (in-match overlay)
+scores = "s"

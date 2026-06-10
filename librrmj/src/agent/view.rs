@@ -36,6 +36,8 @@ pub struct PlayerView {
     pub dora_indicators: Vec<Tile>,
     pub table_riichi_sticks: u8,
     pub pending_call: Option<PendingCall>,
+    /// Tile just drawn when `seat` is discarding; `None` on dealer's first turn.
+    pub last_draw: Option<Tile>,
 }
 
 impl PlayerView {
@@ -90,6 +92,9 @@ impl PlayerView {
             dora_indicators: hand.wall().dora_indicators(),
             table_riichi_sticks: hand.table_riichi_sticks(),
             pending_call: hand.pending_call(),
+            last_draw: (seat == hand.current_actor() && hand.phase() == HandPhase::Discard)
+                .then(|| hand.last_drawn_tile())
+                .flatten(),
         }
     }
 }

@@ -31,7 +31,7 @@ impl ActionMenu {
                 Action::Pass => menu.can_pass = true,
                 Action::Tsumo => menu.can_tsumo = true,
                 Action::AbortiveNineTerminals => menu.can_abort_nine_terminals = true,
-                Action::Draw => {}
+                Action::Draw | Action::Kakan { .. } => {}
             }
         }
         menu.discards.sort();
@@ -42,5 +42,10 @@ impl ActionMenu {
 
     pub fn is_reaction(&self) -> bool {
         self.can_ron || self.can_pon || self.can_open_kan || self.can_pass || !self.chi.is_empty()
+    }
+
+    /// Reaction window where the only legal choice is to pass.
+    pub fn is_pass_only(&self) -> bool {
+        self.can_pass && !self.can_ron && !self.can_pon && !self.can_open_kan && self.chi.is_empty()
     }
 }

@@ -37,15 +37,16 @@ pub enum AbortiveDrawKind {
 
 /// Phase of a multi-hand match.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MatchPhase {
     InHand,
     Ended,
 }
 
 /// Outcome of a single hand for match-flow bookkeeping.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HandOutcome {
-    Win { winner: usize },
+    Win { winners: Vec<usize> },
     ExhaustiveDraw,
     AbortiveDraw(AbortiveDrawKind),
 }

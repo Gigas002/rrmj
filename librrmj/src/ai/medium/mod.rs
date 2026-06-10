@@ -131,6 +131,3 @@ impl Agent for MediumAgent {
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

@@ -4,49 +4,7 @@ use crate::event::Event;
 use crate::game::HandOutcome;
 use crate::rules::RulesConfig;
 use crate::rules::flow::advance_after_hand;
-use crate::tile::Tile;
-
-fn winning_tanyao_tiles() -> Vec<Tile> {
-    vec![
-        Tile::man(2),
-        Tile::man(3),
-        Tile::man(4),
-        Tile::pin(3),
-        Tile::pin(4),
-        Tile::pin(5),
-        Tile::sou(6),
-        Tile::sou(7),
-        Tile::sou(8),
-        Tile::sou(9),
-        Tile::sou(9),
-        Tile::sou(9),
-        Tile::pin(2),
-        Tile::pin(2),
-    ]
-}
-
-fn tenpai_waiting_on_p2() -> Vec<Tile> {
-    let mut hand = winning_tanyao_tiles();
-    hand.pop();
-    hand
-}
-
-fn force_tsumo_win(game: &mut Match, seat: usize) {
-    let hand = game.hand_mut();
-    hand.set_concealed(seat, winning_tanyao_tiles());
-    hand.last_draw = Some(Tile::pin(2));
-}
-
-fn force_ron_win(game: &mut Match, winner: usize) {
-    let dealer = game.dealer();
-    let hand = game.hand_mut();
-    hand.set_concealed(winner, tenpai_waiting_on_p2());
-    let mut dealer_hand = hand.hand(dealer).concealed().tiles().to_vec();
-    dealer_hand[0] = Tile::pin(2);
-    hand.set_concealed(dealer, dealer_hand);
-    hand.apply(dealer, Action::Discard(Tile::pin(2)))
-        .expect("dealer discard for ron setup");
-}
+use crate::test_util::fixtures::{force_ron_win, force_tsumo_win};
 
 // --- flow helpers ---
 
@@ -57,7 +15,7 @@ fn dealer_renchan_increments_honba() {
         0,
         RoundWind::East,
         1,
-        HandOutcome::Win { winner: 0 },
+        HandOutcome::Win { winners: vec![0] },
         false,
     );
     assert_eq!(dealer, 0);
@@ -73,7 +31,7 @@ fn non_dealer_win_rotates_dealer_and_advances_kyoku() {
         2,
         RoundWind::East,
         1,
-        HandOutcome::Win { winner: 1 },
+        HandOutcome::Win { winners: vec![1] },
         false,
     );
     assert_eq!(dealer, 1);
@@ -89,7 +47,7 @@ fn east_four_to_south_one() {
         0,
         RoundWind::East,
         4,
-        HandOutcome::Win { winner: 1 },
+        HandOutcome::Win { winners: vec![1] },
         false,
     );
     assert_eq!(dealer, 0);
@@ -128,8 +86,7 @@ fn east_only_match_ends_after_four_kyoku() {
 
     for expected_kyoku in [2u8, 3, 4] {
         let winner = (game.dealer() + 1) % 4;
-        force_ron_win(&mut game, winner);
-        let events = game.apply_action(winner, Action::Ron).unwrap();
+        let events = force_ron_win(&mut game, winner);
         assert!(
             events
                 .iter()
@@ -140,8 +97,7 @@ fn east_only_match_ends_after_four_kyoku() {
     }
 
     let winner = (game.dealer() + 1) % 4;
-    force_ron_win(&mut game, winner);
-    let events = game.apply_action(winner, Action::Ron).unwrap();
+    let events = force_ron_win(&mut game, winner);
     assert!(game.is_ended());
     assert!(events.iter().any(|e| matches!(e, Event::MatchEnded { .. })));
 }
@@ -200,7 +156,6 @@ fn hanchan_runs_eight_kyoku() {
     while !game.is_ended() && hands_played < 16 {
         let winner = (game.dealer() + 1) % 4;
         force_ron_win(&mut game, winner);
-        game.apply_action(winner, Action::Ron).unwrap();
         hands_played += 1;
     }
 

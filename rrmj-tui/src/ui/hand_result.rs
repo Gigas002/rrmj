@@ -20,14 +20,12 @@ pub fn draw_hand_result_popup(frame: &mut ratatui::Frame, area: Rect, app: &App,
     lines.push(Line::from("Press Enter to continue"));
 
     frame.render_widget(
-        Paragraph::new(lines)
-            .wrap(Wrap { trim: true })
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(theme.block_style())
-                    .title("Hand result"),
-            ),
+        Paragraph::new(lines).wrap(Wrap { trim: true }).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(theme.block_style())
+                .title("Hand result"),
+        ),
         popup,
     );
 }

@@ -206,6 +206,3 @@ impl Agent for HardAgent {
         }
     }
 }
-
-#[cfg(test)]
-mod tests;

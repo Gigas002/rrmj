@@ -10,7 +10,7 @@ use librrmj::ai::Difficulty;
 
 use crate::error::AppError;
 
-pub use paths::{config_dir, config_path, keybinds_path};
+pub use paths::{config_dir, config_path, keybinds_path, recordings_dir};
 
 /// User-facing settings loaded from `config.toml` or baked-in defaults.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,6 +18,15 @@ pub struct AppConfig {
     pub theme: String,
     pub default_difficulty: Difficulty,
     pub human_seat: usize,
+    /// Pause between CPU decisions (presentation).
+    pub cpu_step_delay_ms: u64,
+    /// Per-turn thinking limit for draw/discard; `0` = unlimited.
+    pub turn_timer_ms: u64,
+    /// Reaction window for chi/pon/ron/pass; `0` = unlimited (pass-only still instant).
+    pub response_timer_ms: u64,
+    pub recordings_dir: Option<std::path::PathBuf>,
+    #[cfg(feature = "debug-menu")]
+    pub scenarios_dir: Option<std::path::PathBuf>,
 }
 
 impl Default for AppConfig {
@@ -26,6 +35,12 @@ impl Default for AppConfig {
             theme: "default".into(),
             default_difficulty: Difficulty::Medium,
             human_seat: 0,
+            cpu_step_delay_ms: crate::timers::DEFAULT_CPU_MS,
+            turn_timer_ms: crate::timers::DEFAULT_TURN_MS,
+            response_timer_ms: crate::timers::DEFAULT_RESPONSE_MS,
+            recordings_dir: None,
+            #[cfg(feature = "debug-menu")]
+            scenarios_dir: None,
         }
     }
 }
@@ -72,8 +87,60 @@ impl AppConfig {
             }
             cfg.human_seat = seat;
         }
+        if let Some(value) = table.get("cpu_step_delay_ms").and_then(|v| v.as_integer()) {
+            if value < 0 {
+                return Err(AppError::Config {
+                    path: path.to_path_buf(),
+                    detail: "cpu_step_delay_ms must be >= 0".into(),
+                });
+            }
+            cfg.cpu_step_delay_ms = crate::timers::normalize_cpu(u64::try_from(value).unwrap_or(0));
+        }
+        if let Some(value) = table.get("turn_timer_ms").and_then(|v| v.as_integer()) {
+            if value < 0 {
+                return Err(AppError::Config {
+                    path: path.to_path_buf(),
+                    detail: "turn_timer_ms must be >= 0".into(),
+                });
+            }
+            cfg.turn_timer_ms = crate::timers::normalize_turn(u64::try_from(value).unwrap_or(0));
+        }
+        if let Some(value) = table
+            .get("response_timer_ms")
+            .or_else(|| table.get("reaction_pass_delay_ms"))
+            .and_then(|v| v.as_integer())
+        {
+            if value < 0 {
+                return Err(AppError::Config {
+                    path: path.to_path_buf(),
+                    detail: "response_timer_ms must be >= 0".into(),
+                });
+            }
+            cfg.response_timer_ms =
+                crate::timers::normalize_response(u64::try_from(value).unwrap_or(0));
+        }
+        if let Some(value) = table
+            .get("recordings_dir")
+            .or_else(|| table.get("saves_dir"))
+            .and_then(|v| v.as_str())
+        {
+            cfg.recordings_dir = Some(value.into());
+        }
+        #[cfg(feature = "debug-menu")]
+        if let Some(value) = table.get("scenarios_dir").and_then(|v| v.as_str()) {
+            cfg.scenarios_dir = Some(value.into());
+        }
 
         Ok(cfg)
+    }
+
+    pub fn resolved_recordings_dir(&self) -> std::path::PathBuf {
+        self.recordings_dir.clone().unwrap_or_else(recordings_dir)
+    }
+
+    #[cfg(feature = "debug-menu")]
+    pub fn resolved_scenarios_dir(&self) -> std::path::PathBuf {
+        crate::scenarios::resolve_scenarios_dir(self.scenarios_dir.as_deref())
     }
 
     pub fn save(&self, path: &Path) -> Result<(), AppError> {
@@ -91,10 +158,16 @@ impl AppConfig {
 theme = "{theme}"
 default_difficulty = "{difficulty}"
 human_seat = {human_seat}
+cpu_step_delay_ms = {cpu_step_delay_ms}
+turn_timer_ms = {turn_timer_ms}
+response_timer_ms = {response_timer_ms}
 "#,
             theme = self.theme,
             difficulty = difficulty_name(self.default_difficulty),
             human_seat = self.human_seat,
+            cpu_step_delay_ms = self.cpu_step_delay_ms,
+            turn_timer_ms = self.turn_timer_ms,
+            response_timer_ms = self.response_timer_ms,
         )
     }
 }

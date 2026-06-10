@@ -56,7 +56,7 @@ pub fn advance_after_hand(
     }
 
     let renchan = match outcome {
-        HandOutcome::Win { winner } => winner == dealer,
+        HandOutcome::Win { winners } => winners.contains(&dealer),
         HandOutcome::ExhaustiveDraw => dealer_tenpai,
         HandOutcome::AbortiveDraw(AbortiveDrawKind::FourKongs | AbortiveDrawKind::FourRiichis) => {
             dealer_tenpai

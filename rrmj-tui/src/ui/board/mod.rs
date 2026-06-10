@@ -17,8 +17,12 @@ pub struct PlayfieldContext<'a> {
     pub human: usize,
     pub theme: &'a Theme,
     pub live_remaining: usize,
-    pub actor_seat: Option<usize>,
+    /// Whose turn it is (discarder until the reaction window closes).
+    pub turn_seat: Option<usize>,
     pub selected_hand: Option<usize>,
+    pub drawn_hand: Option<usize>,
+    /// Hand tile currently emphasized — matching copies are highlighted in rivers.
+    pub highlight_tile: Option<Tile>,
     pub sorted_hand: &'a [Tile],
 }
 
@@ -70,14 +74,12 @@ fn draw_center_panel(frame: &mut ratatui::Frame, area: Rect, ctx: &PlayfieldCont
         ctx.theme,
     ));
     frame.render_widget(
-        Paragraph::new(lines)
-            .alignment(Alignment::Center)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(ctx.theme.block_style())
-                    .title("Table"),
-            ),
+        Paragraph::new(lines).alignment(Alignment::Center).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(ctx.theme.block_style())
+                .title("Table"),
+        ),
         area,
     );
 }
@@ -92,9 +94,9 @@ fn draw_seat_panel(
     let seat = (ctx.human + rel) % 4;
     let seat_view = &ctx.view.seats[seat];
     let is_you = rel == 0;
-    let is_actor = ctx.actor_seat == Some(seat);
+    let is_active = ctx.turn_seat == Some(seat);
 
-    let mut lines = seat_header_lines(ctx, seat, is_actor);
+    let mut lines = seat_header_lines(ctx, seat, is_active);
     lines.push(Line::from(""));
 
     for meld in &seat_view.melds {
@@ -106,7 +108,13 @@ fn draw_seat_panel(
 
     if !seat_view.discards.is_empty() {
         lines.push(Line::from(Span::styled("River", ctx.theme.muted_style())));
-        lines.push(tiles_line(&seat_view.discards, ctx.theme, None));
+        lines.push(tiles_line(
+            &seat_view.discards,
+            ctx.theme,
+            None,
+            None,
+            ctx.highlight_tile,
+        ));
         lines.push(Line::from(""));
     }
 
@@ -116,6 +124,8 @@ fn draw_seat_panel(
             ctx.sorted_hand,
             ctx.theme,
             ctx.selected_hand,
+            ctx.drawn_hand,
+            None,
         ));
     } else if seat_view.concealed_count > 0 {
         lines.push(Line::from(Span::styled(
@@ -124,7 +134,7 @@ fn draw_seat_panel(
         )));
     }
 
-    let border = if is_actor {
+    let border = if is_active {
         ctx.theme.actor_style(false)
     } else {
         ctx.theme.block_style()
@@ -136,21 +146,23 @@ fn draw_seat_panel(
     };
 
     frame.render_widget(
-        Paragraph::new(lines)
-            .alignment(align)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(border)
-                    .title(title),
-            ),
+        Paragraph::new(lines).alignment(align).block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(border)
+                .title(title),
+        ),
         area,
     );
 }
 
-fn seat_header_lines(ctx: &PlayfieldContext<'_>, seat: usize, is_actor: bool) -> Vec<Line<'static>> {
+fn seat_header_lines(
+    ctx: &PlayfieldContext<'_>,
+    seat: usize,
+    is_active: bool,
+) -> Vec<Line<'static>> {
     let seat_view = &ctx.view.seats[seat];
-    let name_style = if is_actor {
+    let name_style = if is_active {
         ctx.theme.actor_style(false)
     } else {
         Style::default().fg(ctx.theme.primary)

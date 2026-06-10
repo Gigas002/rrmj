@@ -1,0 +1,350 @@
+{
+  "format_version": 1,
+  "title": "Chi middle (shuntsu)",
+  "description": "South can chi 4p-5p-6p on East's 5p discard.",
+  "tags": [
+    "calls",
+    "chi",
+    "reaction"
+  ],
+  "rules_profile": "Standard",
+  "rules_config": {
+    "profile": "Standard",
+    "starting_points": 25000,
+    "aka_dora": true,
+    "kiriage": false,
+    "match_length": "Hanchan",
+    "target_score": null,
+    "abortive_nine_terminals": true,
+    "abortive_four_winds": true,
+    "abortive_four_kongs": true,
+    "abortive_four_riichis": true,
+    "double_ron": true,
+    "triple_ron": false
+  },
+  "seed": 2140,
+  "players": [
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2140,
+        "think_time_hint_ms": null
+      }
+    },
+    {
+      "slot": "Human"
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2140,
+        "think_time_hint_ms": null
+      }
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2140,
+        "think_time_hint_ms": null
+      }
+    }
+  ],
+  "human_seat": 1,
+  "cpu_step_delay_ms": 300,
+  "turn_timer_ms": 30000,
+  "response_timer_ms": 5000,
+  "match_status": "in_progress",
+  "dealer": 0,
+  "round_wind": "East",
+  "kyoku": 1,
+  "honba": 0,
+  "scores": [
+    25000,
+    25000,
+    25000,
+    25000
+  ],
+  "table_riichi_sticks": 0,
+  "hand_index": 0,
+  "match_phase": "InHand",
+  "hand": {
+    "dealer": 0,
+    "current_actor": 1,
+    "phase": "Reaction",
+    "hands": [
+      {
+        "concealed": {
+          "tiles": [
+            "1m",
+            "2m",
+            "3m",
+            "4m",
+            "5m",
+            "6m",
+            "7m",
+            "8m",
+            "9m",
+            "1p",
+            "2p",
+            "3p"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "2m",
+            "3m",
+            "4m",
+            "5m",
+            "6m",
+            "7m",
+            "8m",
+            "9m",
+            "1p",
+            "2p",
+            "4p",
+            "6p",
+            "9s"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "3m",
+            "4m",
+            "5m",
+            "6m",
+            "7m",
+            "8m",
+            "9m",
+            "1p",
+            "2p",
+            "3p",
+            "1s",
+            "2s",
+            "3s"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "4m",
+            "5m",
+            "6m",
+            "7m",
+            "8m",
+            "9m",
+            "1p",
+            "2p",
+            "3p",
+            "4p",
+            "4s",
+            "5s",
+            "7s"
+          ]
+        },
+        "melds": []
+      }
+    ],
+    "discards": [
+      [
+        "5p"
+      ],
+      [],
+      [],
+      []
+    ],
+    "wall": {
+      "live": [
+        "N",
+        "7p",
+        "2s",
+        "1s",
+        "5p",
+        "9s",
+        "8s",
+        "6s",
+        "rd",
+        "5s",
+        "9p",
+        "1s",
+        "4m",
+        "gd",
+        "3p",
+        "9p",
+        "2m",
+        "6m",
+        "2m",
+        "9p",
+        "rd",
+        "2p",
+        "W",
+        "8s",
+        "9m",
+        "E",
+        "6p",
+        "3p",
+        "5p",
+        "4s",
+        "3s",
+        "9s",
+        "8m",
+        "4p",
+        "4m",
+        "8m",
+        "6s",
+        "2p",
+        "7s",
+        "7m",
+        "1p",
+        "6s",
+        "4m",
+        "4s",
+        "5mr",
+        "wd",
+        "9m",
+        "S",
+        "2s",
+        "4s",
+        "8p",
+        "5pr",
+        "6m",
+        "wd",
+        "5sr",
+        "6m",
+        "E",
+        "8s",
+        "3s",
+        "1m",
+        "2s",
+        "9s",
+        "5m",
+        "S",
+        "3p",
+        "9m",
+        "S",
+        "4p",
+        "1s"
+      ],
+      "dead": [
+        "9s",
+        "6p",
+        "gd",
+        "W",
+        "wd",
+        "1p",
+        "4m",
+        "9m",
+        "5p",
+        "7m",
+        "6p",
+        "wd",
+        "4s",
+        "3s"
+      ],
+      "kan_count": 0,
+      "rinshan_taken": 0
+    },
+    "reaction": {
+      "discarder": 0,
+      "tile": "5p",
+      "kind": "Discard",
+      "responses": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "scores": [
+      25000,
+      25000,
+      25000,
+      25000
+    ],
+    "riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "table_riichi_sticks": 0,
+    "honba": 0,
+    "first_discards": [
+      "5p",
+      null,
+      null,
+      null
+    ],
+    "is_dealer_first_turn": false,
+    "temporary_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "riichi_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "ippatsu_live": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "double_riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "calls_made": false,
+    "is_rinshan_draw": false,
+    "live_draws": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "events": [
+    {
+      "Dealt": {
+        "dealer": 0
+      }
+    },
+    {
+      "HandStarted": {
+        "dealer": 0,
+        "round_wind": "East",
+        "kyoku": 1,
+        "honba": 0
+      }
+    }
+  ],
+  "event_index": 1,
+  "expected_legal_actions": [
+    {
+      "Chi": {
+        "tiles": [
+          "4p",
+          "5p",
+          "6p"
+        ]
+      }
+    },
+    "Pass"
+  ]
+}

@@ -1,0 +1,329 @@
+{
+  "format_version": 1,
+  "title": "Nine terminals abortive",
+  "description": "Dealer may declare nine-terminals abortive draw.",
+  "tags": [
+    "abortive",
+    "draw"
+  ],
+  "rules_profile": "Standard",
+  "rules_config": {
+    "profile": "Standard",
+    "starting_points": 25000,
+    "aka_dora": true,
+    "kiriage": false,
+    "match_length": "Hanchan",
+    "target_score": null,
+    "abortive_nine_terminals": true,
+    "abortive_four_winds": true,
+    "abortive_four_kongs": true,
+    "abortive_four_riichis": true,
+    "double_ron": true,
+    "triple_ron": false
+  },
+  "seed": 2100,
+  "players": [
+    {
+      "slot": "Human"
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2100,
+        "think_time_hint_ms": null
+      }
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2100,
+        "think_time_hint_ms": null
+      }
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2100,
+        "think_time_hint_ms": null
+      }
+    }
+  ],
+  "human_seat": 0,
+  "cpu_step_delay_ms": 300,
+  "turn_timer_ms": 30000,
+  "response_timer_ms": 5000,
+  "match_status": "in_progress",
+  "dealer": 0,
+  "round_wind": "East",
+  "kyoku": 1,
+  "honba": 0,
+  "scores": [
+    25000,
+    25000,
+    25000,
+    25000
+  ],
+  "table_riichi_sticks": 0,
+  "hand_index": 0,
+  "match_phase": "InHand",
+  "hand": {
+    "dealer": 0,
+    "current_actor": 0,
+    "phase": "Discard",
+    "hands": [
+      {
+        "concealed": {
+          "tiles": [
+            "1m",
+            "1m",
+            "9m",
+            "9m",
+            "1p",
+            "9p",
+            "1s",
+            "9s",
+            "E",
+            "E",
+            "S",
+            "S",
+            "W",
+            "W"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "1m",
+            "3m",
+            "5m",
+            "8m",
+            "7p",
+            "6s",
+            "E",
+            "E",
+            "E",
+            "S",
+            "W",
+            "N",
+            "wd"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "1m",
+            "2m",
+            "4m",
+            "7m",
+            "2p",
+            "3p",
+            "3p",
+            "3p",
+            "6p",
+            "7p",
+            "5s",
+            "8s",
+            "9s"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "3m",
+            "6m",
+            "7m",
+            "9m",
+            "4p",
+            "1s",
+            "2s",
+            "4s",
+            "4s",
+            "W",
+            "N",
+            "wd",
+            "rd"
+          ]
+        },
+        "melds": []
+      }
+    ],
+    "discards": [
+      [],
+      [],
+      [],
+      []
+    ],
+    "wall": {
+      "live": [
+        "9p",
+        "5m",
+        "rd",
+        "6p",
+        "2s",
+        "2p",
+        "7s",
+        "5m",
+        "2s",
+        "1m",
+        "7s",
+        "gd",
+        "6s",
+        "gd",
+        "4m",
+        "N",
+        "9p",
+        "2m",
+        "3m",
+        "2m",
+        "S",
+        "rd",
+        "8s",
+        "2s",
+        "1s",
+        "6m",
+        "9m",
+        "9m",
+        "4p",
+        "gd",
+        "9m",
+        "1s",
+        "7p",
+        "4p",
+        "5p",
+        "7s",
+        "7s",
+        "6p",
+        "8p",
+        "7m",
+        "9s",
+        "6m",
+        "1s",
+        "1p",
+        "3m",
+        "6m",
+        "4s",
+        "7p",
+        "9s",
+        "3s",
+        "8m",
+        "8s",
+        "wd",
+        "1p",
+        "1m",
+        "W",
+        "3s",
+        "5mr",
+        "rd",
+        "8s",
+        "9p",
+        "wd",
+        "2p",
+        "5s",
+        "E",
+        "5pr",
+        "S",
+        "4m",
+        "2m"
+      ],
+      "dead": [
+        "gd",
+        "9p",
+        "4m",
+        "9s",
+        "6p",
+        "6s",
+        "8m",
+        "8p",
+        "1p",
+        "3s",
+        "2p",
+        "S",
+        "5s",
+        "7m"
+      ],
+      "kan_count": 0,
+      "rinshan_taken": 0
+    },
+    "scores": [
+      25000,
+      25000,
+      25000,
+      25000
+    ],
+    "riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "table_riichi_sticks": 0,
+    "honba": 0,
+    "first_discards": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "is_dealer_first_turn": true,
+    "temporary_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "riichi_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "ippatsu_live": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "double_riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "calls_made": false,
+    "is_rinshan_draw": false,
+    "live_draws": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "events": [
+    {
+      "Dealt": {
+        "dealer": 0
+      }
+    },
+    {
+      "HandStarted": {
+        "dealer": 0,
+        "round_wind": "East",
+        "kyoku": 1,
+        "honba": 0
+      }
+    }
+  ],
+  "event_index": 1,
+  "expected_legal_actions": [
+    "AbortiveNineTerminals"
+  ]
+}

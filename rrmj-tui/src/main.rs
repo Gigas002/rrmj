@@ -3,7 +3,11 @@ mod config;
 mod error;
 mod input;
 mod logger;
+mod save;
+#[cfg(feature = "debug-menu")]
+mod scenarios;
 mod theme;
+mod timers;
 mod ui;
 
 use std::path::PathBuf;

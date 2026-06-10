@@ -1,37 +1,5 @@
-use crate::action::Action;
-use crate::game::Match;
 use crate::replay::Replay;
-use crate::rules::RulesConfig;
-use crate::tile::Tile;
-
-fn winning_tanyao_tiles() -> Vec<Tile> {
-    vec![
-        Tile::man(2),
-        Tile::man(3),
-        Tile::man(4),
-        Tile::pin(3),
-        Tile::pin(4),
-        Tile::pin(5),
-        Tile::sou(6),
-        Tile::sou(7),
-        Tile::sou(8),
-        Tile::sou(9),
-        Tile::sou(9),
-        Tile::sou(9),
-        Tile::pin(2),
-        Tile::pin(2),
-    ]
-}
-
-fn play_tsumo_hand(seed: u64) -> Match {
-    let mut game = Match::new(RulesConfig::standard(), seed).unwrap();
-    let winner = game.dealer();
-    game.hand_mut()
-        .set_concealed(winner, winning_tanyao_tiles());
-    game.hand_mut().last_draw = Some(Tile::pin(2));
-    game.apply_action(winner, Action::Tsumo).unwrap();
-    game
-}
+use crate::test_util::fixtures::play_tsumo_hand;
 
 #[test]
 fn replay_apply_all_matches_live_play() {
@@ -57,4 +25,104 @@ fn replay_serde_round_trip() {
     let json = serde_json::to_string(&replay).unwrap();
     let decoded: Replay = serde_json::from_str(&json).unwrap();
     assert_eq!(replay, decoded);
+}
+
+#[cfg(feature = "serde")]
+mod recording {
+    use super::*;
+    use crate::ai::MatchSetup;
+    use crate::replay::scenario_fixtures;
+    use crate::replay::{MatchRecording, RecordingMeta};
+
+    #[test]
+    fn recording_capture_restore_round_trip() {
+        let live = play_tsumo_hand(101);
+        let setup = MatchSetup::all_medium(live.seed());
+        let recording = MatchRecording::capture(
+            &live,
+            &setup,
+            0,
+            300,
+            30_000,
+            5_000,
+            RecordingMeta::default(),
+        );
+        let restored = recording.restore().unwrap();
+
+        assert_eq!(live.snapshot(), restored.snapshot());
+        assert_eq!(live.events(), restored.events());
+        assert_eq!(
+            live.pending_legal_actions(),
+            restored.pending_legal_actions()
+        );
+    }
+
+    #[test]
+    fn recording_json_round_trip() {
+        let live = play_tsumo_hand(102);
+        let setup = MatchSetup::all_easy(live.seed());
+        let recording = MatchRecording::capture(
+            &live,
+            &setup,
+            1,
+            300,
+            30_000,
+            5_000,
+            RecordingMeta::default(),
+        );
+        let json = recording.to_json().unwrap();
+        let decoded = MatchRecording::from_json(&json).unwrap();
+        let restored = decoded.restore().unwrap();
+        assert_eq!(live.snapshot(), restored.snapshot());
+    }
+
+    #[test]
+    fn recording_apply_until_matches_live_at_index() {
+        let live = play_tsumo_hand(103);
+        let setup = MatchSetup::all_medium(live.seed());
+        let recording = MatchRecording::capture(
+            &live,
+            &setup,
+            0,
+            300,
+            30_000,
+            5_000,
+            RecordingMeta::default(),
+        );
+        let index = recording.event_index;
+        let at_checkpoint = recording.apply_until(index).unwrap();
+        assert_eq!(live.snapshot(), at_checkpoint.snapshot());
+    }
+
+    #[test]
+    fn recording_tile_conservation() {
+        let live = play_tsumo_hand(104);
+        let setup = MatchSetup::all_medium(live.seed());
+        let recording = MatchRecording::capture(
+            &live,
+            &setup,
+            0,
+            300,
+            30_000,
+            5_000,
+            RecordingMeta::default(),
+        );
+        recording.validate().unwrap();
+        let restored = recording.restore().unwrap();
+        restored.hand().validate_tile_conservation().unwrap();
+    }
+
+    #[test]
+    #[ignore = "run manually: cargo test -p librrmj --features serde write_all_scenario_fixtures -- --ignored --nocapture"]
+    fn write_all_scenario_fixtures() {
+        scenario_fixtures::write_all();
+    }
+
+    #[test]
+    fn replay_still_works_after_refactor() {
+        let live = play_tsumo_hand(105);
+        let replay = Replay::from_match(&live);
+        let replayed = replay.apply_all().unwrap();
+        assert_eq!(live.snapshot(), replayed.snapshot());
+    }
 }

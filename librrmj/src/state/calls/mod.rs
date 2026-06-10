@@ -1,6 +1,6 @@
 use crate::Error;
 use crate::action::Action;
-use crate::hand::{Concealed, Meld};
+use crate::hand::{Concealed, Hand, Meld, MeldKind};
 use crate::tile::{Tile, TileIdentity};
 
 use super::next_seat;
@@ -10,6 +10,14 @@ pub enum CallKind {
     Chi,
     Pon,
     OpenKan,
+}
+
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChiPosition {
+    Left,
+    Middle,
+    Right,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,12 +61,94 @@ pub fn chi_actions(concealed: &Concealed, called: Tile) -> Vec<Action> {
     actions
 }
 
+#[cfg(test)]
+pub fn chi_position(called: Tile, tiles: [Tile; 3]) -> Option<ChiPosition> {
+    let rank = called.rank()?;
+    let mut ranks: Vec<u8> = tiles.iter().filter_map(|t| t.rank()).collect();
+    ranks.sort_unstable();
+    match ranks.as_slice() {
+        [a, b, c] if *a + 1 == *b && *b + 1 == *c => match rank {
+            r if r == *a => Some(ChiPosition::Right),
+            r if r == *b => Some(ChiPosition::Middle),
+            r if r == *c => Some(ChiPosition::Left),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
 pub fn can_pon(concealed: &Concealed, called: Tile) -> bool {
     matching_tiles(concealed, called).len() >= 2
 }
 
 pub fn can_open_kan(concealed: &Concealed, called: Tile) -> bool {
     matching_tiles(concealed, called).len() >= 3
+}
+
+pub fn kakan_options(hand: &Hand) -> Vec<usize> {
+    hand.melds()
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, meld)| {
+            if meld.kind() != MeldKind::Pon {
+                return None;
+            }
+            let identity = meld.tiles()[0].identity();
+            let has_fourth = hand
+                .concealed()
+                .tiles()
+                .iter()
+                .any(|t| t.identity() == identity);
+            has_fourth.then_some(idx)
+        })
+        .collect()
+}
+
+pub fn can_kakan(hand: &Hand, meld_index: usize) -> bool {
+    kakan_options(hand).contains(&meld_index)
+}
+
+pub fn upgrade_pon_to_open_kan(pon: &Meld, added: Tile) -> Result<Meld, Error> {
+    if pon.kind() != MeldKind::Pon {
+        return Err(Error::InvalidCall {
+            kind: CallKind::OpenKan,
+            reason: "kakan requires an open pon",
+        });
+    }
+    let called = pon.called().ok_or(Error::MissingCalledTile {
+        kind: MeldKind::Pon,
+    })?;
+    let mut tiles = pon.tiles().to_vec();
+    tiles.push(added);
+    if tiles.len() != 4 {
+        return Err(Error::InvalidMeldTileCount {
+            kind: MeldKind::OpenKan,
+            expected: 4,
+            actual: tiles.len(),
+        });
+    }
+    let arr: [Tile; 4] = tiles.try_into().expect("four tile kakan");
+    Meld::open_kan(arr, called)
+}
+
+pub fn resolve_kakan_tile(hand: &Hand, meld_index: usize) -> Result<Tile, Error> {
+    let meld = hand.melds().get(meld_index).ok_or(Error::InvalidCall {
+        kind: CallKind::OpenKan,
+        reason: "invalid kakan meld index",
+    })?;
+    if meld.kind() != MeldKind::Pon {
+        return Err(Error::InvalidCall {
+            kind: CallKind::OpenKan,
+            reason: "kakan requires an open pon",
+        });
+    }
+    matching_tiles(hand.concealed(), meld.tiles()[0])
+        .into_iter()
+        .next()
+        .ok_or(Error::InvalidCall {
+            kind: CallKind::OpenKan,
+            reason: "missing fourth tile for kakan",
+        })
 }
 
 pub fn closed_kan_options(concealed: &Concealed) -> Vec<Tile> {
@@ -233,3 +323,6 @@ fn is_valid_chi_sequence(tiles: [Tile; 3]) -> bool {
     ranks.sort_unstable();
     ranks.windows(2).all(|w| w[1] == w[0] + 1)
 }
+
+#[cfg(test)]
+mod tests;

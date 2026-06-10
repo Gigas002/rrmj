@@ -118,4 +118,20 @@ impl MatchSetup {
             PlayerSlot::Human | PlayerSlot::Remote => SeatAgent::HumanPending,
         })
     }
+
+    /// Reassign human control to `human_seat`. Any prior human seat becomes CPU.
+    pub fn with_human_seat(mut self, human_seat: usize) -> Self {
+        for seat in 0..4 {
+            if seat == human_seat {
+                self.slots[seat] = PlayerSlot::Human;
+                self.seat_ai[seat] = None;
+            } else if self.slots[seat] == PlayerSlot::Human {
+                self.slots[seat] = PlayerSlot::Cpu;
+                if self.seat_ai[seat].is_none() {
+                    self.seat_ai[seat] = Some(self.default_ai);
+                }
+            }
+        }
+        self
+    }
 }

@@ -30,6 +30,7 @@ pub enum BindAction {
     Continue,
     // overlays
     RulesReference,
+    Scores,
 }
 
 /// A parsed key chord.

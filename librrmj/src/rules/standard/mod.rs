@@ -1,9 +1,13 @@
 mod abortive;
+mod cheatsheet;
 mod dora;
 mod fu;
+mod patterns;
 mod score;
 mod win;
+mod win_combinations;
 mod yaku;
+mod yakuman;
 
 #[cfg(test)]
 mod tests;
@@ -16,6 +20,7 @@ use crate::rules::flow::{MatchFlowPolicy, StandardMatchFlow};
 use crate::rules::profile_trait::{RulesProfile, WinContext};
 use crate::scoring::ScoringResult;
 use crate::state::HandState;
+use crate::tile::Tile;
 
 #[cfg(feature = "ai")]
 pub use win::is_winning_hand;
@@ -35,12 +40,17 @@ impl RulesProfile for StandardRules {
         win::is_tenpai(hand)
     }
 
+    fn is_riichi_discard(&self, hand: &Hand, discard: Tile, _config: &RulesConfig) -> bool {
+        win::is_tenpai_after_discard(hand, discard)
+    }
+
     fn score_win(&self, ctx: &WinContext<'_>, config: &RulesConfig) -> ScoringResult {
         let yaku = yaku::detect_yaku(ctx, config);
         let dora = dora::count_dora(ctx, config);
         let ura_dora = dora::count_ura_dora(ctx, config);
         let aka_dora = dora::count_aka_dora(ctx, config);
-        let han = yaku::total_han(&yaku) + dora + ura_dora + aka_dora;
+        let is_open = !ctx.hand().melds().is_empty();
+        let han = yaku::total_han(&yaku, is_open) + dora + ura_dora + aka_dora;
         let fu = fu::calculate_fu(ctx, &yaku, config);
         score::score_hand(ctx, &yaku, han, fu, dora, ura_dora, aka_dora, config)
     }

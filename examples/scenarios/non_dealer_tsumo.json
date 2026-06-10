@@ -1,0 +1,347 @@
+{
+  "format_version": 1,
+  "title": "Non-dealer tsumo",
+  "description": "South wins on tsumo (tanyao).",
+  "tags": [
+    "tsumo",
+    "scoring"
+  ],
+  "rules_profile": "Standard",
+  "rules_config": {
+    "profile": "Standard",
+    "starting_points": 25000,
+    "aka_dora": true,
+    "kiriage": false,
+    "match_length": "Hanchan",
+    "target_score": null,
+    "abortive_nine_terminals": true,
+    "abortive_four_winds": true,
+    "abortive_four_kongs": true,
+    "abortive_four_riichis": true,
+    "double_ron": true,
+    "triple_ron": false
+  },
+  "seed": 2030,
+  "players": [
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2030,
+        "think_time_hint_ms": null
+      }
+    },
+    {
+      "slot": "Human"
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2030,
+        "think_time_hint_ms": null
+      }
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2030,
+        "think_time_hint_ms": null
+      }
+    }
+  ],
+  "human_seat": 1,
+  "cpu_step_delay_ms": 300,
+  "turn_timer_ms": 30000,
+  "response_timer_ms": 5000,
+  "match_status": "in_progress",
+  "dealer": 0,
+  "round_wind": "East",
+  "kyoku": 1,
+  "honba": 0,
+  "scores": [
+    25000,
+    25000,
+    25000,
+    25000
+  ],
+  "table_riichi_sticks": 0,
+  "hand_index": 0,
+  "match_phase": "InHand",
+  "hand": {
+    "dealer": 0,
+    "current_actor": 1,
+    "phase": "Discard",
+    "hands": [
+      {
+        "concealed": {
+          "tiles": [
+            "8m",
+            "4p",
+            "5p",
+            "7p",
+            "7p",
+            "7p",
+            "1s",
+            "7s",
+            "8s",
+            "9s",
+            "S",
+            "N",
+            "rd"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "2m",
+            "3m",
+            "4m",
+            "2p",
+            "2p",
+            "3p",
+            "4p",
+            "5p",
+            "5s",
+            "5s",
+            "5s",
+            "6s",
+            "7s",
+            "8s"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "1m",
+            "2m",
+            "8m",
+            "1p",
+            "2p",
+            "2p",
+            "3p",
+            "6p",
+            "9p",
+            "1s",
+            "E",
+            "W",
+            "rd"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "3m",
+            "5m",
+            "9m",
+            "9m",
+            "5pr",
+            "9p",
+            "2s",
+            "3s",
+            "4s",
+            "7s",
+            "S",
+            "S",
+            "gd"
+          ]
+        },
+        "melds": []
+      }
+    ],
+    "discards": [
+      [
+        "2m"
+      ],
+      [],
+      [],
+      []
+    ],
+    "wall": {
+      "live": [
+        "N",
+        "9p",
+        "4p",
+        "6m",
+        "W",
+        "9m",
+        "6s",
+        "5mr",
+        "4p",
+        "7m",
+        "1p",
+        "5s",
+        "7s",
+        "1m",
+        "gd",
+        "4s",
+        "3p",
+        "2m",
+        "6m",
+        "6p",
+        "2m",
+        "4m",
+        "1p",
+        "rd",
+        "1s",
+        "5s",
+        "9s",
+        "gd",
+        "9s",
+        "5p",
+        "8m",
+        "3m",
+        "8m",
+        "3s",
+        "6s",
+        "2p",
+        "5s",
+        "9p",
+        "8p",
+        "9m",
+        "8p",
+        "6p",
+        "1m",
+        "8s",
+        "3m",
+        "6s",
+        "1p",
+        "2p",
+        "5m",
+        "wd",
+        "N",
+        "2s",
+        "W",
+        "wd",
+        "5sr",
+        "gd",
+        "7m",
+        "3s",
+        "3s",
+        "E",
+        "4m",
+        "7m",
+        "8s",
+        "7s",
+        "4s",
+        "8p",
+        "S",
+        "6s"
+      ],
+      "dead": [
+        "E",
+        "4p",
+        "wd",
+        "8s",
+        "1m",
+        "5m",
+        "wd",
+        "6m",
+        "6m",
+        "3m",
+        "4s",
+        "1s",
+        "7p",
+        "4m"
+      ],
+      "kan_count": 0,
+      "rinshan_taken": 0
+    },
+    "scores": [
+      25000,
+      25000,
+      25000,
+      25000
+    ],
+    "riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "table_riichi_sticks": 0,
+    "honba": 0,
+    "last_draw": "2p",
+    "first_discards": [
+      "2m",
+      null,
+      null,
+      null
+    ],
+    "is_dealer_first_turn": false,
+    "temporary_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "riichi_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "ippatsu_live": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "double_riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "calls_made": false,
+    "is_rinshan_draw": false,
+    "live_draws": [
+      0,
+      1,
+      0,
+      0
+    ]
+  },
+  "events": [
+    {
+      "Dealt": {
+        "dealer": 0
+      }
+    },
+    {
+      "HandStarted": {
+        "dealer": 0,
+        "round_wind": "East",
+        "kyoku": 1,
+        "honba": 0
+      }
+    },
+    {
+      "Discarded": {
+        "seat": 0,
+        "tile": "2m"
+      }
+    },
+    {
+      "Drawn": {
+        "seat": 1,
+        "tile": "E"
+      }
+    }
+  ],
+  "event_index": 3,
+  "expected_legal_actions": [
+    "Tsumo"
+  ],
+  "expected_yaku": [
+    "menzen_tsumo",
+    "tanyao"
+  ]
+}

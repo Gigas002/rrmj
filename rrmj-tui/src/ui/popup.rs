@@ -33,12 +33,7 @@ pub fn centered_rect_percent(width_pct: u16, height_pct: u16, area: Rect) -> Rec
 }
 
 /// Clear and return the centered popup bounds.
-pub fn open_popup(
-    frame: &mut ratatui::Frame,
-    area: Rect,
-    width_pct: u16,
-    height_pct: u16,
-) -> Rect {
+pub fn open_popup(frame: &mut ratatui::Frame, area: Rect, width_pct: u16, height_pct: u16) -> Rect {
     let popup = centered_rect_percent(width_pct, height_pct, area);
     frame.render_widget(Clear, popup);
     popup

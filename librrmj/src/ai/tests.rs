@@ -1,3 +1,10 @@
+#[path = "easy/tests.rs"]
+mod easy;
+#[path = "hard/tests.rs"]
+mod hard;
+#[path = "medium/tests.rs"]
+mod medium;
+
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 

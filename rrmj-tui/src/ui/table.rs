@@ -25,13 +25,17 @@ pub fn draw_table(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &The
         ])
         .split(area);
 
+    let selected_hand = pick_selected_index(app, &sorted_hand);
+    let drawn_hand = drawn_hand_index(&sorted_hand, view.last_draw);
     let ctx = PlayfieldContext {
         view: &view,
         human,
         theme,
         live_remaining: app.wall_remaining().unwrap_or(0),
-        actor_seat: app.actor_seat(),
-        selected_hand: pick_selected_index(app, &sorted_hand),
+        turn_seat: app.turn_highlight_seat(),
+        selected_hand,
+        drawn_hand,
+        highlight_tile: highlighted_hand_tile(&sorted_hand, selected_hand, drawn_hand),
         sorted_hand: &sorted_hand,
     };
     draw_playfield(frame, root[0], &ctx);
@@ -49,9 +53,9 @@ pub fn draw_table(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &The
     );
 
     let status = if app.is_human_pending() {
-        format!("Your turn — {}", app.table_mode().label())
+        format!("Your decision — {}", app.table_mode().label())
     } else {
-        "Waiting for opponents…".into()
+        "Waiting…  (esc pause)".into()
     };
     frame.render_widget(
         Paragraph::new(Line::from(vec![
@@ -65,33 +69,67 @@ pub fn draw_table(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &The
 
 fn pick_selected_index(app: &App, hand: &[librrmj::tile::Tile]) -> Option<usize> {
     let menu = app.action_menu();
-    match app.table_mode() {
-        TableMode::PickDiscard => menu
-            .discards
-            .get(app.tile_index())
-            .and_then(|t| hand.iter().position(|h| h == t)),
-        TableMode::PickRiichi => menu
-            .riichi
-            .get(app.tile_index())
-            .and_then(|t| hand.iter().position(|h| h == t)),
-        TableMode::PickClosedKan => menu
-            .closed_kans
-            .get(app.tile_index())
-            .and_then(|t| hand.iter().position(|h| h == t)),
-        _ => None,
-    }
+    let (picker_tiles, picker_index) = match app.table_mode() {
+        TableMode::PickDiscard => (&menu.discards, app.tile_index()),
+        TableMode::PickRiichi => (&menu.riichi, app.tile_index()),
+        TableMode::PickClosedKan => (&menu.closed_kans, app.tile_index()),
+        _ => return None,
+    };
+    picker_index_to_hand_index(hand, picker_tiles, picker_index)
+}
+
+fn drawn_hand_index(
+    hand: &[librrmj::tile::Tile],
+    drawn: Option<librrmj::tile::Tile>,
+) -> Option<usize> {
+    let drawn = drawn?;
+    hand.iter().rposition(|t| *t == drawn)
+}
+
+fn highlighted_hand_tile(
+    hand: &[librrmj::tile::Tile],
+    selected: Option<usize>,
+    drawn: Option<usize>,
+) -> Option<librrmj::tile::Tile> {
+    selected.or(drawn).and_then(|i| hand.get(i).copied())
+}
+
+/// Maps a sorted legal-action picker entry to the matching hand index (duplicates included).
+fn picker_index_to_hand_index(
+    hand: &[librrmj::tile::Tile],
+    picker_tiles: &[librrmj::tile::Tile],
+    picker_index: usize,
+) -> Option<usize> {
+    let tile = picker_tiles.get(picker_index)?;
+    let occurrence = picker_tiles
+        .iter()
+        .take(picker_index + 1)
+        .filter(|&&t| t == *tile)
+        .count();
+    hand.iter()
+        .enumerate()
+        .filter(|(_, h)| **h == *tile)
+        .nth(occurrence - 1)
+        .map(|(i, _)| i)
 }
 
 fn action_help(app: &App, theme: &Theme) -> Vec<Line<'static>> {
     if !app.is_human_pending() {
         return vec![Line::from(Span::styled(
-            "Opponents are playing…",
+            "Waiting…  (esc pause)",
             theme.muted_style(),
         ))];
     }
-    let menu = app.action_menu();
     let binds = app.keybinds();
+    let menu = app.action_menu();
     let mut lines = vec![];
+    if let Some(label) = app.human_decision_timer_label() {
+        lines.push(Line::from(Span::styled(
+            format!("Time left: {label}"),
+            theme.status_style(),
+        )));
+        lines.push(Line::from(""));
+    }
 
     if menu.is_reaction() {
         if menu.can_ron {
@@ -113,7 +151,10 @@ fn action_help(app: &App, theme: &Theme) -> Vec<Line<'static>> {
                     Span::raw(if sel { "  > " } else { "    " }),
                     Span::raw(format!("chi {}: ", i + 1)),
                 ];
-                spans.extend(chi.iter().map(|t| tile_span(*t, theme, false)));
+                spans.extend(
+                    chi.iter()
+                        .map(|t| tile_span(*t, theme, false, false, false)),
+                );
                 lines.push(Line::from(spans));
             }
         }
@@ -196,4 +237,32 @@ fn action_line(
         ),
         style,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use librrmj::tile::Tile;
+
+    use super::{drawn_hand_index, picker_index_to_hand_index};
+
+    #[test]
+    fn picker_index_steps_through_duplicate_tiles() {
+        let hand = [
+            Tile::man(8),
+            Tile::man(8),
+            Tile::sou(1),
+            Tile::sou(2),
+            Tile::sou(3),
+        ];
+        let discards = hand.to_vec();
+        assert_eq!(picker_index_to_hand_index(&hand, &discards, 0), Some(0));
+        assert_eq!(picker_index_to_hand_index(&hand, &discards, 1), Some(1));
+        assert_eq!(picker_index_to_hand_index(&hand, &discards, 2), Some(2));
+    }
+
+    #[test]
+    fn drawn_tile_highlights_rightmost_copy() {
+        let hand = [Tile::man(8), Tile::man(8), Tile::sou(1)];
+        assert_eq!(drawn_hand_index(&hand, Some(Tile::man(8))), Some(1));
+    }
 }

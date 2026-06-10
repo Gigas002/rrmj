@@ -11,6 +11,7 @@ use crate::Error;
 
 /// A player's hand: concealed tiles plus open melds.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Hand {
     concealed: Concealed,
     melds: Vec<Meld>,

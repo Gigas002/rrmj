@@ -10,5 +10,5 @@ mod tests;
 
 pub use config::RulesConfig;
 pub use profile::RulesProfileId;
-pub use profile_trait::{RulesProfile, WinContext};
+pub use profile_trait::{RulesProfile, WinContext, WinTimingFlags};
 pub use registry::RulesRegistry;

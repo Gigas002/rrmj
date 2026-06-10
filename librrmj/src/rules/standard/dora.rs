@@ -20,14 +20,14 @@ pub fn count_aka_dora(ctx: &WinContext<'_>, config: &RulesConfig) -> u8 {
     if !config.aka_dora {
         return 0;
     }
-    win::all_tiles_in_hand(ctx.hand(), ctx.win_tile)
+    win::all_tiles_in_hand(ctx.hand(), ctx.win_tile, ctx.win_type)
         .iter()
         .filter(|tile| tile.is_red())
         .count() as u8
 }
 
 fn count_matching(indicators: &[Tile], ctx: &WinContext<'_>) -> u8 {
-    let hand = win::all_tiles_in_hand(ctx.hand(), ctx.win_tile);
+    let hand = win::all_tiles_in_hand(ctx.hand(), ctx.win_tile, ctx.win_type);
     indicators
         .iter()
         .filter_map(|indicator| dora_tile(*indicator))

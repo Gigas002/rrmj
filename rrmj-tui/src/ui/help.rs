@@ -22,13 +22,11 @@ pub fn draw_help_popup(frame: &mut ratatui::Frame, area: Rect, app: &App, theme:
         )));
     }
 
-    let widget = Paragraph::new(lines)
-        .wrap(Wrap { trim: true })
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(theme.block_style())
-                .title("Help"),
-        );
+    let widget = Paragraph::new(lines).wrap(Wrap { trim: true }).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(theme.block_style())
+            .title("Help"),
+    );
     frame.render_widget(widget, popup);
 }
