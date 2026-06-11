@@ -48,7 +48,7 @@ fn style_line(line: &str, theme: &Theme) -> Line<'static> {
             theme.status_style().add_modifier(Modifier::BOLD),
         ));
     }
-    if line.starts_with("Implemented yaku:") || line.starts_with("Press ?") {
+    if line.starts_with("Press ?") {
         return Line::from(Span::styled(
             line.to_string(),
             Style::default().fg(theme.muted),

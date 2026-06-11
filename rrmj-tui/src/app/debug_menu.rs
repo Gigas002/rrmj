@@ -2,12 +2,13 @@
 
 use crossterm::event::{KeyCode, KeyEvent};
 
+use super::path_input::{PathInputAction, PathInputDialog};
 use super::{App, DebugScenarioSetup, DebugSetupField, MainMenuMode, Screen, TableMode};
 use crate::error::AppError;
 use crate::input::BindAction;
 use crate::scenarios::{self, ScenarioEntry};
 
-pub const DEBUG_MENU_INDEX: usize = 2;
+pub const DEBUG_MENU_INDEX: usize = 3;
 
 impl App {
     pub(super) fn handle_debug_mode_menu(
@@ -17,6 +18,9 @@ impl App {
     ) -> Result<(), AppError> {
         if self.main_menu_mode == MainMenuMode::LoadGame {
             return self.handle_load_game_menu(key, action);
+        }
+        if self.main_menu_mode == MainMenuMode::Replays {
+            return self.handle_replays_menu(key, action);
         }
         if self.main_menu_mode == MainMenuMode::Debug {
             return self.handle_debug_menu(key, action);
@@ -39,8 +43,9 @@ impl App {
                     Ok(())
                 }
                 1 => self.open_load_game_menu(),
+                super::REPLAYS_MENU_INDEX => self.open_replays_menu(),
                 DEBUG_MENU_INDEX => self.open_debug_menu(),
-                3 => {
+                4 => {
                     self.settings_field = super::SettingsField::Theme;
                     self.settings_open = true;
                     Ok(())
@@ -106,11 +111,59 @@ impl App {
         Ok(())
     }
 
+    fn default_import_scenario_path(&self) -> std::path::PathBuf {
+        self.config
+            .resolved_scenarios_dir()
+            .join("import.rrmj.json")
+    }
+
+    fn open_import_scenario(&mut self) {
+        self.import_scenario = Some(PathInputDialog::new(self.default_import_scenario_path()));
+    }
+
+    fn close_import_scenario(&mut self) {
+        self.import_scenario = None;
+    }
+
+    pub(super) fn handle_import_scenario_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        let is_activate = self.is_activate(&key);
+        let is_back = self.keybinds.is_bound(&key, BindAction::Back);
+        let dialog = self.import_scenario.as_mut().expect("import dialog open");
+        match dialog.handle_key(key, is_activate, is_back) {
+            PathInputAction::Continue => {}
+            PathInputAction::Cancel => self.close_import_scenario(),
+            PathInputAction::Confirm(path) => {
+                if path.is_empty() {
+                    self.status = "Enter a scenario file path".into();
+                    return Ok(());
+                }
+                match scenarios::load_scenario_from_path(&path) {
+                    Ok((entry, recording)) => {
+                        self.debug_setup = Some(DebugScenarioSetup::new(
+                            entry,
+                            recording,
+                            self.config.human_seat,
+                        ));
+                        self.close_import_scenario();
+                        self.main_menu_mode = MainMenuMode::Root;
+                        self.status.clear();
+                    }
+                    Err(err) => self.status = format!("Import failed: {err}"),
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn handle_debug_menu(
         &mut self,
         key: &KeyEvent,
         action: Option<BindAction>,
     ) -> Result<(), AppError> {
+        if key.code == KeyCode::Char('i') {
+            self.open_import_scenario();
+            return Ok(());
+        }
         if self.keybinds.is_bound(key, BindAction::Back) {
             self.main_menu_mode = MainMenuMode::Root;
             self.menu_index = DEBUG_MENU_INDEX;

@@ -7,9 +7,11 @@ mod hand_result;
 mod help;
 mod load_setup;
 mod menu;
+mod path_input;
 mod pause;
 mod popup;
 mod render;
+mod replay_review;
 mod rules;
 mod rules_content;
 mod scores;
@@ -30,6 +32,7 @@ pub fn draw(frame: &mut Frame, app: &App, theme: &Theme) {
     match app.screen() {
         Screen::MainMenu => draw_main_menu_screen(frame, area, app, theme),
         Screen::Table => draw_table_screen(frame, area, app, theme),
+        Screen::ReplayReview => replay_review::draw_replay_review(frame, area, app, theme),
     }
 
     if app.help_open() {
@@ -55,12 +58,39 @@ fn draw_main_menu_screen(frame: &mut Frame, area: Rect, app: &App, theme: &Theme
     if app.settings_open() {
         menu::draw_settings_popup(frame, area, app, theme);
     }
+    #[cfg(feature = "debug-menu")]
+    if app.import_scenario_open()
+        && let Some(path) = app.import_scenario_path()
+    {
+        path_input::draw_path_input_popup(
+            frame,
+            area,
+            "Import scenario",
+            "Load a scenario JSON file from disk.",
+            path,
+            "Type path  enter import  esc cancel",
+            theme,
+        );
+    }
 }
 
 fn draw_table_screen(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
     table::draw_table(frame, area, app, theme);
     if app.pause_open() {
         pause::draw_pause_popup(frame, area, app.pause_index(), theme);
+    }
+    if app.export_save_open()
+        && let Some(path) = app.export_save_path()
+    {
+        path_input::draw_path_input_popup(
+            frame,
+            area,
+            "Export save",
+            "Export current match to a file path.",
+            path,
+            "Type path  enter export  esc cancel",
+            theme,
+        );
     } else if app.scores_open() {
         scores::draw_scores_popup(frame, area, app, theme);
     }

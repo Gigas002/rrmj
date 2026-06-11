@@ -7,6 +7,7 @@ use std::fs;
 use std::path::Path;
 
 use librrmj::ai::Difficulty;
+use librrmj::rules::{RulesConfig, RulesProfileId, RulesRegistry};
 
 use crate::error::AppError;
 
@@ -16,6 +17,7 @@ pub use paths::{config_dir, config_path, keybinds_path, recordings_dir};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppConfig {
     pub theme: String,
+    pub rules_profile: RulesProfileId,
     pub default_difficulty: Difficulty,
     pub human_seat: usize,
     /// Pause between CPU decisions (presentation).
@@ -33,6 +35,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             theme: "default".into(),
+            rules_profile: RulesProfileId::Standard,
             default_difficulty: Difficulty::Medium,
             human_seat: 0,
             cpu_step_delay_ms: crate::timers::DEFAULT_CPU_MS,
@@ -66,6 +69,19 @@ impl AppConfig {
         let mut cfg = Self::default();
         if let Some(value) = table.get("theme").and_then(|v| v.as_str()) {
             cfg.theme = value.to_string();
+        }
+        if let Some(value) = table.get("rules_profile").and_then(|v| v.as_str()) {
+            cfg.rules_profile =
+                RulesProfileId::parse(value).map_err(|detail| AppError::Config {
+                    path: path.to_path_buf(),
+                    detail,
+                })?;
+        }
+        if let Err(err) = RulesRegistry::get(cfg.rules_profile) {
+            return Err(AppError::Config {
+                path: path.to_path_buf(),
+                detail: err.to_string(),
+            });
         }
         if let Some(value) = table.get("default_difficulty").and_then(|v| v.as_str()) {
             cfg.default_difficulty =
@@ -138,6 +154,11 @@ impl AppConfig {
         self.recordings_dir.clone().unwrap_or_else(recordings_dir)
     }
 
+    /// Engine rules for new games (tunables come from [`RulesConfig::default_for`]).
+    pub fn rules_config(&self) -> RulesConfig {
+        RulesConfig::default_for(self.rules_profile)
+    }
+
     #[cfg(feature = "debug-menu")]
     pub fn resolved_scenarios_dir(&self) -> std::path::PathBuf {
         crate::scenarios::resolve_scenarios_dir(self.scenarios_dir.as_deref())
@@ -156,6 +177,7 @@ impl AppConfig {
             r#"# rrmj TUI settings — see README for details.
 
 theme = "{theme}"
+rules_profile = "{rules_profile}"
 default_difficulty = "{difficulty}"
 human_seat = {human_seat}
 cpu_step_delay_ms = {cpu_step_delay_ms}
@@ -163,6 +185,7 @@ turn_timer_ms = {turn_timer_ms}
 response_timer_ms = {response_timer_ms}
 "#,
             theme = self.theme,
+            rules_profile = self.rules_profile.as_str(),
             difficulty = difficulty_name(self.default_difficulty),
             human_seat = self.human_seat,
             cpu_step_delay_ms = self.cpu_step_delay_ms,

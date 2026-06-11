@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use librrmj::replay::MatchRecording;
 
 use crate::error::AppError;
+use crate::save::resolve_user_path;
 
 #[derive(Debug, Clone)]
 pub struct ScenarioEntry {
@@ -50,17 +51,7 @@ pub fn list_scenarios(dir: &Path) -> Result<Vec<ScenarioEntry>, AppError> {
         }
         let text = fs::read_to_string(&path).map_err(AppError::Terminal)?;
         let recording = MatchRecording::from_json(&text).map_err(AppError::Engine)?;
-        let id = path
-            .file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        entries.push(ScenarioEntry {
-            title: recording.meta.title.clone().unwrap_or_else(|| id.clone()),
-            description: recording.meta.description.clone().unwrap_or_default(),
-            tags: recording.meta.tags.clone(),
-            id,
-            path,
-        });
+        entries.push(scenario_entry(path, &recording));
     }
 
     entries.sort_by(|a, b| {
@@ -77,6 +68,43 @@ pub fn list_scenarios(dir: &Path) -> Result<Vec<ScenarioEntry>, AppError> {
 pub fn read_scenario(path: &Path) -> Result<MatchRecording, AppError> {
     let text = fs::read_to_string(path).map_err(AppError::Terminal)?;
     MatchRecording::from_json(&text).map_err(AppError::Engine)
+}
+
+fn scenario_entry(path: PathBuf, recording: &MatchRecording) -> ScenarioEntry {
+    let id = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    ScenarioEntry {
+        title: recording.meta.title.clone().unwrap_or_else(|| id.clone()),
+        description: recording.meta.description.clone().unwrap_or_default(),
+        tags: recording.meta.tags.clone(),
+        id,
+        path,
+    }
+}
+
+/// Resolve a user-typed path and load a scenario from anywhere on disk.
+pub fn load_scenario_from_path(path: &str) -> Result<(ScenarioEntry, MatchRecording), AppError> {
+    let path = resolve_scenario_path(path);
+    let recording = read_scenario(&path)?;
+    recording.validate().map_err(AppError::Engine)?;
+    let entry = scenario_entry(path, &recording);
+    Ok((entry, recording))
+}
+
+fn resolve_scenario_path(path: &str) -> PathBuf {
+    let resolved = resolve_user_path(path.trim());
+    if resolved.is_file() {
+        return resolved;
+    }
+    if resolved.extension().is_none() {
+        let with_json = resolved.with_extension("json");
+        if with_json.is_file() {
+            return with_json;
+        }
+    }
+    resolved
 }
 
 pub fn all_tags(entries: &[ScenarioEntry]) -> Vec<String> {

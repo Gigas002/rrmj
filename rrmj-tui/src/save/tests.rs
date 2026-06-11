@@ -1,9 +1,13 @@
 use std::fs;
+use std::path::PathBuf;
 
 use librrmj::replay::MatchStatus;
 use tempfile::TempDir;
 
-use super::{SavePaths, list_by_status, list_in_progress};
+use super::{
+    SavePaths, ensure_recording_extension, list_finished, list_in_progress, resolve_user_path,
+    write_recording,
+};
 
 fn recording_from_json(text: &str) -> librrmj::replay::MatchRecording {
     librrmj::replay::MatchRecording::from_json(text).expect("parse recording")
@@ -30,9 +34,40 @@ fn list_filters_by_match_status() {
     assert_eq!(saves.len(), 1);
     assert!(saves[0].path.ends_with("active.json"));
 
-    let replays = list_by_status(&paths, MatchStatus::Finished).unwrap();
+    let replays = list_finished(&paths).unwrap();
     assert_eq!(replays.len(), 1);
     assert!(replays[0].path.ends_with("done.json"));
+    assert!(replays[0].detail.contains("hands"));
+}
+
+#[test]
+fn resolve_user_path_expands_tilde() {
+    let home = std::env::var_os("HOME").expect("HOME");
+    let path = resolve_user_path("~/exports/save.rrmj.json");
+    assert_eq!(path, PathBuf::from(home).join("exports/save.rrmj.json"));
+}
+
+#[test]
+fn ensure_recording_extension_appends_suffix() {
+    let path = ensure_recording_extension(PathBuf::from("/tmp/my-export"));
+    assert_eq!(path, PathBuf::from("/tmp/my-export.rrmj.json"));
+
+    let existing = ensure_recording_extension(PathBuf::from("/tmp/already.rrmj.json"));
+    assert_eq!(existing, PathBuf::from("/tmp/already.rrmj.json"));
+}
+
+#[test]
+fn write_recording_round_trip() {
+    let tmp = TempDir::new().unwrap();
+    let path = tmp.path().join("export.rrmj.json");
+    let text = include_str!("../../../examples/scenarios/dealer_tsumo.json");
+    let recording = recording_from_json(text);
+
+    write_recording(&path, &recording).unwrap();
+    let read_back = fs::read_to_string(&path).unwrap();
+    let parsed = recording_from_json(&read_back);
+    parsed.validate().unwrap();
+    assert_eq!(parsed.seed, recording.seed);
 }
 
 #[test]

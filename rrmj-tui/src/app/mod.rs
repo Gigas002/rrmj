@@ -3,9 +3,12 @@ mod actions;
 mod debug_menu;
 #[cfg(feature = "debug-menu")]
 mod debug_setup;
+mod event_text;
 mod hand_result;
 mod load_setup;
+mod path_input;
 mod pause;
+mod replay_review;
 mod settings;
 mod setup;
 mod timers;
@@ -15,7 +18,9 @@ pub use actions::ActionMenu;
 pub use debug_setup::{DebugScenarioSetup, DebugSetupField};
 pub use hand_result::HandResultSummary;
 pub use load_setup::{LoadGameSetup, LoadSetupField};
+pub use path_input::PathInputDialog;
 pub use pause::PauseItem;
+pub use replay_review::ReplayReview;
 pub use settings::SettingsField;
 pub use setup::{NewGameSetup, SetupField, difficulty_label};
 
@@ -33,7 +38,6 @@ use librrmj::agent::{PlayerSlot, PlayerView};
 use librrmj::ai::{MatchSetup, SeatAgent};
 use librrmj::event::Event as GameEvent;
 use librrmj::game::Match;
-use librrmj::rules::RulesConfig;
 use librrmj::state::HandPhase;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
@@ -42,9 +46,11 @@ use crate::config::{AppConfig, cycle_theme};
 use crate::error::AppError;
 use crate::input::{BindAction, Keybinds, normalize_key_event};
 use crate::save::{
-    RecordingEntry, SavePaths, list_in_progress, read_recording, unix_timestamp_string,
-    write_recording_async,
+    RecordingEntry, SavePaths, list_finished, list_in_progress, read_recording,
+    unix_timestamp_string, write_recording_async,
 };
+
+use self::path_input::PathInputAction;
 use crate::theme::Theme;
 use crate::timers::{TimerKind, format_decision_timer};
 use crate::ui;
@@ -56,17 +62,20 @@ use self::timers::{ActionTimerState, timeout_action};
 pub enum Screen {
     MainMenu,
     Table,
+    ReplayReview,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MainMenuMode {
     Root,
     LoadGame,
+    Replays,
     #[cfg(feature = "debug-menu")]
     Debug,
 }
 
-pub(crate) const ROOT_MENU_LEN: usize = if cfg!(feature = "debug-menu") { 5 } else { 4 };
+pub(crate) const REPLAYS_MENU_INDEX: usize = 2;
+pub(crate) const ROOT_MENU_LEN: usize = if cfg!(feature = "debug-menu") { 6 } else { 5 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TableMode {
@@ -74,6 +83,7 @@ pub enum TableMode {
     PickDiscard,
     PickRiichi,
     PickClosedKan,
+    PickKakan,
     PickChi,
 }
 
@@ -88,6 +98,8 @@ pub struct App {
     menu_index: usize,
     main_menu_mode: MainMenuMode,
     load_entries: Vec<RecordingEntry>,
+    replay_entries: Vec<RecordingEntry>,
+    replay_review: Option<ReplayReview>,
     #[cfg(feature = "debug-menu")]
     debug_entries: Vec<crate::scenarios::ScenarioEntry>,
     #[cfg(feature = "debug-menu")]
@@ -115,6 +127,9 @@ pub struct App {
     help_open: bool,
     pause_open: bool,
     pause_index: PauseItem,
+    export_save: Option<PathInputDialog>,
+    #[cfg(feature = "debug-menu")]
+    import_scenario: Option<PathInputDialog>,
     scores_open: bool,
     settings_open: bool,
     rules_open: bool,
@@ -143,6 +158,8 @@ impl App {
             menu_index: 0,
             main_menu_mode: MainMenuMode::Root,
             load_entries: Vec::new(),
+            replay_entries: Vec::new(),
+            replay_review: None,
             #[cfg(feature = "debug-menu")]
             debug_entries: Vec::new(),
             #[cfg(feature = "debug-menu")]
@@ -170,6 +187,9 @@ impl App {
             help_open: false,
             pause_open: false,
             pause_index: PauseItem::Resume,
+            export_save: None,
+            #[cfg(feature = "debug-menu")]
+            import_scenario: None,
             scores_open: false,
             settings_open: false,
             rules_open: false,
@@ -222,6 +242,7 @@ impl App {
         if self.screen != Screen::Table
             || self.hand_result.is_some()
             || self.pause_open
+            || self.export_save.is_some()
             || self.scores_open
         {
             return Ok(());
@@ -271,6 +292,7 @@ impl App {
     fn tick_action_timers(&mut self) -> Result<(), AppError> {
         if self.screen != Screen::Table
             || self.pause_open
+            || self.export_save.is_some()
             || self.scores_open
             || self.help_open
             || self.rules_open
@@ -363,6 +385,7 @@ impl App {
     fn close_pause_menu(&mut self) {
         self.pause_open = false;
         self.pause_index = PauseItem::Resume;
+        self.export_save = None;
     }
 
     fn return_to_main_menu(&mut self) {
@@ -385,8 +408,97 @@ impl App {
         self.status = "Returned to main menu".into();
     }
 
+    fn try_exit_table_to_main_menu(&mut self, action: Option<BindAction>) -> bool {
+        if matches!(action, Some(BindAction::MainMenu)) {
+            self.return_to_main_menu();
+            return true;
+        }
+        false
+    }
+
+    fn default_export_path(&self) -> PathBuf {
+        if let Some(path) = &self.active_save_path {
+            return path.clone();
+        }
+        let seed = self
+            .match_game
+            .as_ref()
+            .map(|game| game.seed())
+            .unwrap_or(0);
+        self.save_paths().recording_path(&format!("match-{seed}"))
+    }
+
+    fn open_export_save(&mut self) {
+        self.export_save = Some(PathInputDialog::new(self.default_export_path()));
+    }
+
+    fn close_export_save(&mut self) {
+        self.export_save = None;
+    }
+
+    fn capture_current_recording(&self) -> Option<MatchRecording> {
+        let game = self.match_game.as_ref()?;
+        let setup = self.setup_meta.as_ref()?;
+        let id = self
+            .active_recording_id
+            .clone()
+            .unwrap_or_else(|| format!("match-{}", game.seed()));
+        let meta = RecordingMeta {
+            recording_id: Some(id),
+            updated_at: Some(unix_timestamp_string()),
+            client_version: Some(format!("rrmj-tui {}", librrmj::VERSION)),
+            ..RecordingMeta::default()
+        };
+        Some(MatchRecording::capture(
+            game,
+            setup,
+            self.human_seat_active,
+            self.cpu_step_delay_ms,
+            self.turn_timer_ms,
+            self.response_timer_ms,
+            meta,
+        ))
+    }
+
+    fn handle_export_save_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        let Some(recording) = self.capture_current_recording() else {
+            self.close_export_save();
+            self.status = "No match to export".into();
+            return Ok(());
+        };
+        let is_activate = self.is_activate(&key);
+        let is_back = self.keybinds.is_bound(&key, BindAction::Back);
+        let dialog = self.export_save.as_mut().expect("export dialog open");
+        match dialog.handle_key(key, is_activate, is_back) {
+            PathInputAction::Continue => {}
+            PathInputAction::Cancel => self.close_export_save(),
+            PathInputAction::Confirm(path) => {
+                if path.is_empty() {
+                    self.status = "Enter a file path to export".into();
+                    return Ok(());
+                }
+                let path =
+                    crate::save::ensure_recording_extension(crate::save::resolve_user_path(&path));
+                match crate::save::write_recording(&path, &recording) {
+                    Ok(()) => {
+                        self.status = format!("Exported to {}", path.display());
+                        self.close_export_save();
+                    }
+                    Err(err) => self.status = format!("Export failed: {err}"),
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn handle_pause_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        if self.export_save.is_some() {
+            return self.handle_export_save_key(key);
+        }
         let action = self.keybinds.action_for(&key);
+        if self.try_exit_table_to_main_menu(action) {
+            return Ok(());
+        }
         if self.keybinds.is_bound(&key, BindAction::Back) {
             self.close_pause_menu();
             return Ok(());
@@ -395,6 +507,10 @@ impl App {
             return match self.pause_index {
                 PauseItem::Resume => {
                     self.close_pause_menu();
+                    Ok(())
+                }
+                PauseItem::ExportSave => {
+                    self.open_export_save();
                     Ok(())
                 }
                 PauseItem::MainMenu => {
@@ -427,31 +543,16 @@ impl App {
     }
 
     fn persist_match(&self) {
-        let (Some(game), Some(setup)) = (&self.match_game, &self.setup_meta) else {
+        let Some(recording) = self.capture_current_recording() else {
             return;
         };
-        if game.is_ended() {
+        if self.match_game.as_ref().is_some_and(|game| game.is_ended()) {
             return;
         }
         let id = self
             .active_recording_id
             .clone()
             .unwrap_or_else(|| "autosave".into());
-        let meta = RecordingMeta {
-            recording_id: Some(id.clone()),
-            updated_at: Some(unix_timestamp_string()),
-            client_version: Some(format!("rrmj-tui {}", librrmj::VERSION)),
-            ..RecordingMeta::default()
-        };
-        let recording = MatchRecording::capture(
-            game,
-            setup,
-            self.human_seat_active,
-            self.cpu_step_delay_ms,
-            self.turn_timer_ms,
-            self.response_timer_ms,
-            meta,
-        );
         let path = self.save_paths().recording_path(&id);
         write_recording_async(path, recording);
     }
@@ -495,6 +596,10 @@ impl App {
     fn handle_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
         let key = normalize_key_event(key);
 
+        #[cfg(feature = "debug-menu")]
+        if self.import_scenario.is_some() {
+            return self.handle_import_scenario_key(key);
+        }
         if self.pause_open {
             return self.handle_pause_key(key);
         }
@@ -543,6 +648,7 @@ impl App {
         match self.screen {
             Screen::MainMenu => self.handle_main_menu(&key, action),
             Screen::Table => self.handle_table(&key, action),
+            Screen::ReplayReview => self.handle_replay_review_key(&key, action),
         }
     }
 
@@ -628,6 +734,9 @@ impl App {
             if self.main_menu_mode == MainMenuMode::LoadGame {
                 return self.handle_load_game_menu(key, action);
             }
+            if self.main_menu_mode == MainMenuMode::Replays {
+                return self.handle_replays_menu(key, action);
+            }
 
             if self.is_activate(key) {
                 return match self.menu_index {
@@ -642,7 +751,8 @@ impl App {
                         Ok(())
                     }
                     1 => self.open_load_game_menu(),
-                    2 => {
+                    REPLAYS_MENU_INDEX => self.open_replays_menu(),
+                    3 => {
                         self.settings_field = SettingsField::Theme;
                         self.settings_open = true;
                         Ok(())
@@ -681,6 +791,18 @@ impl App {
         Ok(())
     }
 
+    fn open_replays_menu(&mut self) -> Result<(), AppError> {
+        self.replay_entries = list_finished(&self.save_paths())?;
+        self.main_menu_mode = MainMenuMode::Replays;
+        self.menu_index = 0;
+        if self.replay_entries.is_empty() {
+            self.status = "No finished replays found".into();
+        } else {
+            self.status.clear();
+        }
+        Ok(())
+    }
+
     fn handle_load_game_menu(
         &mut self,
         key: &KeyEvent,
@@ -711,6 +833,97 @@ impl App {
             }
             Some(BindAction::Quit) => self.quit = true,
             _ => {}
+        }
+        Ok(())
+    }
+
+    fn handle_replays_menu(
+        &mut self,
+        key: &KeyEvent,
+        action: Option<BindAction>,
+    ) -> Result<(), AppError> {
+        if self.keybinds.is_bound(key, BindAction::Back) {
+            self.main_menu_mode = MainMenuMode::Root;
+            self.menu_index = REPLAYS_MENU_INDEX;
+            return Ok(());
+        }
+        if self.replay_entries.is_empty() {
+            if self.is_activate(key) || self.keybinds.is_bound(key, BindAction::Back) {
+                self.main_menu_mode = MainMenuMode::Root;
+                self.menu_index = REPLAYS_MENU_INDEX;
+            }
+            return Ok(());
+        }
+        if self.is_activate(key) {
+            return self.open_replay_review();
+        }
+        let max = self.replay_entries.len().saturating_sub(1);
+        match action {
+            Some(BindAction::MenuUp) => {
+                self.menu_index = self.menu_index.saturating_sub(1);
+            }
+            Some(BindAction::MenuDown) => {
+                self.menu_index = (self.menu_index + 1).min(max);
+            }
+            Some(BindAction::Quit) => self.quit = true,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn open_replay_review(&mut self) -> Result<(), AppError> {
+        let entry = self
+            .replay_entries
+            .get(self.menu_index)
+            .cloned()
+            .ok_or_else(|| AppError::Config {
+                path: self.config_path.clone(),
+                detail: "no replay selected".into(),
+            })?;
+        let recording = read_recording(&entry.path)?;
+        let match_game = recording.restore()?;
+        let title = recording
+            .meta
+            .title
+            .clone()
+            .unwrap_or_else(|| entry.label.clone());
+        self.replay_review = Some(ReplayReview::new(entry, recording, match_game));
+        self.screen = Screen::ReplayReview;
+        self.status = format!("Replay: {title}");
+        Ok(())
+    }
+
+    fn close_replay_review(&mut self) {
+        self.replay_review = None;
+        self.screen = Screen::MainMenu;
+        self.main_menu_mode = MainMenuMode::Replays;
+    }
+
+    fn handle_replay_review_key(
+        &mut self,
+        key: &KeyEvent,
+        action: Option<BindAction>,
+    ) -> Result<(), AppError> {
+        if self.keybinds.is_bound(key, BindAction::Back) {
+            self.close_replay_review();
+            return Ok(());
+        }
+        if matches!(action, Some(BindAction::Quit)) {
+            self.quit = true;
+            return Ok(());
+        }
+        let page = 8isize;
+        let visible = 12usize;
+        if let Some(review) = self.replay_review.as_mut() {
+            match action {
+                Some(BindAction::MenuUp) => review.scroll_events(-1, visible),
+                Some(BindAction::MenuDown) => review.scroll_events(1, visible),
+                _ => match key.code {
+                    KeyCode::PageUp => review.scroll_events(-page, visible),
+                    KeyCode::PageDown => review.scroll_events(page, visible),
+                    _ => {}
+                },
+            }
         }
         Ok(())
     }
@@ -851,6 +1064,9 @@ impl App {
             SettingsField::Theme => {
                 self.config.theme = cycle_theme(&self.config.theme);
             }
+            SettingsField::RulesProfile => {
+                self.config.rules_profile = self.config.rules_profile.next();
+            }
             SettingsField::DefaultDifficulty => {
                 self.config.default_difficulty =
                     setup::cycle_difficulty(self.config.default_difficulty);
@@ -917,7 +1133,7 @@ impl App {
             .unwrap_or(1);
         let match_setup = setup.to_match_setup(seed);
         let agents = match_setup.build_agents(seed);
-        let game = Match::new(RulesConfig::standard(), seed)?;
+        let game = Match::new(self.config.rules_config(), seed)?;
         self.human_seat_active = setup.human_seat;
         self.cpu_step_delay_ms = setup.cpu_step_delay_ms;
         self.turn_timer_ms = setup.turn_timer_ms;
@@ -945,6 +1161,9 @@ impl App {
         key: &KeyEvent,
         action: Option<BindAction>,
     ) -> Result<(), AppError> {
+        if self.try_exit_table_to_main_menu(action) {
+            return Ok(());
+        }
         if self.is_activate(key) {
             self.hand_result = None;
             self.table_mode = TableMode::Normal;
@@ -961,12 +1180,11 @@ impl App {
         key: &KeyEvent,
         action: Option<BindAction>,
     ) -> Result<(), AppError> {
+        if self.try_exit_table_to_main_menu(action) {
+            return Ok(());
+        }
         if self.is_activate(key) || self.keybinds.is_bound(key, BindAction::Back) {
-            self.match_game = None;
-            self.agents = None;
-            self.setup_meta = None;
-            self.match_summary = None;
-            self.screen = Screen::MainMenu;
+            self.return_to_main_menu();
             return Ok(());
         }
         if matches!(action, Some(BindAction::Quit)) {
@@ -981,6 +1199,9 @@ impl App {
         }
         if self.match_summary.is_some() {
             return self.handle_match_summary(key, action);
+        }
+        if self.try_exit_table_to_main_menu(action) {
+            return Ok(());
         }
 
         if matches!(action, Some(BindAction::Back)) && self.table_mode == TableMode::Normal {
@@ -1034,6 +1255,15 @@ impl App {
             }
             Some(BindAction::ClosedKan) if !menu.closed_kans.is_empty() => {
                 self.table_mode = TableMode::PickClosedKan;
+                self.tile_index = 0;
+            }
+            Some(BindAction::Kakan) if !menu.kakan.is_empty() => {
+                if menu.kakan.len() == 1 {
+                    return Ok(Some(Action::Kakan {
+                        meld_index: menu.kakan[0],
+                    }));
+                }
+                self.table_mode = TableMode::PickKakan;
                 self.tile_index = 0;
             }
             Some(BindAction::Chi) if !menu.chi.is_empty() => {
@@ -1090,6 +1320,17 @@ impl App {
                         })?;
                 Ok(Some(Action::ClosedKan { tile }))
             }
+            TableMode::PickKakan => {
+                let meld_index =
+                    *menu
+                        .kakan
+                        .get(self.tile_index)
+                        .ok_or_else(|| AppError::Keybinds {
+                            path: PathBuf::from("<table>"),
+                            detail: "no kakan meld selected".into(),
+                        })?;
+                Ok(Some(Action::Kakan { meld_index }))
+            }
             TableMode::PickChi => {
                 let tiles = menu.chi[self.chi_index];
                 Ok(Some(Action::Chi { tiles }))
@@ -1103,6 +1344,7 @@ impl App {
             TableMode::PickDiscard => self.current_action_menu().discards.len(),
             TableMode::PickRiichi => self.current_action_menu().riichi.len(),
             TableMode::PickClosedKan => self.current_action_menu().closed_kans.len(),
+            TableMode::PickKakan => self.current_action_menu().kakan.len(),
             TableMode::PickChi => self.current_action_menu().chi.len(),
             _ => 0,
         };
@@ -1130,7 +1372,7 @@ impl App {
             self.finalize_finished_match();
         }
         if let Some(last) = events.last() {
-            self.status = format!("{last:?}");
+            self.status = event_text::describe_event(last);
         }
     }
 
@@ -1198,6 +1440,14 @@ impl App {
         &self.load_entries
     }
 
+    pub fn replay_entries(&self) -> &[RecordingEntry] {
+        &self.replay_entries
+    }
+
+    pub fn replay_review(&self) -> Option<&ReplayReview> {
+        self.replay_review.as_ref()
+    }
+
     pub fn setup(&self) -> Option<&NewGameSetup> {
         self.setup.as_ref()
     }
@@ -1256,6 +1506,24 @@ impl App {
 
     pub const fn pause_index(&self) -> PauseItem {
         self.pause_index
+    }
+
+    pub fn export_save_open(&self) -> bool {
+        self.export_save.is_some()
+    }
+
+    pub fn export_save_path(&self) -> Option<&str> {
+        self.export_save.as_ref().map(PathInputDialog::path)
+    }
+
+    #[cfg(feature = "debug-menu")]
+    pub fn import_scenario_open(&self) -> bool {
+        self.import_scenario.is_some()
+    }
+
+    #[cfg(feature = "debug-menu")]
+    pub fn import_scenario_path(&self) -> Option<&str> {
+        self.import_scenario.as_ref().map(PathInputDialog::path)
     }
 
     pub const fn settings_open(&self) -> bool {
@@ -1330,6 +1598,7 @@ impl TableMode {
             Self::PickDiscard => "pick discard",
             Self::PickRiichi => "pick riichi discard",
             Self::PickClosedKan => "pick closed kan",
+            Self::PickKakan => "pick kakan meld",
             Self::PickChi => "pick chi",
         }
     }

@@ -55,7 +55,7 @@ pub fn draw_table(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &The
     let status = if app.is_human_pending() {
         format!("Your decision — {}", app.table_mode().label())
     } else {
-        "Waiting…  (esc pause)".into()
+        "Waiting…  (esc pause, m main menu)".into()
     };
     frame.render_widget(
         Paragraph::new(Line::from(vec![
@@ -116,7 +116,7 @@ fn picker_index_to_hand_index(
 fn action_help(app: &App, theme: &Theme) -> Vec<Line<'static>> {
     if !app.is_human_pending() {
         return vec![Line::from(Span::styled(
-            "Waiting…  (esc pause)",
+            "Waiting…  (esc pause, m main menu)",
             theme.muted_style(),
         ))];
     }
@@ -189,6 +189,31 @@ fn action_help(app: &App, theme: &Theme) -> Vec<Line<'static>> {
             crate::input::BindAction::ClosedKan,
         ));
     }
+    if !menu.kakan.is_empty() {
+        lines.push(bind_line(
+            "Added kan",
+            binds,
+            crate::input::BindAction::Kakan,
+        ));
+        if app.table_mode() == TableMode::PickKakan {
+            for (i, meld_index) in menu.kakan.iter().enumerate() {
+                let sel = app.tile_index() == i;
+                lines.push(Line::from(Span::styled(
+                    format!(
+                        "{}meld {} (open pon #{})",
+                        if sel { "> " } else { "  " },
+                        i + 1,
+                        meld_index + 1
+                    ),
+                    if sel {
+                        theme.menu_selected_style()
+                    } else {
+                        theme.muted_style()
+                    },
+                )));
+            }
+        }
+    }
     if menu.can_abort_nine_terminals {
         lines.push(bind_line(
             "Abort (9 terminals)",
@@ -204,7 +229,10 @@ fn action_help(app: &App, theme: &Theme) -> Vec<Line<'static>> {
         ));
         if matches!(
             app.table_mode(),
-            TableMode::PickDiscard | TableMode::PickRiichi | TableMode::PickClosedKan
+            TableMode::PickDiscard
+                | TableMode::PickRiichi
+                | TableMode::PickClosedKan
+                | TableMode::PickKakan
         ) {
             lines.push(Line::from(Span::styled(
                 "←/→ select tile, enter confirm, esc cancel",

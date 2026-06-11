@@ -39,6 +39,10 @@ pub fn list_in_progress(paths: &SavePaths) -> Result<Vec<RecordingEntry>, AppErr
     list_by_status(paths, MatchStatus::InProgress)
 }
 
+pub fn list_finished(paths: &SavePaths) -> Result<Vec<RecordingEntry>, AppError> {
+    list_by_status(paths, MatchStatus::Finished)
+}
+
 fn list_by_status(paths: &SavePaths, status: MatchStatus) -> Result<Vec<RecordingEntry>, AppError> {
     paths.ensure_dir()?;
     let mut entries = Vec::new();
@@ -87,10 +91,17 @@ fn parse_recording_entry(
         )
     });
 
-    let detail = format!(
-        "East seat {} · honba {} · scores {:?}",
-        recording.dealer, recording.honba, recording.scores
-    );
+    let detail = if status == MatchStatus::Finished {
+        format!(
+            "{} hands · final {:?}",
+            recording.hand_index, recording.scores
+        )
+    } else {
+        format!(
+            "East seat {} · honba {} · scores {:?}",
+            recording.dealer, recording.honba, recording.scores
+        )
+    };
 
     Ok(Some(RecordingEntry {
         path: path.to_path_buf(),
@@ -103,6 +114,44 @@ fn parse_recording_entry(
 pub fn read_recording(path: &Path) -> Result<MatchRecording, AppError> {
     let text = fs::read_to_string(path).map_err(AppError::Terminal)?;
     MatchRecording::from_json(&text).map_err(AppError::Engine)
+}
+
+/// Expand a leading `~` to the user's home directory.
+pub fn resolve_user_path(path: &str) -> PathBuf {
+    if let Some(rest) = path.strip_prefix("~/")
+        && let Some(home) = home_dir()
+    {
+        return home.join(rest);
+    }
+    if path == "~" {
+        return home_dir().unwrap_or_else(|| PathBuf::from(path));
+    }
+    PathBuf::from(path)
+}
+
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from)
+}
+
+/// Ensure manual exports use the `*.rrmj.json` suffix when omitted.
+pub fn ensure_recording_extension(path: PathBuf) -> PathBuf {
+    let lossy = path.to_string_lossy();
+    if lossy.ends_with(".rrmj.json") {
+        return path;
+    }
+    if path.extension().is_some_and(|ext| ext == "json") {
+        return path;
+    }
+    path.with_extension("rrmj.json")
+}
+
+/// Write a recording synchronously (manual export).
+pub fn write_recording(path: &Path, recording: &MatchRecording) -> Result<(), AppError> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(AppError::Terminal)?;
+    }
+    let json = recording.to_json().map_err(AppError::Engine)?;
+    fs::write(path, json).map_err(AppError::Terminal)
 }
 
 /// Write a recording without blocking the UI thread.

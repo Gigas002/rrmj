@@ -53,7 +53,7 @@ fn main() -> ExitCode {
         }
     };
 
-    tracing::debug!(rules = ?librrmj::RulesConfig::standard(), "initialized");
+    tracing::debug!(rules = ?config.rules_config(), "initialized");
 
     let mut app = App::new(keybinds, cli.keybinds, config, config_path);
     match app.run() {

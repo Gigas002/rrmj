@@ -19,6 +19,41 @@ const fn debug_menu_active(_app: &App) -> bool {
     false
 }
 
+fn recording_list_lines(
+    app: &App,
+    entries: &[crate::save::RecordingEntry],
+    empty_message: &str,
+    theme: &Theme,
+) -> Vec<Line<'static>> {
+    if entries.is_empty() {
+        return vec![
+            Line::from(empty_message.to_string()),
+            Line::from(""),
+            Line::from(Span::styled(
+                "Press Enter or Esc to return",
+                Style::default().fg(theme.muted),
+            )),
+        ];
+    }
+    entries
+        .iter()
+        .enumerate()
+        .map(|(i, entry)| {
+            let prefix = if i == app.menu_index() { "> " } else { "  " };
+            let style = if i == app.menu_index() {
+                theme.menu_selected_style()
+            } else {
+                Style::default().fg(theme.primary)
+            };
+            Line::from(vec![
+                Span::styled(format!("{prefix}{}", entry.label), style),
+                Span::raw(" — "),
+                Span::styled(entry.detail.clone(), Style::default().fg(theme.muted)),
+            ])
+        })
+        .collect()
+}
+
 const LOGO: &str = r"
  ██████  ██████  ███    ███   ███
  ██   ██ ██   ██ ████  ████    ██
@@ -60,40 +95,21 @@ pub fn draw_main_menu(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: 
             Vec::new()
         }
     } else if app.main_menu_mode() == MainMenuMode::LoadGame {
-        let entries = app.load_entries();
-        if entries.is_empty() {
-            vec![
-                Line::from("No in-progress saves."),
-                Line::from(""),
-                Line::from(Span::styled(
-                    "Press Enter or Esc to return",
-                    Style::default().fg(theme.muted),
-                )),
-            ]
-        } else {
-            entries
-                .iter()
-                .enumerate()
-                .map(|(i, entry)| {
-                    let prefix = if i == app.menu_index() { "> " } else { "  " };
-                    let style = if i == app.menu_index() {
-                        theme.menu_selected_style()
-                    } else {
-                        Style::default().fg(theme.primary)
-                    };
-                    Line::from(vec![
-                        Span::styled(format!("{prefix}{}", entry.label), style),
-                        Span::raw(" — "),
-                        Span::styled(entry.detail.clone(), Style::default().fg(theme.muted)),
-                    ])
-                })
-                .collect()
-        }
+        recording_list_lines(app, app.load_entries(), "No in-progress saves.", theme)
+    } else if app.main_menu_mode() == MainMenuMode::Replays {
+        recording_list_lines(app, app.replay_entries(), "No finished replays.", theme)
     } else {
         let items: Vec<&str> = if app.debug_menu_enabled() {
-            vec!["Start game", "Load game", "Debug", "Settings", "Exit"]
+            vec![
+                "Start game",
+                "Load game",
+                "Replays",
+                "Debug",
+                "Settings",
+                "Exit",
+            ]
         } else {
-            vec!["Start game", "Load game", "Settings", "Exit"]
+            vec!["Start game", "Load game", "Replays", "Settings", "Exit"]
         };
         items
             .iter()
@@ -112,6 +128,7 @@ pub fn draw_main_menu(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: 
 
     let title = match app.main_menu_mode() {
         MainMenuMode::LoadGame => "Load game",
+        MainMenuMode::Replays => "Replays",
         #[cfg(feature = "debug-menu")]
         MainMenuMode::Debug => "Debug scenarios",
         MainMenuMode::Root => "Main menu",
@@ -164,6 +181,11 @@ fn draw_settings_content(frame: &mut ratatui::Frame, area: Rect, app: &App, them
         Line::from("Settings — changes saved when you press Esc"),
         Line::from(""),
         row("Theme", theme_label, field == SettingsField::Theme),
+        row(
+            "Rules profile",
+            cfg.rules_profile.as_str(),
+            field == SettingsField::RulesProfile,
+        ),
         row(
             "Default CPU difficulty",
             difficulty_label(cfg.default_difficulty),

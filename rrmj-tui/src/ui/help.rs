@@ -1,9 +1,10 @@
 use ratatui::layout::Rect;
-use ratatui::text::Line;
+use ratatui::style::Style;
+use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
-use crate::app::App;
-use crate::input::{action_label, format_chord};
+use crate::app::{App, Screen};
+use crate::input::{BindAction, action_label, format_chord};
 use crate::theme::Theme;
 use crate::ui::popup;
 
@@ -20,6 +21,30 @@ pub fn draw_help_popup(frame: &mut ratatui::Frame, area: Rect, app: &App, theme:
             action_label(action),
             format_chord(chord)
         )));
+    }
+
+    if app.screen() == Screen::Table {
+        lines.push(Line::from(""));
+        lines.push(Line::from(Span::styled(
+            "At the table",
+            Style::default().fg(theme.muted),
+        )));
+        lines.push(Line::from(format!(
+            "{:28} {}",
+            action_label(BindAction::Back),
+            format_chord(app.keybinds().chord(BindAction::Back)),
+        )));
+        lines.push(Line::from(
+            "  Pause menu: resume, export save, return to main menu, quit",
+        ));
+        lines.push(Line::from(format!(
+            "{:28} {}",
+            action_label(BindAction::MainMenu),
+            format_chord(app.keybinds().chord(BindAction::MainMenu)),
+        )));
+        lines.push(Line::from(
+            "  Leave the match immediately (autosaves in progress)",
+        ));
     }
 
     let widget = Paragraph::new(lines).wrap(Wrap { trim: true }).block(

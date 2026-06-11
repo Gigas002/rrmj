@@ -14,7 +14,7 @@ pub fn summary_from_events(events: &[Event]) -> Option<HandResultSummary> {
     {
         let seat = *seat;
         let mut lines = vec![
-            format!("Winner: seat {seat}"),
+            format!("Winner: {}", crate::app::NewGameSetup::seat_name(seat)),
             format!("Han: {han}, fu: {fu}"),
         ];
         if let Some(Event::ScoresAdjusted { deltas }) = events

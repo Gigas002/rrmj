@@ -21,7 +21,7 @@ pub fn draw_debug_scenario_lines(app: &App, theme: &Theme) -> Vec<Line<'static>>
             )),
             Line::from(""),
             Line::from(Span::styled(
-                "Press Enter or Esc to return",
+                "i import from path  Enter or Esc to return",
                 Style::default().fg(theme.muted),
             )),
         ];
@@ -50,7 +50,7 @@ pub fn draw_debug_scenario_lines(app: &App, theme: &Theme) -> Vec<Line<'static>>
         })
         .chain(
             std::iter::once(Line::from("")).chain(std::iter::once(Line::from(Span::styled(
-                format!("{filter}f cycle tag filter"),
+                format!("{filter}f cycle tag filter  i import from path"),
                 Style::default().fg(theme.muted),
             )))),
         )

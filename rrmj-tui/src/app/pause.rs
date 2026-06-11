@@ -1,16 +1,18 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PauseItem {
     Resume,
+    ExportSave,
     MainMenu,
     Quit,
 }
 
 impl PauseItem {
-    pub const ALL: [Self; 3] = [Self::Resume, Self::MainMenu, Self::Quit];
+    pub const ALL: [Self; 4] = [Self::Resume, Self::ExportSave, Self::MainMenu, Self::Quit];
 
     pub const fn label(self) -> &'static str {
         match self {
             Self::Resume => "Resume",
+            Self::ExportSave => "Export save…",
             Self::MainMenu => "Return to main menu",
             Self::Quit => "Quit application",
         }

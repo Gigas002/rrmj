@@ -335,16 +335,16 @@ Regenerate: `cargo test -p librrmj --features serde write_all_scenario_fixtures 
 
 #### Phase 12.2 — `docs/RULES.md`
 
-- [ ] Full yaku table (han open/closed)
-- [ ] Fu algorithm (numbered steps)
-- [ ] Limit / payment table
-- [ ] Dora, furiten, abortives, exhaustive draw
+- [x] Full yaku table (han open/closed)
+- [x] Fu algorithm (numbered steps)
+- [x] Limit / payment table
+- [x] Dora, furiten, abortives, exhaustive draw
 
 **Verify:** prose matches engine tests for every implemented yaku.
 
 #### Phase 12.3 — TUI rules overlay content
 
-- [ ] `rrmj-tui/src/ui/rules_content.rs` mirrors `RULES.md` (presentation only)
+- [x] `rrmj-tui/src/ui/rules_content.rs` mirrors `RULES.md` (presentation only)
 
 **Verify (Phase 12 complete):** RULES.md authoritative; scenarios cover §12.1 table; overlay synced.
 
@@ -356,28 +356,45 @@ Regenerate: `cargo test -p librrmj --features serde write_all_scenario_fixtures 
 
 #### Phase 13.1 — Replays menu
 
-- [ ] List `match_status = finished` from `recordings_dir`
-- [ ] Open for static review (interactive playback → Phase 15.1)
+- [x] List `match_status = finished` from `recordings_dir`
+- [x] Open for static review (interactive playback → Phase 15.1)
 
 #### Phase 13.2 — Navigation
 
-- [ ] Exit table → main menu (tear down `Match`, keybind + `h` entry)
+- [x] Exit table → main menu (tear down `Match`, keybind + `h` entry)
 
 #### Phase 13.3 — Gameplay bugs
 
-- [ ] Triage TUI ↔ `librrmj` integration issues; track in `docs/TUI_BUGS.md` if needed
+- [x] Triage TUI ↔ `librrmj` integration issues; track in `docs/TUI_BUGS.md`
 
 #### Phase 13.4 — Save export
 
-- [ ] Pause menu: manual export to user path
+- [x] Pause menu: manual export to user path
 
 #### Phase 13.5 — Debug menu
 
-- [ ] Import scenario from filesystem path
+- [x] Import scenario from filesystem path
 
 #### Phase 13.6 — Ruleset wiring
 
-- [ ] `RulesProfileId` in `config.toml` / settings (registry still `standard` only)
+- [x] `RulesProfileId` in `config.toml` / settings (registry still `standard` only)
+
+#### Phase 13.7 — Recommendations overlay + full win report
+
+> **Goal:** Help the human player plan hands in-match and see a complete scoring breakdown after a win. All yaku / fu / payment logic stays in `librrmj`; TUI is presentation only.
+
+**Engine (`librrmj`)**
+
+- [ ] `RulesProfile` hook: enumerate **candidate win paths** for a seat’s current visible hand (concealed + melds, known dora indicators, riichi state) — several closest combinations, each with yaku set, estimated han/fu, and **shanten / tiles-to-tenpai** (or “complete” if winning now).
+- [ ] Sort API: primary key **expected score** (profile `score_win` estimate at current honba / dealer context); secondary key **closeness** (lower shanten, fewer unique waits).
+- [ ] Win event surface: attach or emit full `ScoringResult` (yaku names, dora/ura/aka han, fu, per-seat payments, deltas) — not only `Event::Won { han, fu }` totals.
+
+**TUI (`rrmj-tui`)**
+
+- [ ] **Recommendations overlay** — open during a match (human seat) on your turn; list top N candidate combinations from the engine hook, scrollable. Default hotkey **`e`** (`overlay.recommendations` in `keybinds.toml`) — **`r` stays Ron** in reaction phase.
+- [ ] **Full hand result popup** — after a win, show complete report: winner, win type (tsumo/ron), yaku list with han, dora breakdown, fu, limit band, payment table, score deltas (replaces BUG-101 stub).
+
+**Verify:** recommendations match engine yaku detection on fixture hands; win popup matches `score_win` for every `win_combinations` `WinCase` row used in CI; no yaku/fu tables in `rrmj-tui`.
 
 **Verify (Phase 13):** TUI still drives `legal_actions()` only; no duplicated rule logic.
 

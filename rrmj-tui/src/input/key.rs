@@ -7,6 +7,7 @@ pub enum BindAction {
     Quit,
     Help,
     Back,
+    MainMenu,
     // menu / setup
     MenuUp,
     MenuDown,
@@ -19,6 +20,7 @@ pub enum BindAction {
     Pon,
     Chi,
     OpenKan,
+    Kakan,
     ClosedKan,
     Tsumo,
     Riichi,

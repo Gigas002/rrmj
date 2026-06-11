@@ -22,6 +22,15 @@
 theme = "default"
 
 # ---------------------------------------------------------------------------
+# rules_profile — rules engine profile for new games
+# ---------------------------------------------------------------------------
+# One of: "standard"
+#
+# Load game / debug scenarios use the profile stored in each recording.
+# Additional profiles will appear here when new rulesets ship (Phase 15.4).
+rules_profile = "standard"
+
+# ---------------------------------------------------------------------------
 # default_difficulty — CPU strength for new-game setup defaults
 # ---------------------------------------------------------------------------
 # One of: "easy" | "medium" | "hard"

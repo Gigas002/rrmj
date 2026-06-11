@@ -1,6 +1,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsField {
     Theme,
+    RulesProfile,
     DefaultDifficulty,
     HumanSeat,
     CpuStepDelay,
@@ -9,8 +10,9 @@ pub enum SettingsField {
 }
 
 impl SettingsField {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Theme,
+        Self::RulesProfile,
         Self::DefaultDifficulty,
         Self::HumanSeat,
         Self::CpuStepDelay,

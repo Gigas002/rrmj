@@ -13,6 +13,16 @@ fn standard_profile_defaults() {
 }
 
 #[test]
+fn profile_id_parse_and_cycle() {
+    assert_eq!(
+        RulesProfileId::parse("standard").unwrap(),
+        RulesProfileId::Standard
+    );
+    assert_eq!(RulesProfileId::Standard.next(), RulesProfileId::Standard);
+    assert!(RulesProfileId::parse("mcr").is_err());
+}
+
+#[test]
 fn default_for_matches_standard() {
     assert_eq!(
         RulesConfig::standard(),
