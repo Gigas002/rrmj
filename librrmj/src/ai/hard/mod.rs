@@ -154,7 +154,7 @@ impl HardAgent {
         };
         let baseline = best_waiting_potential(&hand);
 
-        let Some(pending) = view.pending_call else {
+        let Some(pending) = view.turn.pending_call() else {
             return Action::Pass;
         };
 

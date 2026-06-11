@@ -23,6 +23,8 @@ pub struct PlayfieldContext<'a> {
     pub drawn_hand: Option<usize>,
     /// Hand tile currently emphasized — matching copies are highlighted in rivers.
     pub highlight_tile: Option<Tile>,
+    /// Opponent's latest discard in their river: `(seat, index)`.
+    pub recent_discard: Option<(usize, usize)>,
     pub sorted_hand: &'a [Tile],
 }
 
@@ -108,12 +110,17 @@ fn draw_seat_panel(
 
     if !seat_view.discards.is_empty() {
         lines.push(Line::from(Span::styled("River", ctx.theme.muted_style())));
+        let recent_index = ctx
+            .recent_discard
+            .filter(|(s, _)| *s == seat)
+            .map(|(_, i)| i);
         lines.push(tiles_line(
             &seat_view.discards,
             ctx.theme,
             None,
             None,
             ctx.highlight_tile,
+            recent_index,
         ));
         lines.push(Line::from(""));
     }
@@ -125,6 +132,7 @@ fn draw_seat_panel(
             ctx.theme,
             ctx.selected_hand,
             ctx.drawn_hand,
+            None,
             None,
         ));
     } else if seat_view.concealed_count > 0 {

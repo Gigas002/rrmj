@@ -1,5 +1,5 @@
 use crate::Error;
-use crate::action::Action;
+use crate::action::{Action, KanIntent};
 use crate::event::Event;
 use crate::hand::{Hand, Meld, MeldKind};
 use crate::rules::{RulesConfig, RulesRegistry, WinTimingFlags};
@@ -35,6 +35,8 @@ pub struct HandState {
     discards: [Vec<Tile>; SEAT_COUNT],
     wall: Wall,
     pub(crate) reaction: Option<ReactionState>,
+    /// Most recent table discard (stays visible until called or replaced).
+    pub(crate) last_discard: Option<(usize, Tile)>,
     pub(crate) config: RulesConfig,
     pub(crate) scores: [i32; 4],
     pub(crate) riichi: [bool; 4],
@@ -79,6 +81,7 @@ impl HandState {
             discards: std::array::from_fn(|_| Vec::new()),
             wall,
             reaction: None,
+            last_discard: None,
             config,
             scores,
             riichi: [false; 4],
@@ -147,9 +150,22 @@ impl HandState {
             })
     }
 
+    pub fn last_discard(&self) -> Option<crate::agent::PendingCall> {
+        self.last_discard.map(|(discarder, tile)| crate::agent::PendingCall {
+            discarder,
+            tile,
+        })
+    }
+
     /// Tile just drawn (or rinshan) for the current actor during discard phase.
     pub fn last_drawn_tile(&self) -> Option<Tile> {
         self.last_draw
+    }
+
+    pub(crate) fn is_chankan_window(&self) -> bool {
+        self.reaction
+            .as_ref()
+            .is_some_and(|reaction| reaction.kind == ReactionKind::Kakan)
     }
 
     pub fn legal_actions_for(&self, seat: usize) -> Vec<Action> {
@@ -177,10 +193,10 @@ impl HandState {
                     actions.push(Action::Discard(tile));
                 }
                 for tile in closed_kan_options(self.hands[seat].concealed()) {
-                    actions.push(Action::ClosedKan { tile });
+                    actions.push(Action::Kan(KanIntent::Closed { tile }));
                 }
                 for meld_index in kakan_options(&self.hands[seat]) {
-                    actions.push(Action::Kakan { meld_index });
+                    actions.push(Action::Kan(KanIntent::Added { meld_index }));
                 }
                 actions
             }
@@ -233,8 +249,14 @@ impl HandState {
                         let tile = self.last_draw.ok_or(Error::CannotWin)?;
                         self.resolve_win(seat, WinType::Tsumo, tile)
                     }
-                    Action::ClosedKan { tile } => self.apply_closed_kan(seat, tile),
-                    Action::Kakan { meld_index } => self.apply_kakan(seat, meld_index),
+                    Action::Kan(KanIntent::Closed { tile }) => self.apply_closed_kan(seat, tile),
+                    Action::Kan(KanIntent::Added { meld_index }) => {
+                        self.apply_kakan(seat, meld_index)
+                    }
+                    Action::Kan(KanIntent::Open) => Err(Error::IllegalAction {
+                        action,
+                        phase: self.phase,
+                    }),
                     Action::AbortiveNineTerminals => self.apply_abortive_nine_terminals(seat),
                     _ => Err(Error::IllegalAction {
                         action,
@@ -307,6 +329,7 @@ impl HandState {
             discards: self.discards.clone(),
             wall: self.wall.snapshot(),
             reaction: self.reaction.clone(),
+            last_discard: self.last_discard,
             scores: self.scores,
             riichi: self.riichi,
             table_riichi_sticks: self.table_riichi_sticks,
@@ -339,6 +362,7 @@ impl HandState {
             discards: snapshot.discards,
             wall,
             reaction: snapshot.reaction,
+            last_discard: snapshot.last_discard,
             config,
             scores: snapshot.scores,
             riichi: snapshot.riichi,
@@ -365,9 +389,13 @@ impl HandState {
         *self.hands[seat].concealed_mut() = crate::hand::Concealed::from_tiles(tiles);
     }
 
+    pub(crate) fn replace_hand(&mut self, seat: usize, hand: Hand) {
+        self.hands[seat] = hand;
+    }
+
     #[cfg(test)]
     pub fn set_hand(&mut self, seat: usize, hand: Hand) {
-        self.hands[seat] = hand;
+        self.replace_hand(seat, hand);
     }
 
     #[cfg(test)]
@@ -418,7 +446,7 @@ impl HandState {
             actions.push(Action::Pon);
         }
         if crate::state::calls::can_open_kan(concealed, called) {
-            actions.push(Action::OpenKan);
+            actions.push(Action::Kan(KanIntent::Open));
         }
 
         actions
@@ -464,6 +492,7 @@ impl HandState {
         self.hands[seat].concealed_mut().remove(tile)?;
         self.discards[seat].push(tile);
         self.last_draw = None;
+        self.last_discard = Some((seat, tile));
 
         if self.first_discards[seat].is_none() {
             self.first_discards[seat] = Some(tile);
@@ -668,13 +697,19 @@ impl HandState {
                     });
                 }
             }
-            Action::OpenKan => {
+            Action::Kan(KanIntent::Open) => {
                 if !crate::state::calls::can_open_kan(self.hands[seat].concealed(), called) {
                     return Err(Error::InvalidCall {
                         kind: CallKind::OpenKan,
                         reason: "cannot open kan",
                     });
                 }
+            }
+            Action::Kan(_) => {
+                return Err(Error::IllegalAction {
+                    action,
+                    phase: HandPhase::Reaction,
+                });
             }
             _ => {
                 return Err(Error::IllegalAction {
@@ -728,7 +763,9 @@ impl HandState {
         let resolved = match action {
             Action::Chi { tiles } => resolve_chi(self.hands[caller].concealed(), called, tiles)?,
             Action::Pon => resolve_pon(self.hands[caller].concealed(), called)?,
-            Action::OpenKan => resolve_open_kan(self.hands[caller].concealed(), called)?,
+            Action::Kan(KanIntent::Open) => {
+                resolve_open_kan(self.hands[caller].concealed(), called)?
+            }
             _ => unreachable!("winning call must be chi/pon/open kan"),
         };
 
@@ -776,10 +813,17 @@ impl HandState {
     }
 
     fn pop_called_discard(&mut self, discarder: usize) -> Result<(), Error> {
+        let tile = self.discards[discarder].last().copied().ok_or(Error::InvalidCall {
+            kind: CallKind::Pon,
+            reason: "no discard to call",
+        })?;
         self.discards[discarder].pop().ok_or(Error::InvalidCall {
             kind: CallKind::Pon,
             reason: "no discard to call",
         })?;
+        if self.last_discard == Some((discarder, tile)) {
+            self.last_discard = None;
+        }
         Ok(())
     }
 
@@ -793,7 +837,9 @@ impl HandState {
                     });
                 }
             }
-            Event::HandStarted { .. } => {}
+            Event::HandStarted { .. } => {
+                self.last_discard = None;
+            }
             Event::Drawn { seat, tile } => {
                 self.hands[*seat].concealed_mut().push(*tile);
                 self.hands[*seat].sort_concealed();
@@ -808,6 +854,7 @@ impl HandState {
                 self.hands[*seat].concealed_mut().remove(*tile)?;
                 self.discards[*seat].push(*tile);
                 self.last_draw = None;
+                self.last_discard = Some((*seat, *tile));
                 if self.first_discards[*seat].is_none() {
                     self.first_discards[*seat] = Some(*tile);
                 }
@@ -837,6 +884,9 @@ impl HandState {
                 self.discards[*from].pop().ok_or(Error::ReplayMismatch {
                     detail: "no discard to complete call event",
                 })?;
+                if self.last_discard == Some((*from, called)) {
+                    self.last_discard = None;
+                }
                 let meld = replay_build_meld(*meld, tiles, Some(called))?;
                 for tile in meld.tiles() {
                     if meld.called() != Some(*tile) {

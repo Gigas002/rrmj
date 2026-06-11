@@ -1,4 +1,4 @@
-use librrmj::action::Action;
+use librrmj::action::{Action, KanIntent};
 use librrmj::tile::Tile;
 
 /// Legal actions grouped for menu presentation.
@@ -24,12 +24,12 @@ impl ActionMenu {
             match action {
                 Action::Discard(tile) => menu.discards.push(tile),
                 Action::Riichi { discard } => menu.riichi.push(discard),
-                Action::ClosedKan { tile } => menu.closed_kans.push(tile),
-                Action::Kakan { meld_index } => menu.kakan.push(meld_index),
+                Action::Kan(KanIntent::Closed { tile }) => menu.closed_kans.push(tile),
+                Action::Kan(KanIntent::Added { meld_index }) => menu.kakan.push(meld_index),
                 Action::Chi { tiles } => menu.chi.push(tiles),
                 Action::Ron => menu.can_ron = true,
                 Action::Pon => menu.can_pon = true,
-                Action::OpenKan => menu.can_open_kan = true,
+                Action::Kan(KanIntent::Open) => menu.can_open_kan = true,
                 Action::Pass => menu.can_pass = true,
                 Action::Tsumo => menu.can_tsumo = true,
                 Action::AbortiveNineTerminals => menu.can_abort_nine_terminals = true,
@@ -56,7 +56,7 @@ impl ActionMenu {
 
 #[cfg(test)]
 mod tests {
-    use librrmj::action::Action;
+    use librrmj::action::{Action, KanIntent};
 
     use super::ActionMenu;
 
@@ -64,8 +64,8 @@ mod tests {
     fn from_legal_includes_kakan_meld_indices() {
         let menu = ActionMenu::from_legal(&[
             Action::Discard(librrmj::tile::Tile::man(1)),
-            Action::Kakan { meld_index: 0 },
-            Action::Kakan { meld_index: 2 },
+            Action::Kan(KanIntent::Added { meld_index: 0 }),
+            Action::Kan(KanIntent::Added { meld_index: 2 }),
         ]);
         assert_eq!(menu.kakan, vec![0, 2]);
     }

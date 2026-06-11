@@ -38,8 +38,11 @@ fn draw_board(frame: &mut ratatui::Frame, area: Rect, review: &ReplayReview, the
         live_remaining: review.match_game.hand().wall().live_remaining(),
         turn_seat: None,
         selected_hand: None,
-        drawn_hand: sorted_hand.iter().rposition(|t| Some(*t) == view.last_draw),
+        drawn_hand: sorted_hand
+            .iter()
+            .rposition(|t| Some(*t) == view.turn.drawn_tile()),
         highlight_tile: None,
+        recent_discard: crate::ui::table::recent_opponent_discard(&view, review.view_seat),
         sorted_hand: &sorted_hand,
     };
     let block = Block::default()

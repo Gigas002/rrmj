@@ -170,6 +170,7 @@ fn parse_action_key(key: &str) -> Option<BindAction> {
         "overlay.continue" => Some(BindAction::Continue),
         "overlay.rules" => Some(BindAction::RulesReference),
         "overlay.scores" => Some(BindAction::Scores),
+        "overlay.recommendations" => Some(BindAction::Recommendations),
         _ => None,
     }
 }
@@ -202,6 +203,7 @@ fn default_entries() -> &'static [(BindAction, &'static str)] {
         (BindAction::Continue, "enter"),
         (BindAction::RulesReference, "?"),
         (BindAction::Scores, "s"),
+        (BindAction::Recommendations, "e"),
     ]
 }
 
@@ -242,6 +244,7 @@ pub fn action_label(action: BindAction) -> &'static str {
         BindAction::Continue => "Continue",
         BindAction::RulesReference => "Rules / yaku reference",
         BindAction::Scores => "Scores",
+        BindAction::Recommendations => "Win path recommendations",
     }
 }
 

@@ -13,7 +13,7 @@ use super::Replay;
 use super::apply::apply_events;
 use super::hand_snapshot::HandSnapshot;
 
-pub const FORMAT_VERSION: u32 = 1;
+pub const FORMAT_VERSION: u32 = 2;
 
 /// Whether a recording can be resumed or is a completed match.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

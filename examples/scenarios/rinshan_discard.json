@@ -1,5 +1,5 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "title": "Rinshan discard",
   "description": "After open kan, caller holds 15 tiles and must discard.",
   "tags": [

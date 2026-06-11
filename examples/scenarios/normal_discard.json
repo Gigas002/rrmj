@@ -1,5 +1,5 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "title": "Normal discard",
   "description": "Dealer must choose a tile to discard.",
   "tags": [

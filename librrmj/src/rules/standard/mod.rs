@@ -3,6 +3,7 @@ mod cheatsheet;
 mod dora;
 mod fu;
 mod patterns;
+mod recommendations;
 mod score;
 mod win;
 mod win_combinations;
@@ -18,9 +19,13 @@ use crate::rules::RulesConfig;
 use crate::rules::RulesProfileId;
 use crate::rules::flow::{MatchFlowPolicy, StandardMatchFlow};
 use crate::rules::profile_trait::{RulesProfile, WinContext};
+use crate::rules::standard::recommendations::collect_win_paths;
+use crate::rules::win_path::{WinPathCandidate, sort_win_paths};
 use crate::scoring::ScoringResult;
 use crate::state::HandState;
 use crate::tile::Tile;
+
+pub use recommendations::candidate_win_paths;
 
 #[cfg(feature = "ai")]
 pub use win::is_winning_hand;
@@ -53,6 +58,19 @@ impl RulesProfile for StandardRules {
         let han = yaku::total_han(&yaku, is_open) + dora + ura_dora + aka_dora;
         let fu = fu::calculate_fu(ctx, &yaku, config);
         score::score_hand(ctx, &yaku, han, fu, dora, ura_dora, aka_dora, config)
+    }
+
+    fn candidate_win_paths(
+        &self,
+        state: &HandState,
+        seat: usize,
+        config: &RulesConfig,
+        limit: usize,
+    ) -> Vec<WinPathCandidate> {
+        let mut paths = collect_win_paths(state, seat, config);
+        sort_win_paths(&mut paths);
+        paths.truncate(limit);
+        paths
     }
 
     fn score_exhaustive_draw(&self, state: &HandState, _config: &RulesConfig) -> [i32; 4] {

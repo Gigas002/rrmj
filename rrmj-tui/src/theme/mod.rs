@@ -29,12 +29,24 @@ impl Theme {
         }
     }
 
-    pub fn tile_style(&self, red: bool, selected: bool, drawn: bool, matched: bool) -> Style {
+    pub fn tile_style(
+        &self,
+        red: bool,
+        selected: bool,
+        drawn: bool,
+        matched: bool,
+        recent_discard: bool,
+    ) -> Style {
         let mut style = if red {
             Style::default().fg(self.red_tile)
         } else {
             Style::default().fg(self.primary)
         };
+        if recent_discard {
+            style = style
+                .fg(self.actor)
+                .add_modifier(Modifier::UNDERLINED | Modifier::BOLD);
+        }
         if drawn {
             style = style
                 .fg(self.accent)

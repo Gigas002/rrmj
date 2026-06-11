@@ -110,7 +110,7 @@ Yaku, fu, payments, abortives live in `rules/<profile>/`. State machine calls pr
 - ratatui + crossterm; hotkeys only; menus show **`legal_actions()`** only.
 - Overlays: keybind help (`h`), rules reference (`?`).
 - Config: `config.toml`, `keybinds.toml`, `recordings_dir`.
-- **Cosmetic work** (themes, animations, display modes, layout) → Phase 14 only.
+- **Cosmetic work** (themes, animations, display modes, layout) → Phase 15 only.
 
 ---
 
@@ -197,10 +197,10 @@ cargo doc --workspace --no-deps
 
 | Old item | Now |
 | -------- | --- |
-| Replays browse/playback | Phase 13.1 / 15.1 |
+| Replays browse/playback | Phase 13.1 / 16.1 |
 | Exit table → menu | Phase 13.2 |
-| Display modes, layout, animation/theming polish | Phase 14 |
-| Rich rules menu, ruleset picker UI | Phase 14 / 13.6 |
+| Display modes, layout, animation/theming polish | Phase 15 |
+| Rich rules menu, ruleset picker UI | Phase 15 / 13.6 |
 | Full scenario catalog | Phase 12.1 |
 | Full yaku/fu/rules | **Phase 11 + 12 — ASAP** |
 
@@ -357,7 +357,7 @@ Regenerate: `cargo test -p librrmj --features serde write_all_scenario_fixtures 
 #### Phase 13.1 — Replays menu
 
 - [x] List `match_status = finished` from `recordings_dir`
-- [x] Open for static review (interactive playback → Phase 15.1)
+- [x] Open for static review (interactive playback → Phase 16.1)
 
 #### Phase 13.2 — Navigation
 
@@ -385,14 +385,14 @@ Regenerate: `cargo test -p librrmj --features serde write_all_scenario_fixtures 
 
 **Engine (`librrmj`)**
 
-- [ ] `RulesProfile` hook: enumerate **candidate win paths** for a seat’s current visible hand (concealed + melds, known dora indicators, riichi state) — several closest combinations, each with yaku set, estimated han/fu, and **shanten / tiles-to-tenpai** (or “complete” if winning now).
-- [ ] Sort API: primary key **expected score** (profile `score_win` estimate at current honba / dealer context); secondary key **closeness** (lower shanten, fewer unique waits).
-- [ ] Win event surface: attach or emit full `ScoringResult` (yaku names, dora/ura/aka han, fu, per-seat payments, deltas) — not only `Event::Won { han, fu }` totals.
+- [x] `RulesProfile` hook: enumerate **candidate win paths** for a seat’s current visible hand (concealed + melds, known dora indicators, riichi state) — several closest combinations, each with yaku set, estimated han/fu, and **shanten / tiles-to-tenpai** (or “complete” if winning now).
+- [x] Sort API: primary key **expected score** (profile `score_win` estimate at current honba / dealer context); secondary key **closeness** (lower shanten, fewer unique waits).
+- [x] Win event surface: attach or emit full `ScoringResult` (yaku names, dora/ura/aka han, fu, per-seat payments, deltas) — not only `Event::Won { han, fu }` totals.
 
 **TUI (`rrmj-tui`)**
 
-- [ ] **Recommendations overlay** — open during a match (human seat) on your turn; list top N candidate combinations from the engine hook, scrollable. Default hotkey **`e`** (`overlay.recommendations` in `keybinds.toml`) — **`r` stays Ron** in reaction phase.
-- [ ] **Full hand result popup** — after a win, show complete report: winner, win type (tsumo/ron), yaku list with han, dora breakdown, fu, limit band, payment table, score deltas (replaces BUG-101 stub).
+- [x] **Recommendations overlay** — open during a match (human seat) on your turn; list top N candidate combinations from the engine hook, scrollable. Default hotkey **`e`** (`overlay.recommendations` in `keybinds.toml`) — **`r` stays Ron** in reaction phase.
+- [x] **Full hand result popup** — after a win, show complete report: winner, win type (tsumo/ron), yaku list with han, dora breakdown, fu, limit band, payment table, score deltas (replaces BUG-101 stub).
 
 **Verify:** recommendations match engine yaku detection on fixture hands; win popup matches `score_win` for every `win_combinations` `WinCase` row used in CI; no yaku/fu tables in `rrmj-tui`.
 
@@ -400,27 +400,72 @@ Regenerate: `cargo test -p librrmj --features serde write_all_scenario_fixtures 
 
 ---
 
-### Phase 14 — TUI polish (deferred)
+### Phase 14 — Hand planning & rules reference
+
+> **Goal:** Make recommendations and the `?` overlay actually teach hand shape — not just yaku names and wait counts. All decomposition logic stays in `librrmj`; TUI renders tiles only.
+
+#### Phase 14.1 — Recommendations: full closest combination
+
+Today the overlay shows shanten, yaku list, han/fu/points, and at most one `Wait: {tile}` — not how the hand groups or which tiles are still missing.
+
+**Engine (`librrmj`)**
+
+- [ ] Extend `WinPathCandidate` (or companion struct) with a **concrete decomposition** for the path: melds / pair / headless tiles from the current visible hand, plus **missing tile(s)** for tenpai or complete.
+- [ ] For 1-shanten rows, include the **suggested discard** that reaches tenpai (already simulated in `recommendations.rs`; surface it in the API).
+- [ ] Stable, deterministic formatting helper (tile labels / grouped spans) — no scoring logic in TUI.
+
+**TUI (`rrmj-tui`)**
+
+- [ ] Recommendations overlay: each row shows the **exact combination** (hand tiles grouped + missing tiles marked), then yaku / han / fu / points — not name + wait count alone.
+- [ ] Scroll line count updated for multi-line paths.
+
+**Verify:** fixture hands in `win_combinations` — top candidate decomposition matches `score_win` yaku for that path; overlay renders without calling yaku/fu tables in `rrmj-tui`.
+
+#### Phase 14.2 — Rules overlay (`?`): combination examples
+
+Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no illustrated standard shapes.
+
+- [ ] Add a **Combinations** section (or tab) with worked examples: e.g. pinfu (ryanmen wait), tanyao, toitoi, chiitoitsu, honitsu/chinitsu skeleton, yakuhai — using the same tile glyphs as the table.
+- [ ] Examples are static reference content (mirror `RULES.md` / `cheatsheet.rs` names); optional cross-links to yaku rows.
+- [ ] Scroll / section navigation still works with existing `?` overlay.
+
+**Verify:** every baseline + pattern yaku in `cheatsheet.rs` has at least one example line or points to a shared shape; §8 gates green.
+
+#### Phase 14.3 — Dora highlight in hand
+
+**Not implemented today** — dora indicators render on the wall (`board/wall.rs`); hand/meld tiles use selection/drawn/match styling only. Red fives use aka styling via `tile.is_red()`, not indicator matching.
+
+- [ ] Highlight tiles in **concealed hand and open melds** that count as dora against current indicators (`view.dora_indicators`; aka when `RulesConfig` aka dora on).
+- [ ] Reuse `theme.dora_style()` (or a distinct aka-dora variant if needed); must not clash with picker selection / drawn-tile emphasis.
+- [ ] Rivers: optional subtle highlight when a discard matches dora (lower priority than 14.3 hand melds).
+
+**Verify:** manual check on `aka_dora_on` / dora scenario fixtures; dora tiles visually distinct at table with multiple indicators.
+
+**Verify (Phase 14):** TUI still presentation-only; no duplicated rule logic in `rrmj-tui`.
+
+---
+
+### Phase 15 — TUI polish (deferred)
 
 > **Blocked on Phase 11 + 12 complete.**
 
-#### Phase 14.1 — Display modes
+#### Phase 15.1 — Display modes
 
 - [ ] `text` / `ascii` / `unicode`; `display_mode` in config; migrate from `ascii_mode`
 
-#### Phase 14.2 — Table layout
+#### Phase 15.2 — Table layout
 
 - [ ] Seat geometry, spacing, 80×24 readable, scales up
 
-#### Phase 14.3 — Animations
+#### Phase 15.3 — Animations
 
 - [ ] Production timing for discard, calls, riichi, draw, win cues
 
-#### Phase 14.4 — Theming
+#### Phase 15.4 — Theming
 
 - [ ] Hex colors, expanded style tokens, settings preview
 
-#### Phase 14.5 — Rules UI
+#### Phase 15.5 — Rules UI
 
 - [ ] Richer rules reference than overlay (tabs/search if scope allows)
 
@@ -428,26 +473,26 @@ Regenerate: `cargo test -p librrmj --features serde write_all_scenario_fixtures 
 
 ---
 
-### Phase 15 — Post-release
+### Phase 16 — Post-release
 
-#### Phase 15.1 — Replay playback
+#### Phase 16.1 — Replay playback
 
 - [ ] `RecordingPlayer` in `librrmj` (step/seek events)
 - [ ] TUI playback screen (play/pause, jump to hands)
 
-#### Phase 15.2 — Online (`rrmj-net`)
+#### Phase 16.2 — Online (`rrmj-net`)
 
 - [ ] `docs/ONLINE.md`; wire format; `RemoteAgent`
 
-#### Phase 15.3 — Bevy client (`rrmj-bevy`)
+#### Phase 16.3 — Bevy client (`rrmj-bevy`)
 
 - [ ] New crate; same `Match` boundary; `docs/BEVY_PLAN.md`
 
-#### Phase 15.4 — Additional rulesets
+#### Phase 16.4 — Additional rulesets
 
 - [ ] New `rules/<name>/` + `RulesProfile` + fixtures + TUI picker
 
-#### Phase 15.5 — Optional
+#### Phase 16.5 — Optional
 
 - [ ] Stronger AI (expectimax / neural)
 
@@ -475,6 +520,8 @@ Regenerate: `cargo test -p librrmj --features serde write_all_scenario_fixtures 
 | Date | Change |
 | ---- | ------ |
 | 2026-06-10 | Drop release/DoD framing; Phase 11+12 = mandatory full ruleset ASAP |
-| 2026-06-10 | Restructure: §9 shipped archive (Phases 0–10), §10 active Phases 11–15 with steps |
+| 2026-06-11 | Phase 14: recommendations decomposition, rules examples, dora hand highlight |
+| 2026-06-11 | Renumber: old Phase 14 → 15 (TUI polish), old Phase 15 → 16 (post-release) |
+| 2026-06-10 | Restructure: §9 shipped archive (Phases 0–10), §10 active Phases 11–16 with steps |
 | 2026-06-10 | Prior rewrite (priority list) — superseded by phase structure |
 | 2026-06-08 | Initial plan |

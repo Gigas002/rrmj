@@ -158,7 +158,7 @@ fn remove_tiles(tiles: &[Tile], to_remove: &[Tile]) -> Option<Vec<Tile>> {
     Some(rest)
 }
 
-fn all_wait_tiles() -> Vec<Tile> {
+pub(crate) fn all_wait_tiles() -> Vec<Tile> {
     let mut tiles = Vec::new();
     for suit in Suit::ALL {
         for rank in 1..=9 {

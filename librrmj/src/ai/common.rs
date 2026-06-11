@@ -1,4 +1,4 @@
-use crate::action::Action;
+use crate::action::{Action, KanIntent};
 use crate::agent::PlayerView;
 use crate::hand::{Hand, Meld};
 use crate::tile::Tile;
@@ -28,7 +28,7 @@ pub fn simulate_call(hand: &Hand, action: Action, called: Tile) -> Option<Hand> 
             remove_matching_identity(&mut concealed, called, 2)?;
             melds.push(Meld::pon([called, called, called], called).ok()?);
         }
-        Action::OpenKan => {
+        Action::Kan(KanIntent::Open) => {
             remove_matching_identity(&mut concealed, called, 3)?;
             let tile = called;
             melds.push(Meld::open_kan([tile, tile, tile, tile], called).ok()?);

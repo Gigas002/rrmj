@@ -1,5 +1,5 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "title": "South round",
   "description": "Match in South 1 after East round completed.",
   "tags": [
@@ -323,8 +323,34 @@
     {
       "Won": {
         "seat": 1,
-        "han": 5,
-        "fu": 40
+        "scoring": {
+          "winner": 1,
+          "win_type": {
+            "type": "ron",
+            "from": 0
+          },
+          "yaku": [
+            "renhou"
+          ],
+          "dora": 0,
+          "ura_dora": 0,
+          "aka_dora": 0,
+          "han": 5,
+          "fu": 40,
+          "payments": [
+            {
+              "payer": 0,
+              "payee": 1,
+              "points": 8000
+            }
+          ],
+          "deltas": [
+            -8000,
+            8000,
+            0,
+            0
+          ]
+        }
       }
     },
     {
@@ -353,8 +379,34 @@
     {
       "Won": {
         "seat": 2,
-        "han": 5,
-        "fu": 40
+        "scoring": {
+          "winner": 2,
+          "win_type": {
+            "type": "ron",
+            "from": 1
+          },
+          "yaku": [
+            "renhou"
+          ],
+          "dora": 0,
+          "ura_dora": 0,
+          "aka_dora": 0,
+          "han": 5,
+          "fu": 40,
+          "payments": [
+            {
+              "payer": 1,
+              "payee": 2,
+              "points": 8000
+            }
+          ],
+          "deltas": [
+            0,
+            -8000,
+            8000,
+            0
+          ]
+        }
       }
     },
     {
@@ -383,8 +435,34 @@
     {
       "Won": {
         "seat": 3,
-        "han": 6,
-        "fu": 40
+        "scoring": {
+          "winner": 3,
+          "win_type": {
+            "type": "ron",
+            "from": 2
+          },
+          "yaku": [
+            "renhou"
+          ],
+          "dora": 1,
+          "ura_dora": 0,
+          "aka_dora": 0,
+          "han": 6,
+          "fu": 40,
+          "payments": [
+            {
+              "payer": 2,
+              "payee": 3,
+              "points": 12000
+            }
+          ],
+          "deltas": [
+            0,
+            0,
+            -12000,
+            12000
+          ]
+        }
       }
     },
     {
@@ -413,8 +491,34 @@
     {
       "Won": {
         "seat": 0,
-        "han": 6,
-        "fu": 40
+        "scoring": {
+          "winner": 0,
+          "win_type": {
+            "type": "ron",
+            "from": 3
+          },
+          "yaku": [
+            "renhou"
+          ],
+          "dora": 1,
+          "ura_dora": 0,
+          "aka_dora": 0,
+          "han": 6,
+          "fu": 40,
+          "payments": [
+            {
+              "payer": 3,
+              "payee": 0,
+              "points": 12000
+            }
+          ],
+          "deltas": [
+            12000,
+            0,
+            0,
+            -12000
+          ]
+        }
       }
     },
     {

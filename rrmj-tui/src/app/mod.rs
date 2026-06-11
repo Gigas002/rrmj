@@ -33,11 +33,12 @@ use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifier
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use librrmj::action::Action;
+use librrmj::action::{Action, KanIntent};
 use librrmj::agent::{PlayerSlot, PlayerView};
 use librrmj::ai::{MatchSetup, SeatAgent};
 use librrmj::event::Event as GameEvent;
 use librrmj::game::Match;
+use librrmj::rules::WinPathCandidate;
 use librrmj::state::HandPhase;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
@@ -131,6 +132,9 @@ pub struct App {
     #[cfg(feature = "debug-menu")]
     import_scenario: Option<PathInputDialog>,
     scores_open: bool,
+    recommendations_open: bool,
+    recommendations_scroll: usize,
+    recommendations_cache: Vec<WinPathCandidate>,
     settings_open: bool,
     rules_open: bool,
     rules_scroll: usize,
@@ -191,6 +195,9 @@ impl App {
             #[cfg(feature = "debug-menu")]
             import_scenario: None,
             scores_open: false,
+            recommendations_open: false,
+            recommendations_scroll: 0,
+            recommendations_cache: Vec::new(),
             settings_open: false,
             rules_open: false,
             rules_scroll: 0,
@@ -244,6 +251,7 @@ impl App {
             || self.pause_open
             || self.export_save.is_some()
             || self.scores_open
+            || self.recommendations_open
         {
             return Ok(());
         }
@@ -294,6 +302,7 @@ impl App {
             || self.pause_open
             || self.export_save.is_some()
             || self.scores_open
+            || self.recommendations_open
             || self.help_open
             || self.rules_open
             || self.hand_result.is_some()
@@ -377,6 +386,7 @@ impl App {
 
     fn open_pause_menu(&mut self) {
         self.scores_open = false;
+        self.recommendations_open = false;
         self.pause_open = true;
         self.pause_index = PauseItem::Resume;
         self.action_timer.reset();
@@ -404,6 +414,8 @@ impl App {
         self.cpu_step_wait_until = None;
         self.action_timer.reset();
         self.scores_open = false;
+        self.recommendations_open = false;
+        self.recommendations_cache.clear();
         self.close_pause_menu();
         self.status = "Returned to main menu".into();
     }
@@ -606,6 +618,9 @@ impl App {
         if self.scores_open {
             return self.handle_scores_key(key);
         }
+        if self.recommendations_open {
+            return self.handle_recommendations_key(key);
+        }
         if self.help_open {
             return self.handle_help_key(key);
         }
@@ -644,6 +659,17 @@ impl App {
             self.scores_open = true;
             return Ok(());
         }
+        if matches!(action, Some(BindAction::Recommendations))
+            && self.screen == Screen::Table
+            && self.is_human_pending()
+            && self.hand_result.is_none()
+            && self.match_summary.is_none()
+        {
+            self.refresh_recommendations();
+            self.recommendations_open = true;
+            self.recommendations_scroll = 0;
+            return Ok(());
+        }
 
         match self.screen {
             Screen::MainMenu => self.handle_main_menu(&key, action),
@@ -673,6 +699,47 @@ impl App {
             Some(BindAction::Scores) | Some(BindAction::Back) | Some(BindAction::Quit)
         ) {
             self.scores_open = false;
+        }
+        Ok(())
+    }
+
+    fn refresh_recommendations(&mut self) {
+        self.recommendations_cache = self
+            .match_game
+            .as_ref()
+            .map(|game| game.candidate_win_paths(self.human_seat_active, 8))
+            .unwrap_or_default();
+    }
+
+    fn handle_recommendations_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        let action = self.keybinds.action_for(&key);
+        if matches!(action, Some(BindAction::Quit)) {
+            self.quit = true;
+        }
+        if matches!(
+            action,
+            Some(BindAction::Recommendations) | Some(BindAction::Back) | Some(BindAction::Quit)
+        ) {
+            self.recommendations_open = false;
+            return Ok(());
+        }
+        let page = 8usize;
+        match key.code {
+            KeyCode::Up => {
+                self.recommendations_scroll = self.recommendations_scroll.saturating_sub(1);
+            }
+            KeyCode::Down => {
+                let max = ui::recommendation_line_count(self).saturating_sub(1);
+                self.recommendations_scroll = (self.recommendations_scroll + 1).min(max);
+            }
+            KeyCode::PageUp => {
+                self.recommendations_scroll = self.recommendations_scroll.saturating_sub(page);
+            }
+            KeyCode::PageDown => {
+                let max = ui::recommendation_line_count(self).saturating_sub(1);
+                self.recommendations_scroll = (self.recommendations_scroll + page).min(max);
+            }
+            _ => {}
         }
         Ok(())
     }
@@ -1244,7 +1311,9 @@ impl App {
             Some(BindAction::Pass) if menu.can_pass => return Ok(Some(Action::Pass)),
             Some(BindAction::Ron) if menu.can_ron => return Ok(Some(Action::Ron)),
             Some(BindAction::Pon) if menu.can_pon => return Ok(Some(Action::Pon)),
-            Some(BindAction::OpenKan) if menu.can_open_kan => return Ok(Some(Action::OpenKan)),
+            Some(BindAction::OpenKan) if menu.can_open_kan => {
+                return Ok(Some(Action::Kan(KanIntent::Open)));
+            }
             Some(BindAction::Tsumo) if menu.can_tsumo => return Ok(Some(Action::Tsumo)),
             Some(BindAction::AbortNineTerminals) if menu.can_abort_nine_terminals => {
                 return Ok(Some(Action::AbortiveNineTerminals));
@@ -1259,9 +1328,9 @@ impl App {
             }
             Some(BindAction::Kakan) if !menu.kakan.is_empty() => {
                 if menu.kakan.len() == 1 {
-                    return Ok(Some(Action::Kakan {
+                    return Ok(Some(Action::Kan(KanIntent::Added {
                         meld_index: menu.kakan[0],
-                    }));
+                    })));
                 }
                 self.table_mode = TableMode::PickKakan;
                 self.tile_index = 0;
@@ -1318,7 +1387,7 @@ impl App {
                             path: PathBuf::from("<table>"),
                             detail: "no closed kan selected".into(),
                         })?;
-                Ok(Some(Action::ClosedKan { tile }))
+                Ok(Some(Action::Kan(KanIntent::Closed { tile })))
             }
             TableMode::PickKakan => {
                 let meld_index =
@@ -1329,7 +1398,7 @@ impl App {
                             path: PathBuf::from("<table>"),
                             detail: "no kakan meld selected".into(),
                         })?;
-                Ok(Some(Action::Kakan { meld_index }))
+                Ok(Some(Action::Kan(KanIntent::Added { meld_index })))
             }
             TableMode::PickChi => {
                 let tiles = menu.chi[self.chi_index];
@@ -1502,6 +1571,18 @@ impl App {
 
     pub const fn scores_open(&self) -> bool {
         self.scores_open
+    }
+
+    pub const fn recommendations_open(&self) -> bool {
+        self.recommendations_open
+    }
+
+    pub const fn recommendations_scroll(&self) -> usize {
+        self.recommendations_scroll
+    }
+
+    pub fn recommendations(&self) -> &[WinPathCandidate] {
+        &self.recommendations_cache
     }
 
     pub const fn pause_index(&self) -> PauseItem {

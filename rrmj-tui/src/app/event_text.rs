@@ -36,8 +36,13 @@ pub fn describe_event(event: &Event) -> String {
             "{} added kan on meld {meld_index} ({tile})",
             seat_name(*seat)
         ),
-        Event::Won { seat, han, fu } => {
-            format!("{} won — {han} han {fu} fu", seat_name(*seat))
+        Event::Won { seat, scoring } => {
+            format!(
+                "{} won — {} han {} fu",
+                seat_name(*seat),
+                scoring.han,
+                scoring.fu
+            )
         }
         Event::ScoresAdjusted { deltas } => format!("Scores adjusted {deltas:?}"),
         Event::ExhaustiveDraw { deltas } => format!("Exhaustive draw {deltas:?}"),

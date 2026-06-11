@@ -1,5 +1,5 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "title": "Honba carry",
   "description": "Dealer won last hand; honba stick on table at 1.",
   "tags": [
@@ -324,8 +324,44 @@
     {
       "Won": {
         "seat": 0,
-        "han": 2,
-        "fu": 28
+        "scoring": {
+          "winner": 0,
+          "win_type": {
+            "type": "tsumo"
+          },
+          "yaku": [
+            "menzen_tsumo",
+            "tanyao"
+          ],
+          "dora": 0,
+          "ura_dora": 0,
+          "aka_dora": 0,
+          "han": 2,
+          "fu": 28,
+          "payments": [
+            {
+              "payer": 1,
+              "payee": 0,
+              "points": 900
+            },
+            {
+              "payer": 2,
+              "payee": 0,
+              "points": 900
+            },
+            {
+              "payer": 3,
+              "payee": 0,
+              "points": 900
+            }
+          ],
+          "deltas": [
+            2700,
+            -900,
+            -900,
+            -900
+          ]
+        }
       }
     },
     {

@@ -167,8 +167,7 @@ impl HandState {
             }
             events.push(Event::Won {
                 seat: winner,
-                han: result.han,
-                fu: result.fu,
+                scoring: result,
             });
         }
 

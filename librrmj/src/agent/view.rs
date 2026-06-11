@@ -11,6 +11,63 @@ pub struct PendingCall {
     pub tile: Tile,
 }
 
+/// What this seat's turn is focused on right now.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TurnFocus {
+    /// Waiting for draw or between actions.
+    Idle,
+    /// A tile is callable (discard or kakan) during reaction.
+    Reaction,
+    /// This seat is choosing a discard / kan / riichi / tsumo.
+    Discarding { drawn: Option<Tile> },
+}
+
+/// Table turn state visible to one seat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TurnContext {
+    /// Tile to highlight in a river, or to call during [`TurnFocus::Reaction`].
+    pub latest_discard: Option<PendingCall>,
+    pub focus: TurnFocus,
+}
+
+impl TurnContext {
+    pub const fn idle() -> Self {
+        Self {
+            latest_discard: None,
+            focus: TurnFocus::Idle,
+        }
+    }
+
+    pub fn reaction(call: PendingCall) -> Self {
+        Self {
+            latest_discard: Some(call),
+            focus: TurnFocus::Reaction,
+        }
+    }
+
+    pub fn discarding(drawn: Option<Tile>) -> Self {
+        Self {
+            latest_discard: None,
+            focus: TurnFocus::Discarding { drawn },
+        }
+    }
+
+    /// Callable tile during an active reaction window.
+    pub fn pending_call(&self) -> Option<PendingCall> {
+        matches!(self.focus, TurnFocus::Reaction)
+            .then(|| self.latest_discard)
+            .flatten()
+    }
+
+    /// Tile just drawn on this seat's discard turn (hidden from other seats).
+    pub fn drawn_tile(&self) -> Option<Tile> {
+        match self.focus {
+            TurnFocus::Discarding { drawn } => drawn,
+            _ => None,
+        }
+    }
+}
+
 /// Public information about one seat as visible from the table.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SeatView {
@@ -35,9 +92,7 @@ pub struct PlayerView {
     pub seats: [SeatView; SEAT_COUNT],
     pub dora_indicators: Vec<Tile>,
     pub table_riichi_sticks: u8,
-    pub pending_call: Option<PendingCall>,
-    /// Tile just drawn when `seat` is discarding; `None` on dealer's first turn.
-    pub last_draw: Option<Tile>,
+    pub turn: TurnContext,
 }
 
 impl PlayerView {
@@ -91,10 +146,28 @@ impl PlayerView {
             seats,
             dora_indicators: hand.wall().dora_indicators(),
             table_riichi_sticks: hand.table_riichi_sticks(),
-            pending_call: hand.pending_call(),
-            last_draw: (seat == hand.current_actor() && hand.phase() == HandPhase::Discard)
-                .then(|| hand.last_drawn_tile())
-                .flatten(),
+            turn: turn_context_from_hand(hand, seat),
         }
+    }
+}
+
+fn turn_context_from_hand(hand: &HandState, seat: usize) -> TurnContext {
+    let latest_discard = if hand.phase() == HandPhase::Reaction {
+        hand.pending_call()
+    } else {
+        hand.last_discard()
+    };
+
+    let focus = match hand.phase() {
+        HandPhase::Reaction => TurnFocus::Reaction,
+        HandPhase::Discard if seat == hand.current_actor() => TurnFocus::Discarding {
+            drawn: hand.last_drawn_tile(),
+        },
+        _ => TurnFocus::Idle,
+    };
+
+    TurnContext {
+        latest_discard,
+        focus,
     }
 }

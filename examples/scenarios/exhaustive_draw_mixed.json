@@ -1,5 +1,5 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "title": "Exhaustive draw (mixed tenpai)",
   "description": "Two seats tenpai and two noten when the live wall is exhausted.",
   "tags": [

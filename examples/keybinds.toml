@@ -83,3 +83,5 @@ continue = "enter"
 rules = "?"
 # Current scores (in-match overlay)
 scores = "s"
+# Win path recommendations (human turn)
+recommendations = "e"

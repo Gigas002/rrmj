@@ -1,4 +1,4 @@
-use crate::action::Action;
+use crate::action::{Action, KanIntent};
 use crate::state::calls::{CallKind, call_priority, seat_priority};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -124,7 +124,7 @@ impl ReactionState {
 pub fn reaction_priority(action: Action) -> Option<u8> {
     match action {
         Action::Ron => Some(3),
-        Action::OpenKan => Some(call_priority(CallKind::OpenKan)),
+        Action::Kan(KanIntent::Open) => Some(call_priority(CallKind::OpenKan)),
         Action::Pon => Some(call_priority(CallKind::Pon)),
         Action::Chi { .. } => Some(call_priority(CallKind::Chi)),
         _ => None,
@@ -135,7 +135,7 @@ pub fn call_kind(action: Action) -> Option<CallKind> {
     match action {
         Action::Chi { .. } => Some(CallKind::Chi),
         Action::Pon => Some(CallKind::Pon),
-        Action::OpenKan => Some(CallKind::OpenKan),
+        Action::Kan(KanIntent::Open) => Some(CallKind::OpenKan),
         _ => None,
     }
 }

@@ -1,5 +1,5 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "title": "Draw after discard",
   "description": "South's turn: draw phase after East discarded and all passed.",
   "tags": [

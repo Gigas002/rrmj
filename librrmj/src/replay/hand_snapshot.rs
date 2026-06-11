@@ -17,6 +17,8 @@ pub struct HandSnapshot {
     pub wall: WallSnapshot,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reaction: Option<ReactionState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_discard: Option<(usize, Tile)>,
     pub scores: [i32; 4],
     pub riichi: [bool; 4],
     pub table_riichi_sticks: u8,

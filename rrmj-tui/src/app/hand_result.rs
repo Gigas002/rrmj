@@ -1,5 +1,6 @@
 use librrmj::event::Event;
 use librrmj::game::AbortiveDrawKind;
+use librrmj::scoring::ScoringResult;
 
 /// Summary shown between hands.
 #[derive(Debug, Clone)]
@@ -9,24 +10,10 @@ pub struct HandResultSummary {
 }
 
 pub fn summary_from_events(events: &[Event]) -> Option<HandResultSummary> {
-    if let Some(Event::Won { seat, han, fu }) =
+    if let Some(Event::Won { seat, scoring }) =
         events.iter().find(|e| matches!(e, Event::Won { .. }))
     {
-        let seat = *seat;
-        let mut lines = vec![
-            format!("Winner: {}", crate::app::NewGameSetup::seat_name(seat)),
-            format!("Han: {han}, fu: {fu}"),
-        ];
-        if let Some(Event::ScoresAdjusted { deltas }) = events
-            .iter()
-            .find(|e| matches!(e, Event::ScoresAdjusted { .. }))
-        {
-            lines.push(format!("Deltas: {:?}", deltas));
-        }
-        return Some(HandResultSummary {
-            title: "Hand won".into(),
-            lines,
-        });
+        return Some(win_summary(*seat, scoring));
     }
 
     if events
@@ -57,6 +44,42 @@ pub fn summary_from_events(events: &[Event]) -> Option<HandResultSummary> {
     }
 
     None
+}
+
+fn win_summary(seat: usize, scoring: &ScoringResult) -> HandResultSummary {
+    let mut lines = vec![
+        format!("Winner: {}", crate::app::NewGameSetup::seat_name(seat)),
+        format!("Win type: {}", scoring.win_type_label()),
+        String::new(),
+        "Yaku:".into(),
+    ];
+    for line in scoring.yaku_lines() {
+        lines.push(format!("  {line}"));
+    }
+    for line in scoring.dora_lines() {
+        lines.push(format!("  {line}"));
+    }
+    lines.push(String::new());
+    lines.push(format!(
+        "Total: {} han, {} fu ({})",
+        scoring.han,
+        scoring.fu,
+        scoring.limit_label()
+    ));
+    lines.push(String::new());
+    lines.push("Payments:".into());
+    for line in scoring.payment_lines() {
+        lines.push(format!("  {line}"));
+    }
+    lines.push(String::new());
+    lines.push("Score changes:".into());
+    for line in scoring.delta_lines() {
+        lines.push(format!("  {line}"));
+    }
+    HandResultSummary {
+        title: "Hand won".into(),
+        lines,
+    }
 }
 
 fn abortive_label(kind: AbortiveDrawKind) -> &'static str {

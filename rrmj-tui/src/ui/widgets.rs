@@ -12,10 +12,11 @@ pub fn tile_span(
     selected: bool,
     drawn: bool,
     matched: bool,
+    recent_discard: bool,
 ) -> Span<'static> {
     Span::styled(
         tile_label(tile),
-        theme.tile_style(tile.is_red(), selected, drawn, matched),
+        theme.tile_style(tile.is_red(), selected, drawn, matched, recent_discard),
     )
 }
 
@@ -25,6 +26,7 @@ pub fn tiles_line(
     selected: Option<usize>,
     drawn: Option<usize>,
     match_tile: Option<Tile>,
+    recent_index: Option<usize>,
 ) -> Line<'static> {
     Line::from(
         tiles
@@ -37,6 +39,7 @@ pub fn tiles_line(
                     selected == Some(i),
                     drawn == Some(i),
                     match_tile == Some(*t),
+                    recent_index == Some(i),
                 )
             })
             .collect::<Vec<_>>(),

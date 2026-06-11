@@ -31,8 +31,7 @@ fn view_with_riichi_opponent(concealed: Vec<Tile>, opponent_discards: Vec<Tile>)
         seats,
         dora_indicators: Vec::new(),
         table_riichi_sticks: 0,
-        pending_call: None,
-        last_draw: None,
+        turn: crate::agent::TurnContext::idle(),
     }
 }
 
@@ -117,8 +116,7 @@ fn declares_riichi_when_tenpai_and_safe_to_do_so() {
         }),
         dora_indicators: Vec::new(),
         table_riichi_sticks: 0,
-        pending_call: None,
-        last_draw: None,
+        turn: crate::agent::TurnContext::idle(),
     };
     let legal: Vec<Action> = view
         .own_concealed

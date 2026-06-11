@@ -1,5 +1,6 @@
 use crate::game::{AbortiveDrawKind, RoundWind};
 use crate::hand::MeldKind;
+use crate::scoring::ScoringResult;
 use crate::tile::Tile;
 
 /// A state change that has been applied to the hand.
@@ -31,8 +32,11 @@ pub enum Event {
         meld_index: usize,
         tile: Tile,
     },
-    /// A seat won the hand.
-    Won { seat: usize, han: u8, fu: u8 },
+    /// A seat won the hand with full scoring breakdown.
+    Won {
+        seat: usize,
+        scoring: ScoringResult,
+    },
     /// Score transfers applied to all seats.
     ScoresAdjusted { deltas: [i32; 4] },
     /// Live wall exhausted without a win.

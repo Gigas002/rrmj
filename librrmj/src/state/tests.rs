@@ -3,7 +3,7 @@ use rand::rngs::StdRng;
 
 use super::{HandPhase, HandState};
 use crate::Error;
-use crate::action::Action;
+use crate::action::{Action, KanIntent};
 use crate::event::Event;
 use crate::hand::{Hand, Meld, MeldKind};
 use crate::rules::{RulesConfig, RulesProfileId, RulesRegistry};
@@ -247,7 +247,7 @@ fn open_kan_reveals_dora_and_draws_rinshan() {
         ],
     );
 
-    state.apply(1, Action::OpenKan).unwrap();
+    state.apply(1, Action::Kan(KanIntent::Open)).unwrap();
     state.apply(2, Action::Pass).unwrap();
     let events = state.apply(3, Action::Pass).unwrap();
 
@@ -342,7 +342,7 @@ fn closed_kan_on_own_turn_stays_on_discard() {
     );
 
     let events = state
-        .apply(0, Action::ClosedKan { tile: Tile::pin(3) })
+        .apply(0, Action::Kan(KanIntent::Closed { tile: Tile::pin(3) }))
         .unwrap();
     assert!(
         events
@@ -610,7 +610,9 @@ fn kakan_upgrades_pon_and_reveals_dora() {
     .unwrap();
     state.set_hand(0, hand);
 
-    let events = state.apply(0, Action::Kakan { meld_index: 0 }).unwrap();
+    let events = state
+        .apply(0, Action::Kan(KanIntent::Added { meld_index: 0 }))
+        .unwrap();
     assert!(
         events
             .iter()
@@ -680,7 +682,9 @@ fn chankan_ron_on_kakan_tile() {
         ],
     );
 
-    state.apply(1, Action::Kakan { meld_index: 0 }).unwrap();
+    state
+        .apply(1, Action::Kan(KanIntent::Added { meld_index: 0 }))
+        .unwrap();
     state.apply(0, Action::Pass).unwrap();
     state.apply(2, Action::Ron).unwrap();
     let events = state.apply(3, Action::Pass).unwrap();

@@ -20,8 +20,10 @@ pub mod wall;
 #[cfg(test)]
 pub mod test_util;
 
-pub use action::Action;
-pub use agent::{Agent, FnAgent, PendingCall, PlayerSlot, PlayerView, SeatView};
+pub use action::{Action, KanIntent};
+pub use agent::{
+    Agent, FnAgent, PendingCall, PlayerSlot, PlayerView, SeatView, TurnContext, TurnFocus,
+};
 #[cfg(feature = "ai")]
 pub use ai::{
     AiConfig, CpuAgent, Difficulty, EasyAgent, HardAgent, MatchSetup, MediumAgent, SeatAgent,
@@ -38,7 +40,8 @@ pub use replay::{
 };
 pub use replay::{MatchSnapshot, Replay};
 pub use rules::{
-    RulesConfig, RulesProfile, RulesProfileId, RulesRegistry, WinContext, WinTimingFlags,
+    RulesConfig, RulesProfile, RulesProfileId, RulesRegistry, WinContext, WinPathCandidate,
+    WinTimingFlags, candidate_win_paths, sort_win_paths,
 };
 pub use scoring::{ScoringResult, WinType, Yaku};
 pub use state::{HandPhase, HandState, SEAT_COUNT};

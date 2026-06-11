@@ -11,6 +11,7 @@ mod path_input;
 mod pause;
 mod popup;
 mod render;
+mod recommendations;
 mod replay_review;
 mod rules;
 mod rules_content;
@@ -19,6 +20,7 @@ mod setup;
 mod table;
 mod widgets;
 
+pub use recommendations::recommendation_line_count;
 pub use rules::rules_line_count;
 
 use ratatui::Frame;
@@ -93,6 +95,8 @@ fn draw_table_screen(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
         );
     } else if app.scores_open() {
         scores::draw_scores_popup(frame, area, app, theme);
+    } else if app.recommendations_open() {
+        recommendations::draw_recommendations_popup(frame, area, app, theme);
     }
     if app.hand_result().is_some() {
         hand_result::draw_hand_result_popup(frame, area, app, theme);

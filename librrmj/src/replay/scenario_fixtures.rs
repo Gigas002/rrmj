@@ -11,7 +11,7 @@ use std::path::PathBuf;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 
-use crate::action::Action;
+use crate::action::{Action, KanIntent};
 use crate::ai::MatchSetup;
 use crate::event::Event;
 use crate::game::{AbortiveDrawKind, Match, MatchLength, MatchPhase, RoundWind};
@@ -142,7 +142,7 @@ fn all_specs() -> Vec<ScenarioSpec> {
                 "South can declare open kan on 6s; reveals dora and rinshan draw.",
                 &["calls", "kan", "dora", "reaction"],
             ),
-            Some(vec![Action::OpenKan, Action::Pass]),
+            Some(vec![Action::Kan(KanIntent::Open), Action::Pass]),
             None,
             open_kan,
         ),
@@ -464,7 +464,7 @@ fn all_specs() -> Vec<ScenarioSpec> {
                 "East can upgrade an open pon to kan with the fourth matching tile.",
                 &["calls", "kan", "dora"],
             ),
-            Some(vec![Action::Kakan { meld_index: 0 }]),
+            Some(vec![Action::Kan(KanIntent::Added { meld_index: 0 })]),
             None,
             kakan,
         ),
@@ -965,7 +965,7 @@ fn open_kan() -> MatchRecording {
         2013,
         1,
         meta("", "", &[]),
-        Some(vec![Action::OpenKan, Action::Pass]),
+        Some(vec![Action::Kan(KanIntent::Open), Action::Pass]),
         0,
         RoundWind::East,
         1,
@@ -1021,7 +1021,7 @@ fn rinshan_discard() -> MatchRecording {
             vec![Tile::sou(4), Tile::sou(5), Tile::sou(7)],
         ],
     );
-    hand.apply(1, Action::OpenKan).unwrap();
+    hand.apply(1, Action::Kan(KanIntent::Open)).unwrap();
     pass_all_except(&mut hand, 1);
     recording_from_hand(
         hand,
@@ -1817,7 +1817,9 @@ fn chankan_ron() -> MatchRecording {
             Tile::sou(9),
         ],
     );
-    hand.apply(1, Action::Kakan { meld_index: 0 }).unwrap();
+    hand
+        .apply(1, Action::Kan(KanIntent::Added { meld_index: 0 }))
+        .unwrap();
     hand.apply(0, Action::Pass).unwrap();
     hand.apply(3, Action::Pass).unwrap();
     recording_from_hand(

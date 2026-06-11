@@ -3,6 +3,7 @@ use crate::hand::Hand;
 use crate::rules::RulesConfig;
 use crate::rules::RulesProfileId;
 use crate::rules::flow::MatchFlowPolicy;
+use crate::rules::win_path::WinPathCandidate;
 use crate::scoring::{ScoringResult, WinType};
 use crate::state::HandState;
 use crate::tile::Tile;
@@ -87,6 +88,15 @@ pub trait RulesProfile: Send + Sync {
     fn is_riichi_discard(&self, hand: &Hand, discard: Tile, config: &RulesConfig) -> bool;
 
     fn score_win(&self, ctx: &WinContext<'_>, config: &RulesConfig) -> ScoringResult;
+
+    /// Closest scored win paths for planning UI (sorted by expected points, then shanten).
+    fn candidate_win_paths(
+        &self,
+        state: &HandState,
+        seat: usize,
+        config: &RulesConfig,
+        limit: usize,
+    ) -> Vec<WinPathCandidate>;
 
     fn score_exhaustive_draw(&self, state: &HandState, config: &RulesConfig) -> [i32; 4];
 

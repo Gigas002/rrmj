@@ -1,5 +1,17 @@
 use crate::tile::Tile;
 
+/// How a player intends to declare kan.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum KanIntent {
+    /// Open kan (daiminkan) on the last discard using three matching concealed tiles.
+    Open,
+    /// Closed kan (ankan) on the current turn using four matching concealed tiles.
+    Closed { tile: Tile },
+    /// Upgrade an open pon to kan (kakan) using the fourth matching tile from hand.
+    Added { meld_index: usize },
+}
+
 /// Player intent submitted to the engine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -20,12 +32,8 @@ pub enum Action {
     Chi { tiles: [Tile; 3] },
     /// Pon the last discard using two matching concealed tiles.
     Pon,
-    /// Open kan (daiminkan) on the last discard using three matching concealed tiles.
-    OpenKan,
-    /// Closed kan (ankan) on the current turn using four matching concealed tiles.
-    ClosedKan { tile: Tile },
-    /// Upgrade an open pon to kan using the fourth matching tile from hand.
-    Kakan { meld_index: usize },
+    /// Declare a kan (open, closed, or added).
+    Kan(KanIntent),
     /// Dealer aborts on the first turn with nine or more terminal/honor types.
     AbortiveNineTerminals,
 }

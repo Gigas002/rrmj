@@ -1183,6 +1183,60 @@ fn every_implemented_cheatsheet_row_has_win_fixture() {
     }
 }
 
+fn win_types_match(a: WinType, b: WinType) -> bool {
+    match (a, b) {
+        (WinType::Tsumo, WinType::Tsumo) => true,
+        (WinType::Ron { from: x }, WinType::Ron { from: y }) => x == y,
+        _ => false,
+    }
+}
+
+#[test]
+fn candidate_win_paths_match_score_win_on_fixtures() {
+    let config = RulesConfig::standard();
+    for case in all_win_cases() {
+        if case.is_chankan {
+            continue;
+        }
+        let state = state_for_case(&case);
+        let paths = crate::rules::candidate_win_paths(&state, case.winner, &config, 8);
+        assert!(
+            !paths.is_empty(),
+            "case {} should have at least one candidate path",
+            case.id
+        );
+        let expected = score_case(&case);
+        let best = paths
+            .iter()
+            .find(|path| {
+                win_types_match(path.win_type, case.win_type)
+                    && path.han == expected.han
+                    && path.fu == expected.fu
+                    && path.expected_points == expected.deltas[case.winner]
+            })
+            .unwrap_or_else(|| {
+                panic!(
+                    "case {}: no matching path for {:?} ({} han {} fu +{}), got {} paths",
+                    case.id,
+                    case.win_type,
+                    expected.han,
+                    expected.fu,
+                    expected.deltas[case.winner],
+                    paths.len()
+                )
+            });
+        for yaku in case.must_include {
+            assert!(
+                best.yaku.contains(yaku),
+                "case {}: expected {:?} in {:?}",
+                case.id,
+                yaku,
+                best.yaku
+            );
+        }
+    }
+}
+
 #[test]
 fn cheatsheet_catalog_covers_reference_yaku() {
     assert!(

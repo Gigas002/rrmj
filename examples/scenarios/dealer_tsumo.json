@@ -1,5 +1,5 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "title": "Dealer tsumo (tanyao)",
   "description": "East wins on tsumo; hand ends and next hand is dealt.",
   "tags": [
@@ -326,8 +326,44 @@
     {
       "Won": {
         "seat": 0,
-        "han": 3,
-        "fu": 28
+        "scoring": {
+          "winner": 0,
+          "win_type": {
+            "type": "tsumo"
+          },
+          "yaku": [
+            "menzen_tsumo",
+            "tanyao"
+          ],
+          "dora": 1,
+          "ura_dora": 0,
+          "aka_dora": 0,
+          "han": 3,
+          "fu": 28,
+          "payments": [
+            {
+              "payer": 1,
+              "payee": 0,
+              "points": 1800
+            },
+            {
+              "payer": 2,
+              "payee": 0,
+              "points": 1800
+            },
+            {
+              "payer": 3,
+              "payee": 0,
+              "points": 1800
+            }
+          ],
+          "deltas": [
+            5400,
+            -1800,
+            -1800,
+            -1800
+          ]
+        }
       }
     },
     {

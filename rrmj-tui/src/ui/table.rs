@@ -26,7 +26,7 @@ pub fn draw_table(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &The
         .split(area);
 
     let selected_hand = pick_selected_index(app, &sorted_hand);
-    let drawn_hand = drawn_hand_index(&sorted_hand, view.last_draw);
+    let drawn_hand = drawn_hand_index(&sorted_hand, view.turn.drawn_tile());
     let ctx = PlayfieldContext {
         view: &view,
         human,
@@ -36,6 +36,7 @@ pub fn draw_table(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &The
         selected_hand,
         drawn_hand,
         highlight_tile: highlighted_hand_tile(&sorted_hand, selected_hand, drawn_hand),
+        recent_discard: recent_opponent_discard(&view, human),
         sorted_hand: &sorted_hand,
     };
     draw_playfield(frame, root[0], &ctx);
@@ -92,6 +93,22 @@ fn highlighted_hand_tile(
     drawn: Option<usize>,
 ) -> Option<librrmj::tile::Tile> {
     selected.or(drawn).and_then(|i| hand.get(i).copied())
+}
+
+/// Latest opponent discard still in their river — `(seat, river index)`.
+pub(crate) fn recent_opponent_discard(
+    view: &librrmj::agent::PlayerView,
+    human: usize,
+) -> Option<(usize, usize)> {
+    let call = view.turn.latest_discard?;
+    if call.discarder == human {
+        return None;
+    }
+    let discards = &view.seats[call.discarder].discards;
+    let index = discards
+        .iter()
+        .rposition(|tile| *tile == call.tile)?;
+    Some((call.discarder, index))
 }
 
 /// Maps a sorted legal-action picker entry to the matching hand index (duplicates included).
@@ -153,7 +170,7 @@ fn action_help(app: &App, theme: &Theme) -> Vec<Line<'static>> {
                 ];
                 spans.extend(
                     chi.iter()
-                        .map(|t| tile_span(*t, theme, false, false, false)),
+                        .map(|t| tile_span(*t, theme, false, false, false, false)),
                 );
                 lines.push(Line::from(spans));
             }
