@@ -1,14 +1,11 @@
 mod abortive;
-mod cheatsheet;
 mod dora;
 mod fu;
 mod patterns;
 mod recommendations;
 mod score;
 mod win;
-mod win_combinations;
 mod yaku;
-mod yakuman;
 
 #[cfg(test)]
 mod tests;
@@ -18,14 +15,12 @@ use crate::hand::Hand;
 use crate::rules::RulesConfig;
 use crate::rules::RulesProfileId;
 use crate::rules::flow::{GameFlowPolicy, StandardGameFlow};
-use crate::rules::profile_trait::{RulesProfile, WinContext};
-use crate::rules::standard::recommendations::collect_win_paths;
-use crate::rules::win_path::{WinPathCandidate, sort_win_paths};
+use crate::rules::profile::{RulesProfile, WinContext};
+use crate::rules::recommendations::{Recommendation, sort_recommendations};
+use crate::rules::standard::recommendations::collect;
 use crate::scoring::ScoringResult;
 use crate::state::HandState;
 use crate::tile::Tile;
-
-pub use recommendations::candidate_win_paths;
 
 #[cfg(feature = "ai")]
 pub use win::is_winning_hand;
@@ -60,15 +55,15 @@ impl RulesProfile for StandardRules {
         score::score_hand(ctx, &yaku, han, fu, dora, ura_dora, aka_dora, config)
     }
 
-    fn candidate_win_paths(
+    fn recommendations(
         &self,
         state: &HandState,
         seat: usize,
         config: &RulesConfig,
         limit: usize,
-    ) -> Vec<WinPathCandidate> {
-        let mut paths = collect_win_paths(state, seat, config);
-        sort_win_paths(&mut paths);
+    ) -> Vec<Recommendation> {
+        let mut paths = collect(state, seat, config);
+        sort_recommendations(&mut paths);
         paths.truncate(limit);
         paths
     }

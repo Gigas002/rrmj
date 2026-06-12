@@ -1,12 +1,43 @@
 use crate::game::{AbortiveDrawKind, AbortiveTrigger};
 use crate::hand::Hand;
 use crate::rules::RulesConfig;
-use crate::rules::RulesProfileId;
 use crate::rules::flow::GameFlowPolicy;
-use crate::rules::win_path::WinPathCandidate;
+use crate::rules::recommendations::Recommendation;
 use crate::scoring::{ScoringResult, WinType};
 use crate::state::HandState;
 use crate::tile::Tile;
+
+/// Identifies a ruleset implementation (yaku table, scoring, match flow).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum RulesProfileId {
+    Standard,
+}
+
+impl RulesProfileId {
+    pub const ALL: [Self; 1] = [Self::Standard];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Standard => "standard",
+        }
+    }
+
+    pub fn parse(name: &str) -> Result<Self, String> {
+        match name.to_ascii_lowercase().as_str() {
+            "standard" => Ok(Self::Standard),
+            other => Err(format!(
+                "unknown rules profile '{other}' (expected standard)"
+            )),
+        }
+    }
+
+    pub fn next(self) -> Self {
+        let all = Self::ALL;
+        let idx = all.iter().position(|p| *p == self).unwrap_or(0);
+        all[(idx + 1) % all.len()]
+    }
+}
 
 /// Extra flags for win-timing yaku that are not inferable from hand tiles alone.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -89,14 +120,14 @@ pub trait RulesProfile: Send + Sync {
 
     fn score_win(&self, ctx: &WinContext<'_>, config: &RulesConfig) -> ScoringResult;
 
-    /// Closest scored win paths for planning UI (sorted by expected points, then shanten).
-    fn candidate_win_paths(
+    /// Scored win paths for planning UI (sorted by expected points, then shanten).
+    fn recommendations(
         &self,
         state: &HandState,
         seat: usize,
         config: &RulesConfig,
         limit: usize,
-    ) -> Vec<WinPathCandidate>;
+    ) -> Vec<Recommendation>;
 
     fn score_exhaustive_draw(&self, state: &HandState, config: &RulesConfig) -> [i32; 4];
 

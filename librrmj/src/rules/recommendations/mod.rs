@@ -1,9 +1,12 @@
+#[cfg(test)]
+mod tests;
+
 use crate::scoring::{WinType, Yaku};
 use crate::tile::Tile;
 
 /// One scored path toward a winning hand for planning UI.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WinPathCandidate {
+pub struct Recommendation {
     /// −1 = winning hand now, 0 = tenpai, 1+ = tiles away from tenpai.
     pub shanten: i8,
     /// Distinct tiles that complete this path (0 when already complete).
@@ -20,7 +23,7 @@ pub struct WinPathCandidate {
     pub win_type: WinType,
 }
 
-impl WinPathCandidate {
+impl Recommendation {
     pub fn shanten_label(&self) -> String {
         match self.shanten {
             -1 => "Complete".into(),
@@ -51,8 +54,8 @@ impl WinPathCandidate {
     }
 }
 
-/// Sort candidates by expected score, then closeness (shanten, wait count).
-pub fn sort_win_paths(paths: &mut [WinPathCandidate]) {
+/// Sort by expected score, then closeness (shanten, wait count).
+pub fn sort_recommendations(paths: &mut [Recommendation]) {
     paths.sort_by(|a, b| {
         b.expected_points
             .cmp(&a.expected_points)

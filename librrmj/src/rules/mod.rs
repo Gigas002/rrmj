@@ -1,17 +1,29 @@
 mod config;
 pub mod flow;
 mod profile;
-mod profile_trait;
+mod recommendations;
 mod registry;
 pub(crate) mod standard;
-mod win_path;
 
 #[cfg(test)]
 mod tests;
 
+use crate::state::HandState;
+
 pub use config::RulesConfig;
-pub use profile::RulesProfileId;
-pub use profile_trait::{RulesProfile, WinContext, WinTimingFlags};
+pub use profile::{RulesProfile, RulesProfileId, WinContext, WinTimingFlags};
+pub use recommendations::{Recommendation, sort_recommendations};
 pub use registry::RulesRegistry;
-pub use standard::candidate_win_paths;
-pub use win_path::{WinPathCandidate, sort_win_paths};
+
+/// Scored win paths for the active rules profile (planning UI).
+pub fn recommendations(
+    state: &HandState,
+    seat: usize,
+    config: &RulesConfig,
+    limit: usize,
+) -> Vec<Recommendation> {
+    let Ok(profile) = RulesRegistry::get(config.profile) else {
+        return Vec::new();
+    };
+    profile.recommendations(state, seat, config, limit)
+}

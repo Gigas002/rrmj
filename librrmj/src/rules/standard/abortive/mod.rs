@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::game::{AbortiveDrawKind, AbortiveTrigger};
 use crate::rules::RulesConfig;
 use crate::state::HandState;

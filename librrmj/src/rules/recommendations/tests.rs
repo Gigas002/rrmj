@@ -1,10 +1,10 @@
-use crate::rules::win_path::{WinPathCandidate, sort_win_paths};
+use crate::rules::recommendations::{Recommendation, sort_recommendations};
 use crate::scoring::{WinType, Yaku};
 
 #[test]
 fn sort_prefers_higher_expected_points() {
     let mut paths = vec![
-        WinPathCandidate {
+        Recommendation {
             shanten: 0,
             wait_count: 4,
             win_tile: None,
@@ -17,7 +17,7 @@ fn sort_prefers_higher_expected_points() {
             expected_points: 1_000,
             win_type: WinType::Ron { from: 0 },
         },
-        WinPathCandidate {
+        Recommendation {
             shanten: 0,
             wait_count: 2,
             win_tile: None,
@@ -31,6 +31,6 @@ fn sort_prefers_higher_expected_points() {
             win_type: WinType::Tsumo,
         },
     ];
-    sort_win_paths(&mut paths);
+    sort_recommendations(&mut paths);
     assert_eq!(paths[0].expected_points, 2_000);
 }

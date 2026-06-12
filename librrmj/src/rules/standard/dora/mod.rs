@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use crate::rules::RulesConfig;
 use crate::rules::WinContext;
 use crate::rules::standard::win;

@@ -98,12 +98,8 @@ impl Game {
         &self.hand
     }
 
-    pub fn candidate_win_paths(
-        &self,
-        seat: usize,
-        limit: usize,
-    ) -> Vec<crate::rules::WinPathCandidate> {
-        crate::rules::candidate_win_paths(self.hand(), seat, self.config(), limit)
+    pub fn recommendations(&self, seat: usize, limit: usize) -> Vec<crate::rules::Recommendation> {
+        crate::rules::recommendations(self.hand(), seat, self.config(), limit)
     }
 
     pub fn events(&self) -> &[Event] {

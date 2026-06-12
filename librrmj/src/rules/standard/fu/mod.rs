@@ -3,7 +3,7 @@ mod tests;
 
 use crate::hand::{KanForm, MeldKind};
 use crate::rules::RulesConfig;
-use crate::rules::profile_trait::WinContext;
+use crate::rules::profile::WinContext;
 use crate::rules::standard::win;
 use crate::scoring::{WinType, Yaku};
 

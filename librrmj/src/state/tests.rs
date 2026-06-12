@@ -7,11 +7,39 @@ use crate::action::{Action, KanIntent};
 use crate::event::Event;
 use crate::hand::{Hand, KanForm, Meld, MeldKind};
 use crate::rules::{RulesConfig, RulesProfileId, RulesRegistry};
-use crate::test_util::fixtures::{
-    tenpai_after_draw_p2, tenpai_waiting_on_p2, winning_tanyao_tiles,
-};
 use crate::tile::{Suit, Tile};
 use crate::wall::Wall;
+
+fn winning_tanyao_tiles() -> Vec<Tile> {
+    vec![
+        Tile::man(2),
+        Tile::man(3),
+        Tile::man(4),
+        Tile::pin(3),
+        Tile::pin(4),
+        Tile::pin(5),
+        Tile::sou(6),
+        Tile::sou(7),
+        Tile::sou(8),
+        Tile::sou(9),
+        Tile::sou(9),
+        Tile::sou(9),
+        Tile::pin(2),
+        Tile::pin(2),
+    ]
+}
+
+fn tenpai_waiting_on_p2() -> Vec<Tile> {
+    let mut hand = winning_tanyao_tiles();
+    hand.pop();
+    hand
+}
+
+fn tenpai_after_draw_p2() -> Vec<Tile> {
+    let mut hand = tenpai_waiting_on_p2();
+    hand.push(Tile::pin(2));
+    hand
+}
 
 // --- turn flow ---
 

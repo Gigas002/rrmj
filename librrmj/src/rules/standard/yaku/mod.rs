@@ -1,12 +1,15 @@
 #[cfg(test)]
 mod tests;
 
+mod yakuman;
+
 use crate::rules::RulesConfig;
-use crate::rules::profile_trait::WinContext;
+use crate::rules::profile::WinContext;
 use crate::rules::standard::patterns;
 use crate::rules::standard::win;
-use crate::rules::standard::yakuman;
 use crate::scoring::{WinType, Yaku};
+
+pub use yakuman::is_kokushi_tiles;
 use crate::tile::{Dragon, Tile, Wind};
 
 pub fn detect_yaku(ctx: &WinContext<'_>, _config: &RulesConfig) -> Vec<Yaku> {

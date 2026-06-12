@@ -1,5 +1,8 @@
+#[cfg(test)]
+mod tests;
+
 use crate::hand::{Concealed, Hand, MeldKind};
-use crate::rules::profile_trait::WinContext;
+use crate::rules::profile::WinContext;
 use crate::tile::{Suit, Tile, TileKind, Wind};
 
 pub fn is_winning_hand(hand: &Hand, win_tile: Option<Tile>) -> bool {
@@ -20,7 +23,7 @@ pub fn is_winning_hand(hand: &Hand, win_tile: Option<Tile>) -> bool {
         return true;
     }
 
-    if hand.melds().is_empty() && super::yakuman::is_kokushi_tiles(&concealed) {
+    if hand.melds().is_empty() && super::yaku::is_kokushi_tiles(&concealed) {
         return true;
     }
 

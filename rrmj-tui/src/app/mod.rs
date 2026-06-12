@@ -39,7 +39,7 @@ use librrmj::agent::{PlayerSlot, PlayerView};
 use librrmj::ai::{GameSetup, SeatAgent};
 use librrmj::event::Event as GameEvent;
 use librrmj::game::Game;
-use librrmj::rules::WinPathCandidate;
+use librrmj::rules::Recommendation;
 use librrmj::state::HandPhase;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
@@ -141,7 +141,7 @@ pub struct App {
     scores_open: bool,
     recommendations_open: bool,
     recommendations_scroll: usize,
-    recommendations_cache: Vec<WinPathCandidate>,
+    recommendations_cache: Vec<Recommendation>,
     settings_open: bool,
     rules_open: bool,
     rules_scroll: usize,
@@ -714,7 +714,7 @@ impl App {
         self.recommendations_cache = self
             .active_game
             .as_ref()
-            .map(|game| game.candidate_win_paths(self.human_seat_active, 8))
+            .map(|game| game.recommendations(self.human_seat_active, 8))
             .unwrap_or_default();
     }
 
@@ -1653,7 +1653,7 @@ impl App {
         self.recommendations_scroll
     }
 
-    pub fn recommendations(&self) -> &[WinPathCandidate] {
+    pub fn recommendations(&self) -> &[Recommendation] {
         &self.recommendations_cache
     }
 

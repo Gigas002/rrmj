@@ -1,5 +1,41 @@
+use crate::action::Action;
+use crate::game::Game;
 use crate::replay::Replay;
-use crate::test_util::fixtures::play_tsumo_hand;
+use crate::rules::RulesConfig;
+use crate::tile::Tile;
+
+fn winning_tanyao_tiles() -> Vec<Tile> {
+    vec![
+        Tile::man(2),
+        Tile::man(3),
+        Tile::man(4),
+        Tile::pin(3),
+        Tile::pin(4),
+        Tile::pin(5),
+        Tile::sou(6),
+        Tile::sou(7),
+        Tile::sou(8),
+        Tile::sou(9),
+        Tile::sou(9),
+        Tile::sou(9),
+        Tile::pin(2),
+        Tile::pin(2),
+    ]
+}
+
+fn force_tsumo_win(game: &mut Game, seat: usize) {
+    let hand = game.hand_mut();
+    hand.set_concealed(seat, winning_tanyao_tiles());
+    hand.last_draw = Some(Tile::pin(2));
+}
+
+fn play_tsumo_hand(seed: u64) -> Game {
+    let mut game = Game::new(RulesConfig::standard(), seed).unwrap();
+    let winner = game.dealer();
+    force_tsumo_win(&mut game, winner);
+    game.apply_action(winner, Action::Tsumo).unwrap();
+    game
+}
 
 #[test]
 fn replay_apply_all_matches_live_play() {

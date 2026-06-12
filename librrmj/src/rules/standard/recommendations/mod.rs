@@ -1,6 +1,6 @@
 use crate::hand::{Concealed, Hand};
-use crate::rules::profile_trait::{RulesProfile, WinContext, WinTimingFlags};
-use crate::rules::win_path::WinPathCandidate;
+use crate::rules::profile::{RulesProfile, WinContext, WinTimingFlags};
+use crate::rules::recommendations::Recommendation;
 use crate::rules::{RulesConfig, RulesRegistry};
 use crate::scoring::{ScoringResult, WinType};
 use crate::state::HandState;
@@ -8,27 +8,15 @@ use crate::tile::Tile;
 
 use super::win::{is_tenpai, is_winning_hand};
 
-pub fn candidate_win_paths(
-    state: &HandState,
-    seat: usize,
-    config: &RulesConfig,
-    limit: usize,
-) -> Vec<WinPathCandidate> {
-    let Ok(profile) = RulesRegistry::get(config.profile) else {
-        return Vec::new();
-    };
-    profile.candidate_win_paths(state, seat, config, limit)
-}
-
-struct PathCollector<'a> {
-    paths: &'a mut Vec<WinPathCandidate>,
+struct Collector<'a> {
+    paths: &'a mut Vec<Recommendation>,
     state: &'a HandState,
     seat: usize,
     config: &'a RulesConfig,
     profile: &'a dyn RulesProfile,
 }
 
-impl PathCollector<'_> {
+impl Collector<'_> {
     fn push(&mut self, win_type: WinType, win_tile: Tile, shanten: i8, wait_count: usize) {
         let timing = timing_flags(self.state, win_type);
         let ctx = WinContext::new(self.state, self.seat, win_type, win_tile, timing);
@@ -36,7 +24,7 @@ impl PathCollector<'_> {
             return;
         }
         let result = self.profile.score_win(&ctx, self.config);
-        self.paths.push(candidate_from_result(
+        self.paths.push(from_scoring_result(
             result,
             shanten,
             wait_count,
@@ -45,17 +33,17 @@ impl PathCollector<'_> {
     }
 }
 
-pub(crate) fn collect_win_paths(
+pub(crate) fn collect(
     state: &HandState,
     seat: usize,
     config: &RulesConfig,
-) -> Vec<WinPathCandidate> {
+) -> Vec<Recommendation> {
     let Ok(profile) = RulesRegistry::get(config.profile) else {
         return Vec::new();
     };
     let hand = state.hand(seat);
     let mut paths = Vec::new();
-    let mut collector = PathCollector {
+    let mut collector = Collector {
         paths: &mut paths,
         state,
         seat,
@@ -95,7 +83,7 @@ pub(crate) fn collect_win_paths(
             state_after.replace_hand(seat, after);
             let waits = wait_tiles(state_after.hand(seat));
             let wait_count = waits.len();
-            let mut after_collector = PathCollector {
+            let mut after_collector = Collector {
                 paths: &mut paths,
                 state: &state_after,
                 seat,
@@ -108,17 +96,17 @@ pub(crate) fn collect_win_paths(
         }
     }
 
-    dedupe_paths(&mut paths);
+    dedupe(&mut paths);
     paths
 }
 
-fn candidate_from_result(
+fn from_scoring_result(
     result: ScoringResult,
     shanten: i8,
     wait_count: usize,
     win_tile: Option<Tile>,
-) -> WinPathCandidate {
-    WinPathCandidate {
+) -> Recommendation {
+    Recommendation {
         shanten,
         wait_count,
         win_tile,
@@ -138,7 +126,7 @@ fn timing_flags(state: &HandState, win_type: WinType) -> WinTimingFlags {
     WinTimingFlags { is_chankan }
 }
 
-fn dedupe_paths(paths: &mut Vec<WinPathCandidate>) {
+fn dedupe(paths: &mut Vec<Recommendation>) {
     let mut seen = Vec::new();
     paths.retain(|path| {
         let key = (
@@ -180,6 +168,3 @@ fn unique_concealed_tiles(hand: &Hand) -> Vec<Tile> {
     }
     seen
 }
-
-#[cfg(test)]
-mod tests;

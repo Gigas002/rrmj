@@ -17,9 +17,6 @@ pub mod state;
 pub mod tile;
 pub mod wall;
 
-#[cfg(test)]
-pub mod test_util;
-
 pub use action::{Action, KanIntent};
 pub use agent::{
     Agent, FnAgent, PendingCall, PlayerSlot, PlayerView, SeatView, TurnContext, TurnFocus,
@@ -41,8 +38,8 @@ pub use replay::{
 };
 pub use replay::{GameSnapshot, Replay};
 pub use rules::{
-    RulesConfig, RulesProfile, RulesProfileId, RulesRegistry, WinContext, WinPathCandidate,
-    WinTimingFlags, candidate_win_paths, sort_win_paths,
+    Recommendation, RulesConfig, RulesProfile, RulesProfileId, RulesRegistry, WinContext,
+    WinTimingFlags, recommendations, sort_recommendations,
 };
 pub use scoring::{ScoringResult, WinType, Yaku};
 pub use state::{HandPhase, HandState, SEAT_COUNT};

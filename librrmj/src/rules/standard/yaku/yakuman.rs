@@ -1,7 +1,7 @@
 //! Yakuman (limit-hand) detection for the standard profile.
 
 use crate::hand::{KanForm, MeldKind};
-use crate::rules::profile_trait::WinContext;
+use crate::rules::profile::WinContext;
 use crate::rules::standard::patterns;
 use crate::rules::standard::win::{all_tiles_in_hand, tiles_with_win_tile};
 use crate::scoring::Yaku;

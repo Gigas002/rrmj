@@ -1,7 +1,10 @@
 //! Pattern-yaku detection via winning-hand decomposition.
 
+#[cfg(test)]
+mod tests;
+
 use crate::hand::{Hand, KanForm, MeldKind};
-use crate::rules::profile_trait::WinContext;
+use crate::rules::profile::WinContext;
 use crate::tile::{Suit, Tile, TileKind};
 
 use super::win::{
