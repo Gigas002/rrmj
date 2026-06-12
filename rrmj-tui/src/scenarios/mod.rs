@@ -4,7 +4,7 @@ mod tests;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use librrmj::replay::MatchRecording;
+use librrmj::replay::GameRecording;
 
 use crate::error::AppError;
 use crate::save::resolve_user_path;
@@ -39,7 +39,7 @@ pub fn list_scenarios(dir: &Path) -> Result<Vec<ScenarioEntry>, AppError> {
             continue;
         }
         let text = fs::read_to_string(&path).map_err(AppError::Terminal)?;
-        let recording = MatchRecording::from_json(&text).map_err(AppError::Engine)?;
+        let recording = GameRecording::from_json(&text).map_err(AppError::Engine)?;
         entries.push(scenario_entry(path, &recording));
     }
 
@@ -54,12 +54,12 @@ pub fn list_scenarios(dir: &Path) -> Result<Vec<ScenarioEntry>, AppError> {
     Ok(entries)
 }
 
-pub fn read_scenario(path: &Path) -> Result<MatchRecording, AppError> {
+pub fn read_scenario(path: &Path) -> Result<GameRecording, AppError> {
     let text = fs::read_to_string(path).map_err(AppError::Terminal)?;
-    MatchRecording::from_json(&text).map_err(AppError::Engine)
+    GameRecording::from_json(&text).map_err(AppError::Engine)
 }
 
-fn scenario_entry(path: PathBuf, recording: &MatchRecording) -> ScenarioEntry {
+fn scenario_entry(path: PathBuf, recording: &GameRecording) -> ScenarioEntry {
     let id = path
         .file_stem()
         .map(|s| s.to_string_lossy().into_owned())
@@ -74,7 +74,7 @@ fn scenario_entry(path: PathBuf, recording: &MatchRecording) -> ScenarioEntry {
 }
 
 /// Resolve a user-typed path and load a scenario from anywhere on disk.
-pub fn load_scenario_from_path(path: &str) -> Result<(ScenarioEntry, MatchRecording), AppError> {
+pub fn load_scenario_from_path(path: &str) -> Result<(ScenarioEntry, GameRecording), AppError> {
     let path = resolve_scenario_path(path);
     let recording = read_scenario(&path)?;
     recording.validate().map_err(AppError::Engine)?;

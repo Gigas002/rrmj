@@ -1,5 +1,5 @@
-use librrmj::ai::MatchSetup;
-use librrmj::replay::MatchRecording;
+use librrmj::ai::GameSetup;
+use librrmj::replay::GameRecording;
 
 use crate::save::RecordingEntry;
 use crate::scenarios::ScenarioEntry;
@@ -23,7 +23,7 @@ pub enum LoadSetupField {
 #[derive(Debug, Clone)]
 pub struct LoadGameSetup {
     pub entry: RecordingEntry,
-    pub recording: MatchRecording,
+    pub recording: GameRecording,
     /// Seat stored in the recording when the save was written.
     pub saved_human_seat: usize,
     pub selected_seat: usize,
@@ -36,7 +36,7 @@ pub struct LoadGameSetup {
 impl LoadGameSetup {
     pub fn from_scenario(
         entry: ScenarioEntry,
-        recording: MatchRecording,
+        recording: GameRecording,
         fallback_human_seat: usize,
         fallback_cpu_delay_ms: u64,
         fallback_turn_timer_ms: u64,
@@ -60,7 +60,7 @@ impl LoadGameSetup {
 
     pub fn new(
         entry: RecordingEntry,
-        recording: MatchRecording,
+        recording: GameRecording,
         fallback_human_seat: usize,
         fallback_cpu_delay_ms: u64,
         fallback_turn_timer_ms: u64,
@@ -135,9 +135,9 @@ impl LoadGameSetup {
         self.response_timer_ms = crate::timers::cycle_response(self.response_timer_ms);
     }
 
-    pub fn match_setup_for_load(&self) -> MatchSetup {
+    pub fn game_setup_for_load(&self) -> GameSetup {
         self.recording
-            .match_setup()
+            .game_setup()
             .with_human_seat(self.selected_seat)
     }
 }
@@ -151,17 +151,17 @@ mod tests {
     #[test]
     fn rejects_finished_recording_for_load() {
         let text = include_str!("../../../examples/scenarios/match_finished.json");
-        let recording = MatchRecording::from_json(text).unwrap();
+        let recording = GameRecording::from_json(text).unwrap();
         assert_ne!(
-            recording.match_status,
-            librrmj::replay::MatchStatus::InProgress
+            recording.game_status,
+            librrmj::replay::GameStatus::InProgress
         );
     }
 
     #[test]
     fn remaps_agents_when_study_seat_chosen() {
         let text = include_str!("../../../examples/scenarios/dealer_tsumo.json");
-        let recording = MatchRecording::from_json(text).unwrap();
+        let recording = GameRecording::from_json(text).unwrap();
         let entry = RecordingEntry {
             path: "test.json".into(),
             recording_id: "test".into(),
@@ -171,7 +171,7 @@ mod tests {
         let mut load = LoadGameSetup::new(entry, recording, 0, 300, 30_000, 5_000);
         load.selected_seat = 1;
 
-        let setup = load.match_setup_for_load();
+        let setup = load.game_setup_for_load();
         assert_eq!(setup.slots[1], PlayerSlot::Human);
         assert_eq!(setup.slots[0], PlayerSlot::Cpu);
     }

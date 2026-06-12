@@ -1,7 +1,7 @@
 #![cfg(feature = "debug-menu")]
 
-use librrmj::ai::MatchSetup;
-use librrmj::replay::MatchRecording;
+use librrmj::ai::GameSetup;
+use librrmj::replay::GameRecording;
 
 use crate::scenarios::ScenarioEntry;
 
@@ -15,7 +15,7 @@ pub enum DebugSetupField {
 #[derive(Debug, Clone)]
 pub struct DebugScenarioSetup {
     pub entry: ScenarioEntry,
-    pub recording: MatchRecording,
+    pub recording: GameRecording,
     pub saved_human_seat: usize,
     pub selected_seat: usize,
     pub selected: DebugSetupField,
@@ -24,7 +24,7 @@ pub struct DebugScenarioSetup {
 impl DebugScenarioSetup {
     pub fn new(
         entry: ScenarioEntry,
-        recording: MatchRecording,
+        recording: GameRecording,
         fallback_human_seat: usize,
     ) -> Self {
         let saved_human_seat = recording.human_seat.unwrap_or(fallback_human_seat);
@@ -63,9 +63,9 @@ impl DebugScenarioSetup {
         self.selected_seat = (self.selected_seat + 1) % 4;
     }
 
-    pub fn match_setup_for_launch(&self) -> MatchSetup {
+    pub fn game_setup_for_launch(&self) -> GameSetup {
         self.recording
-            .match_setup()
+            .game_setup()
             .with_human_seat(self.selected_seat)
     }
 }

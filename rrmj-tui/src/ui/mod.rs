@@ -88,7 +88,7 @@ fn draw_table_screen(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
             frame,
             area,
             "Save game",
-            "Save in-progress match (match_status = in_progress).",
+            "Save in-progress game (game_status = in_progress).",
             path,
             "Type path  enter save  esc cancel",
             theme,
@@ -100,7 +100,7 @@ fn draw_table_screen(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
     }
     if app.hand_result().is_some() {
         hand_result::draw_hand_result_popup(frame, area, app, theme);
-    } else if app.match_summary().is_some() {
-        hand_result::draw_match_summary_popup(frame, area, app, theme);
+    } else if app.game_summary().is_some() {
+        hand_result::draw_game_summary_popup(frame, area, app, theme);
     }
 }

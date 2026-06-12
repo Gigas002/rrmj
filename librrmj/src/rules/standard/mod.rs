@@ -17,7 +17,7 @@ use crate::game::{AbortiveDrawKind, AbortiveTrigger};
 use crate::hand::Hand;
 use crate::rules::RulesConfig;
 use crate::rules::RulesProfileId;
-use crate::rules::flow::{MatchFlowPolicy, StandardMatchFlow};
+use crate::rules::flow::{GameFlowPolicy, StandardGameFlow};
 use crate::rules::profile_trait::{RulesProfile, WinContext};
 use crate::rules::standard::recommendations::collect_win_paths;
 use crate::rules::win_path::{WinPathCandidate, sort_win_paths};
@@ -86,7 +86,7 @@ impl RulesProfile for StandardRules {
         abortive::detect_abortive(state, config, trigger)
     }
 
-    fn match_flow(&self) -> &dyn MatchFlowPolicy {
-        &StandardMatchFlow
+    fn game_flow(&self) -> &dyn GameFlowPolicy {
+        &StandardGameFlow
     }
 }

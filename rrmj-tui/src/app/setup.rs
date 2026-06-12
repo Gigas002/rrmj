@@ -1,5 +1,5 @@
 use librrmj::agent::PlayerSlot;
-use librrmj::ai::{AiConfig, Difficulty, MatchSetup};
+use librrmj::ai::{AiConfig, Difficulty, GameSetup};
 
 const SEAT_NAMES: [&str; 4] = ["East", "South", "West", "North"];
 
@@ -156,7 +156,7 @@ impl NewGameSetup {
         }
     }
 
-    pub fn to_match_setup(&self, seed: u64) -> MatchSetup {
+    pub fn to_game_setup(&self, seed: u64) -> GameSetup {
         let default_ai = ai_config(self.default_difficulty, seed);
         let seat_ai = std::array::from_fn(|seat| {
             if self.slots[seat] == PlayerSlot::Cpu {
@@ -168,7 +168,7 @@ impl NewGameSetup {
                 None
             }
         });
-        MatchSetup {
+        GameSetup {
             slots: self.slots,
             default_ai,
             seat_ai,

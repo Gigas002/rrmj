@@ -44,7 +44,7 @@ fn list_scenarios_empty_when_dir_missing() {
 #[test]
 fn scenario_entry_uses_meta_title_and_tags() {
     let text = include_str!("../../../examples/scenarios/match_finished.json");
-    let recording = MatchRecording::from_json(text).unwrap();
+    let recording = GameRecording::from_json(text).unwrap();
     let tmp = TempDir::new().unwrap();
     let path = tmp.path().join("match_finished.json");
     std::fs::write(&path, text).unwrap();

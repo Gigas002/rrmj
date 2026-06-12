@@ -1,4 +1,4 @@
-use super::{Game, MatchLength, RoundWind};
+use super::{Game, GameLength, RoundWind};
 use crate::action::Action;
 use crate::error::Error;
 use crate::event::Event;
@@ -87,7 +87,7 @@ fn nine_terminals_abortive_keeps_dealer_and_honba() {
 #[test]
 fn east_only_match_ends_after_four_kyoku() {
     let mut config = RulesConfig::standard();
-    config.match_length = MatchLength::EastOnly;
+    config.game_length = GameLength::EastOnly;
 
     let mut game = Game::new(config, 100).unwrap();
     assert_eq!(game.round_wind(), RoundWind::East);
@@ -108,7 +108,7 @@ fn east_only_match_ends_after_four_kyoku() {
     let winner = (game.dealer() + 1) % 4;
     let events = force_ron_win(&mut game, winner);
     assert!(game.is_ended());
-    assert!(events.iter().any(|e| matches!(e, Event::MatchEnded { .. })));
+    assert!(events.iter().any(|e| matches!(e, Event::GameEnded { .. })));
 }
 
 #[test]
@@ -141,7 +141,7 @@ fn scores_carry_between_hands() {
 #[test]
 fn target_score_ends_match_early() {
     let mut config = RulesConfig::standard();
-    config.match_length = MatchLength::EastOnly;
+    config.game_length = GameLength::EastOnly;
     config.target_score = Some(26_000);
 
     let mut game = Game::new(config, 400).unwrap();
@@ -150,14 +150,14 @@ fn target_score_ends_match_early() {
     let events = game.apply_action(dealer, Action::Tsumo).unwrap();
 
     assert!(game.is_ended());
-    assert!(events.iter().any(|e| matches!(e, Event::MatchEnded { .. })));
+    assert!(events.iter().any(|e| matches!(e, Event::GameEnded { .. })));
     assert!(game.scores().iter().any(|&s| s >= 26_000));
 }
 
 #[test]
 fn hanchan_runs_eight_kyoku() {
     let mut config = RulesConfig::standard();
-    config.match_length = MatchLength::Hanchan;
+    config.game_length = GameLength::Hanchan;
 
     let mut game = Game::new(config, 600).unwrap();
     let mut hands_played = 0u8;
@@ -175,7 +175,7 @@ fn hanchan_runs_eight_kyoku() {
 #[test]
 fn exhaustive_draw_advances_match() {
     let mut config = RulesConfig::standard();
-    config.match_length = MatchLength::EastOnly;
+    config.game_length = GameLength::EastOnly;
 
     let mut game = Game::new(config, 500).unwrap();
     let kyoku_before = game.kyoku();

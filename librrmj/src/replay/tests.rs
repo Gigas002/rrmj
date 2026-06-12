@@ -30,14 +30,14 @@ fn replay_serde_round_trip() {
 #[cfg(feature = "serde")]
 mod recording {
     use super::*;
-    use crate::ai::MatchSetup;
-    use crate::replay::{MatchRecording, RecordingMeta, RecordingPlayer};
+    use crate::ai::GameSetup;
+    use crate::replay::{GameRecording, RecordingMeta, RecordingPlayer};
 
     #[test]
     fn recording_capture_restore_round_trip() {
         let live = play_tsumo_hand(101);
-        let setup = MatchSetup::all_medium(live.seed());
-        let recording = MatchRecording::capture(
+        let setup = GameSetup::all_medium(live.seed());
+        let recording = GameRecording::capture(
             &live,
             &setup,
             0,
@@ -59,8 +59,8 @@ mod recording {
     #[test]
     fn recording_json_round_trip() {
         let live = play_tsumo_hand(102);
-        let setup = MatchSetup::all_easy(live.seed());
-        let recording = MatchRecording::capture(
+        let setup = GameSetup::all_easy(live.seed());
+        let recording = GameRecording::capture(
             &live,
             &setup,
             1,
@@ -70,7 +70,7 @@ mod recording {
             RecordingMeta::default(),
         );
         let json = recording.to_json().unwrap();
-        let decoded = MatchRecording::from_json(&json).unwrap();
+        let decoded = GameRecording::from_json(&json).unwrap();
         let restored = decoded.restore().unwrap();
         assert_eq!(live.snapshot(), restored.snapshot());
     }
@@ -78,8 +78,8 @@ mod recording {
     #[test]
     fn recording_apply_until_matches_live_at_index() {
         let live = play_tsumo_hand(103);
-        let setup = MatchSetup::all_medium(live.seed());
-        let recording = MatchRecording::capture(
+        let setup = GameSetup::all_medium(live.seed());
+        let recording = GameRecording::capture(
             &live,
             &setup,
             0,
@@ -96,8 +96,8 @@ mod recording {
     #[test]
     fn recording_tile_conservation() {
         let live = play_tsumo_hand(104);
-        let setup = MatchSetup::all_medium(live.seed());
-        let recording = MatchRecording::capture(
+        let setup = GameSetup::all_medium(live.seed());
+        let recording = GameRecording::capture(
             &live,
             &setup,
             0,
@@ -114,8 +114,8 @@ mod recording {
     #[test]
     fn recording_player_steps_to_restore_snapshot() {
         let live = play_tsumo_hand(106);
-        let setup = MatchSetup::all_medium(live.seed());
-        let recording = MatchRecording::capture(
+        let setup = GameSetup::all_medium(live.seed());
+        let recording = GameRecording::capture(
             &live,
             &setup,
             0,
@@ -132,8 +132,8 @@ mod recording {
     #[test]
     fn recording_player_seek_matches_apply_until() {
         let live = play_tsumo_hand(107);
-        let setup = MatchSetup::all_medium(live.seed());
-        let recording = MatchRecording::capture(
+        let setup = GameSetup::all_medium(live.seed());
+        let recording = GameRecording::capture(
             &live,
             &setup,
             0,
@@ -152,8 +152,8 @@ mod recording {
     #[test]
     fn recording_player_step_back_reaches_start() {
         let live = play_tsumo_hand(108);
-        let setup = MatchSetup::all_medium(live.seed());
-        let recording = MatchRecording::capture(
+        let setup = GameSetup::all_medium(live.seed());
+        let recording = GameRecording::capture(
             &live,
             &setup,
             0,

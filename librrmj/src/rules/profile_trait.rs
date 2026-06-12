@@ -2,7 +2,7 @@ use crate::game::{AbortiveDrawKind, AbortiveTrigger};
 use crate::hand::Hand;
 use crate::rules::RulesConfig;
 use crate::rules::RulesProfileId;
-use crate::rules::flow::MatchFlowPolicy;
+use crate::rules::flow::GameFlowPolicy;
 use crate::rules::win_path::WinPathCandidate;
 use crate::scoring::{ScoringResult, WinType};
 use crate::state::HandState;
@@ -107,5 +107,5 @@ pub trait RulesProfile: Send + Sync {
         trigger: AbortiveTrigger,
     ) -> Option<AbortiveDrawKind>;
 
-    fn match_flow(&self) -> &dyn MatchFlowPolicy;
+    fn game_flow(&self) -> &dyn GameFlowPolicy;
 }

@@ -6,7 +6,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use librrmj::action::Action;
-use librrmj::replay::MatchRecording;
+use librrmj::replay::GameRecording;
 use librrmj::rules::{RulesConfig, RulesProfileId, RulesRegistry, WinContext, WinTimingFlags};
 use librrmj::scoring::{WinType, Yaku};
 
@@ -41,7 +41,7 @@ fn debug_catalog_ids() -> Vec<String> {
         .collect()
 }
 
-fn verify_expected_yaku(recording: &MatchRecording, game: &librrmj::game::Game) {
+fn verify_expected_yaku(recording: &GameRecording, game: &librrmj::game::Game) {
     let Some(expected) = recording.expected_yaku() else {
         return;
     };
@@ -120,7 +120,7 @@ fn committed_scenarios_restore() {
 
     for path in paths {
         let text = fs::read_to_string(&path).expect("read scenario");
-        let recording = MatchRecording::from_json(&text).expect("parse scenario");
+        let recording = GameRecording::from_json(&text).expect("parse scenario");
         recording.validate().expect("validate scenario");
         let game = recording.restore().expect("restore scenario");
 
@@ -173,7 +173,7 @@ fn committed_scenarios_match_debug_catalog() {
         );
         let path = dir.join(format!("{id}.json"));
         let text = fs::read_to_string(&path).expect("read scenario");
-        let recording = MatchRecording::from_json(&text).expect("parse scenario");
+        let recording = GameRecording::from_json(&text).expect("parse scenario");
         recording.validate().expect("validate scenario");
         recording.restore().expect("restore scenario");
     }
@@ -246,7 +246,7 @@ fn committed_scenarios_cover_baseline_yaku() {
         let path = entry.path();
         if path.extension().is_some_and(|e| e == "json") {
             let text = fs::read_to_string(&path).expect("read");
-            let recording = MatchRecording::from_json(&text).expect("parse");
+            let recording = GameRecording::from_json(&text).expect("parse");
             if let Some(expected) = recording.expected_yaku() {
                 yaku_seen.extend(expected.iter().copied());
             }

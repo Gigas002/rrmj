@@ -26,20 +26,20 @@ pub use agent::{
 };
 #[cfg(feature = "ai")]
 pub use ai::{
-    AiConfig, CpuAgent, Difficulty, EasyAgent, HardAgent, MatchSetup, MediumAgent, SeatAgent,
+    AiConfig, CpuAgent, Difficulty, EasyAgent, GameSetup, HardAgent, MediumAgent, SeatAgent,
 };
 pub use error::Error;
 pub use event::Event;
 pub use game::{
-    AbortiveDrawKind, Game, HandOutcome, MatchLength, MatchPhase, RoundWind, StepResult,
+    AbortiveDrawKind, Game, GameLength, GamePhase, HandOutcome, RoundWind, StepResult,
 };
 pub use hand::{Concealed, Hand, KanForm, Meld, MeldKind};
 #[cfg(feature = "serde")]
 pub use replay::{
-    FORMAT_VERSION, HandSnapshot, MatchRecording, MatchStatus, PlayerSetup, RecordingMeta,
+    FORMAT_VERSION, GameRecording, GameStatus, HandSnapshot, PlayerSetup, RecordingMeta,
     RecordingPlayer,
 };
-pub use replay::{MatchSnapshot, Replay};
+pub use replay::{GameSnapshot, Replay};
 pub use rules::{
     RulesConfig, RulesProfile, RulesProfileId, RulesRegistry, WinContext, WinPathCandidate,
     WinTimingFlags, candidate_win_paths, sort_win_paths,

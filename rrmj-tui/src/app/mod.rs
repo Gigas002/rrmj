@@ -36,7 +36,7 @@ use crossterm::terminal::{
 };
 use librrmj::action::{Action, KanIntent};
 use librrmj::agent::{PlayerSlot, PlayerView};
-use librrmj::ai::{MatchSetup, SeatAgent};
+use librrmj::ai::{GameSetup, SeatAgent};
 use librrmj::event::Event as GameEvent;
 use librrmj::game::Game;
 use librrmj::rules::WinPathCandidate;
@@ -56,8 +56,8 @@ use self::path_input::PathInputAction;
 use crate::theme::Theme;
 use crate::timers::{TimerKind, format_decision_timer};
 use crate::ui;
-use librrmj::game::MatchPhase;
-use librrmj::replay::{MatchRecording, MatchStatus, RecordingMeta, RecordingPlayer};
+use librrmj::game::GamePhase;
+use librrmj::replay::{GameRecording, GameStatus, RecordingMeta, RecordingPlayer};
 
 use self::timers::{ActionTimerState, timeout_action};
 
@@ -120,9 +120,9 @@ pub struct App {
     load_setup: Option<LoadGameSetup>,
     #[cfg(feature = "debug-menu")]
     debug_setup: Option<DebugScenarioSetup>,
-    match_game: Option<Game>,
+    active_game: Option<Game>,
     agents: Option<[SeatAgent; 4]>,
-    setup_meta: Option<MatchSetup>,
+    setup_meta: Option<GameSetup>,
     human_seat_active: usize,
     cpu_step_delay_ms: u64,
     turn_timer_ms: u64,
@@ -133,7 +133,7 @@ pub struct App {
     tile_index: usize,
     chi_index: usize,
     hand_result: Option<HandResultSummary>,
-    match_summary: Option<[i32; 4]>,
+    game_summary: Option<[i32; 4]>,
     help_open: bool,
     pause_open: bool,
     pause_index: PauseItem,
@@ -187,7 +187,7 @@ impl App {
             load_setup: None,
             #[cfg(feature = "debug-menu")]
             debug_setup: None,
-            match_game: None,
+            active_game: None,
             agents: None,
             setup_meta: None,
             human_seat_active: 0,
@@ -200,7 +200,7 @@ impl App {
             tile_index: 0,
             chi_index: 0,
             hand_result: None,
-            match_summary: None,
+            game_summary: None,
             help_open: false,
             pause_open: false,
             pause_index: PauseItem::Resume,
@@ -274,7 +274,7 @@ impl App {
             self.cpu_step_wait_until = None;
         }
         while let Some(seat) = self
-            .match_game
+            .active_game
             .as_ref()
             .and_then(|game| game.pending_seat())
         {
@@ -287,14 +287,14 @@ impl App {
             }
 
             let events = {
-                let game = self.match_game.as_mut().expect("match present");
+                let game = self.active_game.as_mut().expect("match present");
                 let agents = self.agents.as_mut().expect("agents present");
                 match game.step(agents)? {
                     Some(step) => step.events,
                     None => break,
                 }
             };
-            let ended = self.match_game.as_ref().is_some_and(|game| game.is_ended());
+            let ended = self.active_game.as_ref().is_some_and(|game| game.is_ended());
             self.on_game_events(&events);
             if self.hand_result.is_some() || ended {
                 break;
@@ -317,13 +317,13 @@ impl App {
             || self.help_open
             || self.rules_open
             || self.hand_result.is_some()
-            || self.match_summary.is_some()
+            || self.game_summary.is_some()
         {
             self.action_timer.reset();
             return Ok(());
         }
 
-        let Some(game) = self.match_game.as_ref() else {
+        let Some(game) = self.active_game.as_ref() else {
             self.action_timer.reset();
             return Ok(());
         };
@@ -355,7 +355,7 @@ impl App {
     }
 
     fn force_pending_action(&mut self) -> Result<(), AppError> {
-        let game = self.match_game.as_ref().expect("match present");
+        let game = self.active_game.as_ref().expect("match present");
         let seat = game.pending_seat().expect("pending seat");
         let phase = game.hand().phase();
         let legal = game.hand().legal_actions_for(seat);
@@ -375,7 +375,7 @@ impl App {
 
     fn apply_action_for_seat(&mut self, seat: usize, action: Action) -> Result<(), AppError> {
         let events = self
-            .match_game
+            .active_game
             .as_mut()
             .expect("match present")
             .apply_action(seat, action)?;
@@ -387,7 +387,7 @@ impl App {
 
     fn apply_human_action(&mut self, action: Action) -> Result<(), AppError> {
         let seat = self
-            .match_game
+            .active_game
             .as_ref()
             .and_then(|g| g.pending_seat())
             .expect("human action without pending seat");
@@ -409,11 +409,11 @@ impl App {
     }
 
     fn return_to_main_menu(&mut self) {
-        self.match_game = None;
+        self.active_game = None;
         self.agents = None;
         self.setup_meta = None;
         self.hand_result = None;
-        self.match_summary = None;
+        self.game_summary = None;
         self.active_recording_id = None;
         self.active_recording_meta = None;
         self.active_save_path = None;
@@ -443,7 +443,7 @@ impl App {
             return path.clone();
         }
         let seed = self
-            .match_game
+            .active_game
             .as_ref()
             .map(|game| game.seed())
             .unwrap_or(0);
@@ -462,7 +462,7 @@ impl App {
         let id = self.active_recording_id.clone().unwrap_or_else(|| {
             format!(
                 "match-{}",
-                self.match_game.as_ref().map(|g| g.seed()).unwrap_or(0)
+                self.active_game.as_ref().map(|g| g.seed()).unwrap_or(0)
             )
         });
         let mut meta = self.active_recording_meta.clone().unwrap_or_default();
@@ -475,11 +475,11 @@ impl App {
         meta
     }
 
-    fn capture_current_recording(&self) -> Option<MatchRecording> {
-        let game = self.match_game.as_ref()?;
+    fn capture_current_recording(&self) -> Option<GameRecording> {
+        let game = self.active_game.as_ref()?;
         let setup = self.setup_meta.as_ref()?;
         let meta = self.persist_recording_meta();
-        Some(MatchRecording::capture(
+        Some(GameRecording::capture(
             game,
             setup,
             self.human_seat_active,
@@ -580,15 +580,15 @@ impl App {
     }
 
     fn finalize_finished_match(&mut self) {
-        let (Some(game), Some(setup)) = (&self.match_game, &self.setup_meta) else {
+        let (Some(game), Some(setup)) = (&self.active_game, &self.setup_meta) else {
             return;
         };
         if !game.is_ended() {
             return;
         }
         let meta = self.persist_recording_meta();
-        // Same file path; `capture` sets `match_status = finished` when the match ended.
-        let recording = MatchRecording::capture(
+        // Same file path; `capture` sets `game_status = finished` when the game ended.
+        let recording = GameRecording::capture(
             game,
             setup,
             self.human_seat_active,
@@ -661,7 +661,7 @@ impl App {
         if matches!(action, Some(BindAction::Scores))
             && self.screen == Screen::Table
             && self.hand_result.is_none()
-            && self.match_summary.is_none()
+            && self.game_summary.is_none()
         {
             self.scores_open = true;
             return Ok(());
@@ -670,7 +670,7 @@ impl App {
             && self.screen == Screen::Table
             && self.is_human_pending()
             && self.hand_result.is_none()
-            && self.match_summary.is_none()
+            && self.game_summary.is_none()
         {
             self.refresh_recommendations();
             self.recommendations_open = true;
@@ -712,7 +712,7 @@ impl App {
 
     fn refresh_recommendations(&mut self) {
         self.recommendations_cache = self
-            .match_game
+            .active_game
             .as_ref()
             .map(|game| game.candidate_win_paths(self.human_seat_active, 8))
             .unwrap_or_default();
@@ -1065,11 +1065,11 @@ impl App {
                 detail: "no save selected".into(),
             })?;
         let recording = read_recording(&entry.path)?;
-        if recording.match_status != MatchStatus::InProgress {
+        if recording.game_status != GameStatus::InProgress {
             self.status = "Only in-progress saves can be loaded".into();
             return Ok(());
         }
-        if recording.match_phase == MatchPhase::Ended {
+        if recording.game_phase == GamePhase::Ended {
             self.status = "Save is already finished".into();
             return Ok(());
         }
@@ -1144,21 +1144,21 @@ impl App {
                 LoadGameSetup::seat_name(saved_human_seat)
             )
         };
-        let setup = load.match_setup_for_load();
+        let setup = load.game_setup_for_load();
         let seed = load.recording.seed;
         let agents = setup.build_agents(seed);
-        if load.recording.match_status != MatchStatus::InProgress {
+        if load.recording.game_status != GameStatus::InProgress {
             self.status = "Only in-progress saves can be loaded".into();
             return Ok(());
         }
-        if load.recording.match_phase == MatchPhase::Ended {
+        if load.recording.game_phase == GamePhase::Ended {
             self.status = "Save is already finished".into();
             return Ok(());
         }
         let game = load.recording.restore()?;
         self.setup_meta = Some(setup);
         self.agents = Some(agents);
-        self.match_game = Some(game);
+        self.active_game = Some(game);
         self.human_seat_active = human;
         self.cpu_step_delay_ms = load.cpu_step_delay_ms;
         self.turn_timer_ms = load.turn_timer_ms;
@@ -1171,7 +1171,7 @@ impl App {
         self.table_mode = TableMode::Normal;
         self.tile_index = 0;
         self.hand_result = None;
-        self.match_summary = None;
+        self.game_summary = None;
         self.screen = Screen::Table;
         self.status = status;
         Ok(())
@@ -1275,8 +1275,8 @@ impl App {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(1);
-        let match_setup = setup.to_match_setup(seed);
-        let agents = match_setup.build_agents(seed);
+        let game_setup = setup.to_game_setup(seed);
+        let agents = game_setup.build_agents(seed);
         let game = Game::new(self.config.rules_config(), seed)?;
         self.human_seat_active = setup.human_seat;
         self.cpu_step_delay_ms = setup.cpu_step_delay_ms;
@@ -1284,16 +1284,16 @@ impl App {
         self.response_timer_ms = setup.response_timer_ms;
         self.cpu_step_wait_until = None;
         self.action_timer.reset();
-        self.setup_meta = Some(match_setup);
+        self.setup_meta = Some(game_setup);
         self.agents = Some(agents);
-        self.match_game = Some(game);
+        self.active_game = Some(game);
         self.active_recording_id = Some(format!("match-{seed}"));
         self.active_recording_meta = None;
         self.active_save_path = None;
         self.table_mode = TableMode::Normal;
         self.tile_index = 0;
         self.hand_result = None;
-        self.match_summary = None;
+        self.game_summary = None;
         self.screen = Screen::Table;
         self.status = "Match started (pause menu to save)".into();
         Ok(())
@@ -1318,7 +1318,7 @@ impl App {
         Ok(())
     }
 
-    fn handle_match_summary(
+    fn handle_game_summary(
         &mut self,
         key: &KeyEvent,
         action: Option<BindAction>,
@@ -1340,8 +1340,8 @@ impl App {
         if self.hand_result.is_some() {
             return self.handle_hand_result(key, action);
         }
-        if self.match_summary.is_some() {
-            return self.handle_match_summary(key, action);
+        if self.game_summary.is_some() {
+            return self.handle_game_summary(key, action);
         }
         if self.try_exit_table_to_main_menu(action) {
             return Ok(());
@@ -1509,11 +1509,11 @@ impl App {
         if let Some(summary) = hand_result::summary_from_events(events) {
             self.hand_result = Some(summary);
         }
-        if let Some(GameEvent::MatchEnded { scores }) = events
+        if let Some(GameEvent::GameEnded { scores }) = events
             .iter()
-            .find(|e| matches!(e, GameEvent::MatchEnded { .. }))
+            .find(|e| matches!(e, GameEvent::GameEnded { .. }))
         {
-            self.match_summary = Some(*scores);
+            self.game_summary = Some(*scores);
             self.finalize_finished_match();
         }
         if let Some(last) = events.last() {
@@ -1522,7 +1522,7 @@ impl App {
     }
 
     fn is_human_turn(&self) -> bool {
-        let Some(game) = self.match_game.as_ref() else {
+        let Some(game) = self.active_game.as_ref() else {
             return false;
         };
         let Some(seat) = game.pending_seat() else {
@@ -1534,7 +1534,7 @@ impl App {
     }
 
     fn current_action_menu(&self) -> ActionMenu {
-        let Some(game) = self.match_game.as_ref() else {
+        let Some(game) = self.active_game.as_ref() else {
             return ActionMenu::default();
         };
         let Some(seat) = game.pending_seat() else {
@@ -1629,8 +1629,8 @@ impl App {
         self.hand_result.as_ref()
     }
 
-    pub fn match_summary(&self) -> Option<&[i32; 4]> {
-        self.match_summary.as_ref()
+    pub fn game_summary(&self) -> Option<&[i32; 4]> {
+        self.game_summary.as_ref()
     }
 
     pub const fn help_open(&self) -> bool {
@@ -1686,7 +1686,7 @@ impl App {
     }
 
     pub fn player_view(&self) -> Option<PlayerView> {
-        let game = self.match_game.as_ref()?;
+        let game = self.active_game.as_ref()?;
         Some(PlayerView::from_game(game, self.human_seat_active))
     }
 
@@ -1699,12 +1699,12 @@ impl App {
     }
 
     pub fn wall_remaining(&self) -> Option<usize> {
-        Some(self.match_game.as_ref()?.hand().wall().live_remaining())
+        Some(self.active_game.as_ref()?.hand().wall().live_remaining())
     }
 
     /// Whose turn it is on the table (discarder until reaction window closes).
     pub fn turn_highlight_seat(&self) -> Option<usize> {
-        let game = self.match_game.as_ref()?;
+        let game = self.active_game.as_ref()?;
         let hand = game.hand();
         match hand.phase() {
             HandPhase::Reaction => hand.pending_call().map(|call| call.discarder),
@@ -1718,7 +1718,7 @@ impl App {
         if !self.is_human_pending() {
             return None;
         }
-        let phase = self.match_game.as_ref()?.hand().phase();
+        let phase = self.active_game.as_ref()?.hand().phase();
         if phase == HandPhase::Reaction && self.action_menu().is_pass_only() {
             return None;
         }

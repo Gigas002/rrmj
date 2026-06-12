@@ -8,7 +8,7 @@ fn standard_profile_defaults() {
     assert!(config.aka_dora);
     assert!(!config.kiriage);
     assert!(config.abortive_nine_terminals);
-    assert_eq!(config.match_length, crate::game::MatchLength::Hanchan);
+    assert_eq!(config.game_length, crate::game::GameLength::Hanchan);
     assert!(config.target_score.is_none());
 }
 

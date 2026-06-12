@@ -61,7 +61,7 @@ pub fn describe_event(event: &Event) -> String {
         Event::AbortiveDraw { kind } => {
             format!("Abortive draw — {}", abortive_label(*kind))
         }
-        Event::MatchEnded { scores } => format!("Match ended — final scores {scores:?}"),
+        Event::GameEnded { scores } => format!("Game ended — final scores {scores:?}"),
     }
 }
 

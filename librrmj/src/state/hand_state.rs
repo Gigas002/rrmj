@@ -944,7 +944,7 @@ impl HandState {
                 self.reaction = None;
                 self.end_reason = Some(HandEndReason::AbortiveDraw(*kind));
             }
-            Event::MatchEnded { .. } => {}
+            Event::GameEnded { .. } => {}
         }
         Ok(())
     }

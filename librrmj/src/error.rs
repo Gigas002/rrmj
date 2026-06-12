@@ -98,7 +98,7 @@ pub enum Error {
     Furiten,
 
     #[error("match has ended")]
-    MatchEnded,
+    GameEnded,
 
     #[error("replay does not match engine state: {detail}")]
     ReplayMismatch { detail: &'static str },

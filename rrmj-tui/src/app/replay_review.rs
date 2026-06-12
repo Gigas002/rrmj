@@ -208,7 +208,7 @@ impl ReplayReview {
 
 #[cfg(test)]
 mod tests {
-    use librrmj::replay::{MatchRecording, RecordingPlayer};
+    use librrmj::replay::{GameRecording, RecordingPlayer};
 
     use super::*;
     use crate::save::RecordingEntry;
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn replay_player_matches_apply_until() {
         let text = include_str!("../../../examples/scenarios/dealer_tsumo.json");
-        let recording = MatchRecording::from_json(text).unwrap();
+        let recording = GameRecording::from_json(text).unwrap();
         let entry = RecordingEntry {
             path: "dealer_tsumo.json".into(),
             recording_id: "dealer_tsumo".into(),

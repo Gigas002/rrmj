@@ -30,8 +30,8 @@ pub fn draw_hand_result_popup(frame: &mut ratatui::Frame, area: Rect, app: &App,
     );
 }
 
-pub fn draw_match_summary_popup(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &Theme) {
-    let Some(scores) = app.match_summary() else {
+pub fn draw_game_summary_popup(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &Theme) {
+    let Some(scores) = app.game_summary() else {
         return;
     };
     let popup = popup::open_popup(frame, area, 55, 45);

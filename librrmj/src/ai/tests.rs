@@ -16,7 +16,7 @@ use crate::agent::{Agent, PlayerView};
 use crate::ai::common::hand_from_view;
 use crate::ai::efficiency::weighted_waiting_count;
 use crate::ai::shanten::{hand_without_concealed_tile, waiting_count};
-use crate::ai::{AiConfig, MatchSetup};
+use crate::ai::{AiConfig, GameSetup};
 use crate::game::Game;
 use crate::rules::RulesConfig;
 use crate::state::HandPhase;
@@ -37,7 +37,7 @@ fn discard_quality(view: &PlayerView, tile: crate::tile::Tile) -> Option<(usize,
 #[test]
 fn easy_always_chooses_legal_action() {
     let seed = 1234;
-    let mut agents = MatchSetup::all_easy(seed).build_agents(seed);
+    let mut agents = GameSetup::all_easy(seed).build_agents(seed);
     let mut game = Game::new(RulesConfig::standard(), seed).unwrap();
 
     for _ in 0..500 {
@@ -66,9 +66,9 @@ fn easy_always_chooses_legal_action() {
 fn ai_vs_ai_smoke_completes_without_panic() {
     for seed in [42u64, 99] {
         let setup = if seed == 42 {
-            MatchSetup::all_easy(seed)
+            GameSetup::all_easy(seed)
         } else {
-            MatchSetup::all_medium(seed)
+            GameSetup::all_medium(seed)
         };
         let mut agents = setup.build_agents(seed);
         let mut game = Game::new(RulesConfig::standard(), seed).unwrap();
@@ -104,8 +104,8 @@ fn easy_agent_is_deterministic_with_seed() {
 }
 
 #[test]
-fn match_setup_mixed_seats() {
-    let mut setup = MatchSetup::all_easy(1);
+fn game_setup_mixed_seats() {
+    let mut setup = GameSetup::all_easy(1);
     setup.slots[0] = crate::agent::PlayerSlot::Human;
     setup.seat_ai[2] = Some(AiConfig::medium(2));
     let agents = setup.build_agents(1);
@@ -156,7 +156,7 @@ fn hard_beats_medium_in_short_benchmark() {
 
     for seed in 0..GAMES {
         let mut game = Game::new(RulesConfig::standard(), seed.wrapping_add(90_000)).unwrap();
-        let mut agents = MatchSetup::all_medium(seed).build_agents(seed);
+        let mut agents = GameSetup::all_medium(seed).build_agents(seed);
         let mut medium = MediumAgent::new(seed);
         let mut hard = HardAgent::new(seed);
 

@@ -3,20 +3,20 @@ use crate::event::Event;
 use crate::game::Game;
 
 use super::apply::apply_events;
-use super::recording::MatchRecording;
+use super::recording::GameRecording;
 
 /// Stepped playback over a recording's `events[]` with a derived `Game` at each cursor.
 ///
 /// Observe-only: does not call `apply_action`. Used by replay mode (TUI Phase 14.4).
 pub struct RecordingPlayer {
-    recording: MatchRecording,
+    recording: GameRecording,
     /// Last applied event index; `None` = fresh match before any event.
     cursor: Option<usize>,
     game: Game,
 }
 
 impl RecordingPlayer {
-    pub fn new(recording: MatchRecording) -> Result<Self, Error> {
+    pub fn new(recording: GameRecording) -> Result<Self, Error> {
         recording.validate()?;
         let game = Game::new(recording.rules_config.clone(), recording.seed)?;
         Ok(Self {
@@ -26,7 +26,7 @@ impl RecordingPlayer {
         })
     }
 
-    pub fn recording(&self) -> &MatchRecording {
+    pub fn recording(&self) -> &GameRecording {
         &self.recording
     }
 

@@ -47,6 +47,7 @@ pub enum Event {
     },
     /// Hand ended in an abortive draw.
     AbortiveDraw { kind: AbortiveDrawKind },
-    /// Match completed.
-    MatchEnded { scores: [i32; 4] },
+    /// Game session completed.
+    #[cfg_attr(feature = "serde", serde(alias = "MatchEnded"))]
+    GameEnded { scores: [i32; 4] },
 }

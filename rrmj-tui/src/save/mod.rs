@@ -5,11 +5,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::thread;
 
-use librrmj::replay::{MatchRecording, MatchStatus};
+use librrmj::replay::{GameRecording, GameStatus};
 
 use crate::error::AppError;
 
-/// Client-owned directory for match saves and replays (`match_status` filters menus).
+/// Client-owned directory for game saves and replays (`game_status` filters menus).
 #[derive(Debug, Clone)]
 pub struct SavePaths {
     pub recordings_dir: PathBuf,
@@ -36,14 +36,14 @@ pub struct RecordingEntry {
 }
 
 pub fn list_in_progress(paths: &SavePaths) -> Result<Vec<RecordingEntry>, AppError> {
-    list_by_status(paths, MatchStatus::InProgress)
+    list_by_status(paths, GameStatus::InProgress)
 }
 
 pub fn list_finished(paths: &SavePaths) -> Result<Vec<RecordingEntry>, AppError> {
-    list_by_status(paths, MatchStatus::Finished)
+    list_by_status(paths, GameStatus::Finished)
 }
 
-fn list_by_status(paths: &SavePaths, status: MatchStatus) -> Result<Vec<RecordingEntry>, AppError> {
+fn list_by_status(paths: &SavePaths, status: GameStatus) -> Result<Vec<RecordingEntry>, AppError> {
     paths.ensure_dir()?;
     let mut entries = Vec::new();
 
@@ -69,11 +69,11 @@ fn list_by_status(paths: &SavePaths, status: MatchStatus) -> Result<Vec<Recordin
 
 fn parse_recording_entry(
     path: &Path,
-    status: MatchStatus,
+    status: GameStatus,
 ) -> Result<Option<RecordingEntry>, AppError> {
     let text = fs::read_to_string(path).map_err(AppError::Terminal)?;
-    let recording = MatchRecording::from_json(&text).map_err(AppError::Engine)?;
-    if recording.match_status != status {
+    let recording = GameRecording::from_json(&text).map_err(AppError::Engine)?;
+    if recording.game_status != status {
         return Ok(None);
     }
 
@@ -91,7 +91,7 @@ fn parse_recording_entry(
         )
     });
 
-    let detail = if status == MatchStatus::Finished {
+    let detail = if status == GameStatus::Finished {
         format!(
             "{} hands · final {:?}",
             recording.hand_index, recording.scores
@@ -111,9 +111,9 @@ fn parse_recording_entry(
     }))
 }
 
-pub fn read_recording(path: &Path) -> Result<MatchRecording, AppError> {
+pub fn read_recording(path: &Path) -> Result<GameRecording, AppError> {
     let text = fs::read_to_string(path).map_err(AppError::Terminal)?;
-    MatchRecording::from_json(&text).map_err(AppError::Engine)
+    GameRecording::from_json(&text).map_err(AppError::Engine)
 }
 
 /// Expand a leading `~` to the user's home directory.
@@ -146,7 +146,7 @@ pub fn ensure_recording_extension(path: PathBuf) -> PathBuf {
 }
 
 /// Write a recording synchronously (pause-menu save).
-pub fn write_recording(path: &Path, recording: &MatchRecording) -> Result<(), AppError> {
+pub fn write_recording(path: &Path, recording: &GameRecording) -> Result<(), AppError> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(AppError::Terminal)?;
     }
@@ -155,7 +155,7 @@ pub fn write_recording(path: &Path, recording: &MatchRecording) -> Result<(), Ap
 }
 
 /// Write a recording without blocking the UI thread (match-end replay promotion).
-pub fn write_recording_async(path: PathBuf, recording: MatchRecording) {
+pub fn write_recording_async(path: PathBuf, recording: GameRecording) {
     let json = match recording.to_json() {
         Ok(text) => text,
         Err(err) => {

@@ -43,7 +43,7 @@ pub fn apply_one_event(
                 });
             }
         }
-        Event::MatchEnded { scores } => {
+        Event::GameEnded { scores } => {
             game.end_with_scores(*scores);
         }
         Event::Discarded { seat, .. } => {

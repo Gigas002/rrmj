@@ -14,10 +14,10 @@ pub enum CpuAgent {
 }
 
 impl CpuAgent {
-    pub fn new(config: AiConfig, seat: usize, match_seed: u64) -> Self {
+    pub fn new(config: AiConfig, seat: usize, game_seed: u64) -> Self {
         let seed = config
             .personality_seed
-            .unwrap_or(match_seed)
+            .unwrap_or(game_seed)
             .wrapping_add(seat as u64)
             .wrapping_mul(0x9E37_79B9_7F4A_7C15);
         match config.difficulty {
@@ -38,7 +38,7 @@ impl Agent for CpuAgent {
     }
 }
 
-/// Seat agent used when wiring a match from [`MatchSetup`].
+/// Seat agent used when wiring a game from [`GameSetup`].
 #[derive(Debug)]
 pub enum SeatAgent {
     Cpu(Box<CpuAgent>),
@@ -61,13 +61,13 @@ impl Agent for SeatAgent {
 
 /// Per-seat assignment for building agents alongside a [`crate::game::Game`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MatchSetup {
+pub struct GameSetup {
     pub slots: [PlayerSlot; 4],
     pub default_ai: AiConfig,
     pub seat_ai: [Option<AiConfig>; 4],
 }
 
-impl MatchSetup {
+impl GameSetup {
     pub fn all_cpu(config: AiConfig) -> Self {
         Self {
             slots: [PlayerSlot::Cpu; 4],
@@ -76,27 +76,27 @@ impl MatchSetup {
         }
     }
 
-    pub fn all_easy(match_seed: u64) -> Self {
-        Self::all_cpu(AiConfig::easy(match_seed))
+    pub fn all_easy(game_seed: u64) -> Self {
+        Self::all_cpu(AiConfig::easy(game_seed))
     }
 
-    pub fn all_medium(match_seed: u64) -> Self {
-        Self::all_cpu(AiConfig::medium(match_seed))
+    pub fn all_medium(game_seed: u64) -> Self {
+        Self::all_cpu(AiConfig::medium(game_seed))
     }
 
-    pub fn all_hard(match_seed: u64) -> Self {
-        Self::all_cpu(AiConfig::hard(match_seed))
+    pub fn all_hard(game_seed: u64) -> Self {
+        Self::all_cpu(AiConfig::hard(game_seed))
     }
 
     /// Seats 0 and 2 use hard AI; seats 1 and 3 use medium (for benchmarks).
-    pub fn hard_vs_medium(match_seed: u64) -> Self {
+    pub fn hard_vs_medium(game_seed: u64) -> Self {
         Self {
             slots: [PlayerSlot::Cpu; 4],
-            default_ai: AiConfig::medium(match_seed),
+            default_ai: AiConfig::medium(game_seed),
             seat_ai: [
-                Some(AiConfig::hard(match_seed)),
+                Some(AiConfig::hard(game_seed)),
                 None,
-                Some(AiConfig::hard(match_seed.wrapping_add(1))),
+                Some(AiConfig::hard(game_seed.wrapping_add(1))),
                 None,
             ],
         }
@@ -109,11 +109,11 @@ impl MatchSetup {
         }
     }
 
-    pub fn build_agents(&self, match_seed: u64) -> [SeatAgent; 4] {
+    pub fn build_agents(&self, game_seed: u64) -> [SeatAgent; 4] {
         std::array::from_fn(|seat| match self.slots[seat] {
             PlayerSlot::Cpu => {
                 let config = self.ai_config_for(seat).expect("cpu seat has ai config");
-                SeatAgent::Cpu(Box::new(CpuAgent::new(config, seat, match_seed)))
+                SeatAgent::Cpu(Box::new(CpuAgent::new(config, seat, game_seed)))
             }
             PlayerSlot::Human | PlayerSlot::Remote => SeatAgent::HumanPending,
         })

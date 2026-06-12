@@ -15,10 +15,10 @@ impl RoundWind {
     }
 }
 
-/// How many round winds to play before the match ends.
+/// How many round winds to play before the game session ends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum MatchLength {
+pub enum GameLength {
     /// East 1–4 only.
     EastOnly,
     /// East 1–4 then South 1–4 (standard hanchan).
@@ -35,10 +35,10 @@ pub enum AbortiveDrawKind {
     FourRiichis,
 }
 
-/// Phase of a multi-hand match.
+/// Phase of a multi-hand game session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum MatchPhase {
+pub enum GamePhase {
     InHand,
     Ended,
 }

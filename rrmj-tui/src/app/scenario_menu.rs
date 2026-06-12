@@ -251,13 +251,13 @@ impl App {
         let setup = self.scenario_setup.take().expect("scenario setup present");
         let human = setup.selected_seat;
         let title = setup.entry.label.clone();
-        let match_setup = setup.match_setup_for_load();
+        let game_setup = setup.game_setup_for_load();
         let seed = setup.recording.seed;
-        let agents = match_setup.build_agents(seed);
+        let agents = game_setup.build_agents(seed);
         let game = setup.recording.restore()?;
-        self.setup_meta = Some(match_setup);
+        self.setup_meta = Some(game_setup);
         self.agents = Some(agents);
-        self.match_game = Some(game);
+        self.active_game = Some(game);
         self.human_seat_active = human;
         self.cpu_step_delay_ms = setup.cpu_step_delay_ms;
         self.turn_timer_ms = setup.turn_timer_ms;
@@ -275,7 +275,7 @@ impl App {
         self.table_mode = TableMode::Normal;
         self.tile_index = 0;
         self.hand_result = None;
-        self.match_summary = None;
+        self.game_summary = None;
         self.screen = Screen::Table;
         self.status = format!("Scenario: {title}");
         Ok(())

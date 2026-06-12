@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use librrmj::replay::MatchStatus;
+use librrmj::replay::GameStatus;
 use tempfile::TempDir;
 
 use super::{
@@ -9,8 +9,8 @@ use super::{
     write_recording,
 };
 
-fn recording_from_json(text: &str) -> librrmj::replay::MatchRecording {
-    librrmj::replay::MatchRecording::from_json(text).expect("parse recording")
+fn recording_from_json(text: &str) -> librrmj::replay::GameRecording {
+    librrmj::replay::GameRecording::from_json(text).expect("parse recording")
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn list_filters_by_match_status() {
     fs::write(dir.join("active.json"), in_progress).unwrap();
 
     let mut finished = recording_from_json(in_progress);
-    finished.match_status = MatchStatus::Finished;
+    finished.game_status = GameStatus::Finished;
     fs::write(dir.join("done.json"), finished.to_json().unwrap()).unwrap();
 
     let saves = list_in_progress(&paths).unwrap();
@@ -75,20 +75,20 @@ fn parse_fixture_validates() {
     let text = include_str!("../../../examples/scenarios/dealer_tsumo.json");
     let parsed = recording_from_json(text);
     parsed.validate().unwrap();
-    assert_eq!(parsed.match_status, MatchStatus::InProgress);
+    assert_eq!(parsed.game_status, GameStatus::InProgress);
 }
 
 #[test]
 fn capture_promotes_finished_match_to_replay() {
     let text = include_str!("../../../examples/scenarios/match_finished.json");
     let recording = recording_from_json(text);
-    assert_eq!(recording.match_status, MatchStatus::Finished);
+    assert_eq!(recording.game_status, GameStatus::Finished);
 
     let game = recording.restore().unwrap();
     assert!(game.is_ended());
 
-    let setup = recording.match_setup();
-    let captured = librrmj::replay::MatchRecording::capture(
+    let setup = recording.game_setup();
+    let captured = librrmj::replay::GameRecording::capture(
         &game,
         &setup,
         recording.human_seat.unwrap_or(0),
@@ -97,7 +97,7 @@ fn capture_promotes_finished_match_to_replay() {
         recording.response_timer_ms.unwrap_or(5_000),
         recording.meta.clone(),
     );
-    assert_eq!(captured.match_status, MatchStatus::Finished);
+    assert_eq!(captured.game_status, GameStatus::Finished);
     assert_eq!(captured.meta.title, recording.meta.title);
 }
 
@@ -105,7 +105,7 @@ fn capture_promotes_finished_match_to_replay() {
 fn in_progress_fixture_restores_playable_state() {
     let text = include_str!("../../../examples/scenarios/dealer_tsumo.json");
     let recording = recording_from_json(text);
-    assert_eq!(recording.match_status, MatchStatus::InProgress);
+    assert_eq!(recording.game_status, GameStatus::InProgress);
 
     let game = recording.restore().unwrap();
     assert!(!game.is_ended());

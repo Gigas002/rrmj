@@ -2,24 +2,24 @@ use std::io::{Read, Write};
 
 use crate::action::Action;
 use crate::agent::PlayerSlot;
-use crate::ai::{AiConfig, MatchSetup};
+use crate::ai::{AiConfig, GameSetup};
 use crate::error::Error;
 use crate::event::Event;
-use crate::game::{Game, MatchPhase, RoundWind};
+use crate::game::{Game, GamePhase, RoundWind};
 use crate::rules::{RulesConfig, RulesProfileId};
 use crate::state::HandState;
 
 use super::Replay;
 use super::apply::apply_events;
-use super::hand_snapshot::HandSnapshot;
+use super::snapshot::HandSnapshot;
 
 pub const FORMAT_VERSION: u32 = 3;
 
-/// Whether a recording can be resumed or is a completed match.
+/// Whether a recording can be resumed or is a completed game session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[serde(rename_all = "snake_case")]
-pub enum MatchStatus {
+pub enum GameStatus {
     InProgress,
     Finished,
 }
@@ -36,7 +36,7 @@ pub struct PlayerSetup {
 }
 
 impl PlayerSetup {
-    pub fn from_match_setup(setup: &MatchSetup, seat: usize) -> Self {
+    pub fn from_game_setup(setup: &GameSetup, seat: usize) -> Self {
         Self {
             slot: setup.slots[seat],
             display_name: None,
@@ -44,14 +44,14 @@ impl PlayerSetup {
         }
     }
 
-    pub fn to_match_setup(players: &[PlayerSetup; 4], default_ai: AiConfig) -> MatchSetup {
+    pub fn to_game_setup(players: &[PlayerSetup; 4], default_ai: AiConfig) -> GameSetup {
         let mut slots = [PlayerSlot::Cpu; 4];
         let mut seat_ai = [None; 4];
         for (seat, player) in players.iter().enumerate() {
             slots[seat] = player.slot;
             seat_ai[seat] = player.ai;
         }
-        MatchSetup {
+        GameSetup {
             slots,
             default_ai,
             seat_ai,
@@ -91,10 +91,10 @@ pub struct RecordingMeta {
     pub tags: Vec<String>,
 }
 
-/// Complete match save point — tiles, history, flow, and player setup.
+/// Complete game save point — tiles, history, flow, and player setup.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct MatchRecording {
+pub struct GameRecording {
     pub format_version: u32,
     #[serde(flatten)]
     pub meta: RecordingMeta,
@@ -117,7 +117,8 @@ pub struct MatchRecording {
         alias = "reaction_pass_delay_ms"
     )]
     pub response_timer_ms: Option<u64>,
-    pub match_status: MatchStatus,
+    #[serde(rename = "game_status", alias = "match_status")]
+    pub game_status: GameStatus,
     pub dealer: usize,
     pub round_wind: RoundWind,
     pub kyoku: u8,
@@ -125,7 +126,8 @@ pub struct MatchRecording {
     pub scores: [i32; 4],
     pub table_riichi_sticks: u8,
     pub hand_index: u32,
-    pub match_phase: MatchPhase,
+    #[serde(rename = "game_phase", alias = "match_phase")]
+    pub game_phase: GamePhase,
     pub hand: HandSnapshot,
     pub events: Vec<Event>,
     pub event_index: usize,
@@ -134,11 +136,11 @@ pub struct MatchRecording {
     pub assertions: Option<RecordingAssertions>,
 }
 
-impl MatchRecording {
-    /// Snapshot the current match for persistence or dev scenarios.
+impl GameRecording {
+    /// Snapshot the current game for persistence or dev scenarios.
     pub fn capture(
         game: &Game,
-        setup: &MatchSetup,
+        setup: &GameSetup,
         human_seat: usize,
         cpu_step_delay_ms: u64,
         turn_timer_ms: u64,
@@ -157,15 +159,15 @@ impl MatchRecording {
             rules_profile: game.config().profile,
             rules_config: game.config().clone(),
             seed: game.seed(),
-            players: std::array::from_fn(|seat| PlayerSetup::from_match_setup(setup, seat)),
+            players: std::array::from_fn(|seat| PlayerSetup::from_game_setup(setup, seat)),
             human_seat: Some(human_seat),
             cpu_step_delay_ms: Some(cpu_step_delay_ms),
             turn_timer_ms: Some(turn_timer_ms),
             response_timer_ms: Some(response_timer_ms),
-            match_status: if game.is_ended() {
-                MatchStatus::Finished
+            game_status: if game.is_ended() {
+                GameStatus::Finished
             } else {
-                MatchStatus::InProgress
+                GameStatus::InProgress
             },
             dealer: game.dealer(),
             round_wind: game.round_wind(),
@@ -174,7 +176,7 @@ impl MatchRecording {
             scores: *game.scores(),
             table_riichi_sticks: game.table_riichi_sticks(),
             hand_index: game.hand_index(),
-            match_phase: game.phase(),
+            game_phase: game.phase(),
             hand: game.hand().to_snapshot(),
             events,
             event_index,
@@ -194,14 +196,14 @@ impl MatchRecording {
             .and_then(|assertions| assertions.expected_yaku.as_ref())
     }
 
-    pub fn match_setup(&self) -> MatchSetup {
+    pub fn game_setup(&self) -> GameSetup {
         let default_ai = self.players[0]
             .ai
             .or(self.players[1].ai)
             .or(self.players[2].ai)
             .or(self.players[3].ai)
             .unwrap_or(AiConfig::medium(self.seed));
-        PlayerSetup::to_match_setup(&self.players, default_ai)
+        PlayerSetup::to_game_setup(&self.players, default_ai)
     }
 
     pub fn validate(&self) -> Result<(), Error> {
@@ -226,7 +228,7 @@ impl MatchRecording {
         Ok(())
     }
 
-    /// Restore a live match from this save point.
+    /// Restore a live game from this save point.
     pub fn restore(&self) -> Result<Game, Error> {
         self.validate()?;
         let hand = HandState::from_snapshot(self.hand.clone(), self.rules_config.clone())?;
@@ -287,6 +289,24 @@ impl MatchRecording {
                 }
                 object.insert("assertions".into(), serde_json::Value::Object(assertions));
             }
+        }
+
+        if object.get("game_status").is_none() {
+            if let Some(status) = object.remove("match_status") {
+                object.insert("game_status".into(), status);
+            }
+        }
+        if object.get("game_phase").is_none() {
+            if let Some(phase) = object.remove("match_phase") {
+                object.insert("game_phase".into(), phase);
+            }
+        }
+
+        if let Some(rules) = object.get_mut("rules_config").and_then(|v| v.as_object_mut())
+            && rules.get("game_length").is_none()
+            && let Some(length) = rules.remove("match_length")
+        {
+            rules.insert("game_length".into(), length);
         }
 
         if let Some(version) = object.get("format_version").and_then(|v| v.as_u64())

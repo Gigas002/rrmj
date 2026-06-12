@@ -1,6 +1,4 @@
 mod apply;
-#[cfg(feature = "serde")]
-mod hand_snapshot;
 mod snapshot;
 
 #[cfg(feature = "serde")]
@@ -12,15 +10,13 @@ mod player;
 #[cfg(test)]
 mod tests;
 
-pub use snapshot::MatchSnapshot;
+pub use snapshot::{GameSnapshot, HandSnapshot};
 
-#[cfg(feature = "serde")]
-pub use hand_snapshot::HandSnapshot;
 #[cfg(feature = "serde")]
 pub use player::RecordingPlayer;
 #[cfg(feature = "serde")]
 pub use recording::{
-    FORMAT_VERSION, MatchRecording, MatchStatus, PlayerSetup, RecordingAssertions, RecordingMeta,
+    FORMAT_VERSION, GameRecording, GameStatus, PlayerSetup, RecordingAssertions, RecordingMeta,
 };
 
 use crate::Error;
@@ -30,7 +26,7 @@ use crate::rules::{RulesConfig, RulesProfileId};
 
 use apply::apply_events;
 
-/// In-memory match history for regression and future file export.
+/// In-memory game history for regression and file export.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Replay {
@@ -64,14 +60,14 @@ impl Replay {
         }
     }
 
-    /// Rebuild match state by applying the recorded event log.
+    /// Rebuild game state by applying the recorded event log.
     pub fn apply_all(&self) -> Result<Game, Error> {
         let mut game = Game::new(self.rules_config.clone(), self.seed)?;
         apply_events(&mut game, &self.events, None)?;
         Ok(game)
     }
 
-    pub fn snapshots(&self) -> Result<Vec<MatchSnapshot>, Error> {
+    pub fn snapshots(&self) -> Result<Vec<GameSnapshot>, Error> {
         let mut game = Game::new(self.rules_config.clone(), self.seed)?;
         let mut out = vec![game.snapshot()];
         let mut hand_starts = 0usize;
