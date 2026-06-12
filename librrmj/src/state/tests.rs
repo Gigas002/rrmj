@@ -261,7 +261,10 @@ fn open_kan_reveals_dora_and_draws_rinshan() {
             .iter()
             .any(|event| matches!(event, Event::RinshanDrawn { seat: 1, .. }))
     );
-    assert_eq!(state.hand(1).melds()[0].kind(), MeldKind::Kan(KanForm::Open));
+    assert_eq!(
+        state.hand(1).melds()[0].kind(),
+        MeldKind::Kan(KanForm::Open)
+    );
     assert_eq!(state.hand(1).total_tiles(), 15);
     assert_eq!(state.wall().kan_count(), 1);
 }
@@ -351,7 +354,10 @@ fn closed_kan_on_own_turn_stays_on_discard() {
     );
     assert_eq!(state.phase(), HandPhase::Discard);
     assert_eq!(state.current_actor(), 0);
-    assert_eq!(state.hand(0).melds()[0].kind(), MeldKind::Kan(KanForm::Closed));
+    assert_eq!(
+        state.hand(0).melds()[0].kind(),
+        MeldKind::Kan(KanForm::Closed)
+    );
 }
 
 // --- wins ---
@@ -623,7 +629,10 @@ fn kakan_upgrades_pon_and_reveals_dora() {
     state.apply(2, Action::Pass).unwrap();
     let events = state.apply(3, Action::Pass).unwrap();
 
-    assert_eq!(state.hand(0).melds()[0].kind(), MeldKind::Kan(KanForm::Open));
+    assert_eq!(
+        state.hand(0).melds()[0].kind(),
+        MeldKind::Kan(KanForm::Open)
+    );
     assert!(
         events
             .iter()

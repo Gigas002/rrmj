@@ -2,9 +2,9 @@
 
 Library-first Rust riichi mahjong: **`librrmj`** (rules engine) + **`rrmj-tui`** (terminal client).
 
-**#1 priority:** **Phase 11 + 12** — full standard riichi in `librrmj` (every yaku, correct fu, limits/payments, call legality, scenarios, `RULES.md`). This is the **minimum bar**, not a later milestone. Do it ASAP.
+**#1 priority:** **Phase 15** — hand-planning UI (recommendations decomposition, rules examples, dora highlight).
 
-**Nothing else matters until that's done** — no TUI polish, no release tagging, no cosmetic work.
+Phases 11 + 12 (full standard rules) and **Phase 14** (recordings, saves, replays, scenarios) are **complete**.
 
 §9 archives Phases 0–10 (engine *plumbing* shipped; **rules are not complete**). §10 is the active backlog. Check boxes in §10 only.
 
@@ -37,7 +37,7 @@ The **standard profile is not shipped** until all of the following are true:
 - Call legality complete (kakan, chankan, furiten, …)
 - `docs/RULES.md` matches engine behavior
 
-Phases 13+ (TUI gaps, polish, online, Bevy) are **out of scope** until Phase 11 + 12 are complete.
+Phases 15+ (hand-planning overlays, TUI polish, online, Bevy) are **out of scope** until Phase 14 is complete.
 
 ---
 
@@ -55,7 +55,7 @@ rrmj/
   examples/scenarios/*.json
 ```
 
-**Crate rules:** `rrmj-tui` builds `Match` from config and calls `apply_action` — never duplicates rule checks.
+**Crate rules:** `rrmj-tui` builds `Game` from config and calls `apply_action` — never duplicates rule checks.
 
 ---
 
@@ -74,7 +74,9 @@ rrmj/
 
 ### 3.3 Event log
 
-`Match { seed, rules, events[] }` — append-only; `apply` is pure. See `docs/REPLAY.md` for **`MatchRecording`** (lossless save; `in_progress` vs `finished`).
+`Game { seed, rules, events[] }` — append-only; `apply` is pure.
+
+**On disk:** one wire document (`*.rrmj.json`, see `docs/REPLAY.md`) backs **saved games**, **replays**, **scenarios**, and **debug scenarios**. The engine parses the file and restores state; it does not synthesize scenarios in code. Usage mode (play vs observe, CI vs ship) is a **client** concern — see **Phase 14**.
 
 ### 3.4 RulesProfile boundary
 
@@ -110,7 +112,7 @@ Yaku, fu, payments, abortives live in `rules/<profile>/`. State machine calls pr
 - ratatui + crossterm; hotkeys only; menus show **`legal_actions()`** only.
 - Overlays: keybind help (`h`), rules reference (`?`).
 - Config: `config.toml`, `keybinds.toml`, `recordings_dir`.
-- **Cosmetic work** (themes, animations, display modes, layout) → Phase 15 only.
+- **Cosmetic work** (themes, animations, display modes, layout) → Phase 16 only.
 
 ---
 
@@ -197,10 +199,10 @@ cargo doc --workspace --no-deps
 
 | Old item | Now |
 | -------- | --- |
-| Replays browse/playback | Phase 13.1 / 16.1 |
+| Replays browse/playback | **Phase 14** (was 13.1 interim) |
 | Exit table → menu | Phase 13.2 |
-| Display modes, layout, animation/theming polish | Phase 15 |
-| Rich rules menu, ruleset picker UI | Phase 15 / 13.6 |
+| Display modes, layout, animation/theming polish | Phase 16 |
+| Rich rules menu, ruleset picker UI | Phase 16 / 13.6 |
 | Full scenario catalog | Phase 12.1 |
 | Full yaku/fu/rules | **Phase 11 + 12 — ASAP** |
 
@@ -329,7 +331,7 @@ See `docs/DEBUG_SCENARIOS.md`. Minimum still needed:
 - [x] Draws: mixed tenpai/noten; abortives (four winds/kongs/riichis)
 - [x] Match flow: `match_status = finished` snapshot
 
-Regenerate: `cargo test -p librrmj --features serde write_all_scenario_fixtures -- --ignored --nocapture`
+Validate: `cargo test -p librrmj --features serde --test scenarios`
 
 **Verify:** `librrmj/tests/scenarios.rs` green; one scenario per catalog row above.
 
@@ -354,10 +356,10 @@ Regenerate: `cargo test -p librrmj --features serde write_all_scenario_fixtures 
 
 > **Blocked on Phase 11 + 12 complete.** TUI already plays games; fix gaps only after the engine scores correctly.
 
-#### Phase 13.1 — Replays menu
+#### Phase 13.1 — Replays menu *(interim — superseded by Phase 14)*
 
 - [x] List `match_status = finished` from `recordings_dir`
-- [x] Open for static review (interactive playback → Phase 16.1)
+- [x] Open for static review (interactive playback → **Phase 14**)
 
 #### Phase 13.2 — Navigation
 
@@ -400,11 +402,116 @@ Regenerate: `cargo test -p librrmj --features serde write_all_scenario_fixtures 
 
 ---
 
-### Phase 14 — Hand planning & rules reference
+### Phase 14 — Recordings, saves, scenarios ✅
 
-> **Goal:** Make recommendations and the `?` overlay actually teach hand shape — not just yaku names and wait counts. All decomposition logic stays in `librrmj`; TUI renders tiles only.
+> **Goal (shipped):** Four clear **usage modes**, one **parse-only** wire format, no programmatic scenario builders in `librrmj`. Committed JSON under `examples/scenarios/` is the source of truth; CI and TUI load via `MatchRecording::from_json` only.
 
-#### Phase 14.1 — Recommendations: full closest combination
+#### Phase 14.0 — Terminology (four modes, one document)
+
+| Mode | What it is | Player decides? | Where it starts | Typical source |
+| ---- | ---------- | --------------- | --------------- | -------------- |
+| **Replay** | Watch a completed game from the first event to the last | **No** — observe only | Event `0` (or seek) | User `recordings_dir`, `match_status = finished` |
+| **Saved game** | Resume a match that was interrupted mid-play | **Yes** — human seat + CPUs | Saved `HandSnapshot` + `event_index` | **Manual save only**; `match_status = in_progress` |
+| **Scenario** | Preset study / challenge (“win hand X in Y turns”) | **Yes** (usually) | As authored in the file | User path or community `scenarios_dir` |
+| **Debug scenario** | Same wire shape as scenario; **CI + dev UI** only | Yes (dev testing) | As authored | Repo `examples/scenarios/*.json`; **not** in release app build |
+
+**Replay vs saved game on disk:** same schema. Primary discriminator: `match_status` (`finished` vs `in_progress`). When a saved game is played to completion, the client flips to `finished` (rewrite in place or move to replays list — TUI policy). **TUI flow** differs: replay steps events with no `apply_action` from the user; saved game restores and continues the agent loop.
+
+**Scenario vs debug scenario:** same schema for table state + events. Debug files may add an optional **`assertions`** object (`expected_legal_actions`, `expected_yaku`) consumed only by `librrmj` tests — not required for player scenarios.
+
+```mermaid
+flowchart LR
+  subgraph wire ["*.rrmj.json"]
+    H[HandSnapshot]
+    E[events + event_index]
+    S[match_status]
+  end
+  wire --> Replay["Replay mode\nobserve, step events"]
+  wire --> Save["Saved game\nresume, play"]
+  wire --> Scenario["Scenario\npreset challenge"]
+  wire --> Debug["Debug scenario\nCI + debug-menu"]
+```
+
+#### Phase 14.1 — Wire format (`docs/REPLAY.md`)
+
+- [x] Document the four modes above; clarify `match_status` as play vs observe discriminator
+- [x] Optional `recording_kind` enum (`replay` \| `save` \| `scenario` \| `debug`) if we need stricter typing than status alone; otherwise status + client path is enough
+- [x] Move CI-only fields (`expected_legal_actions`, `expected_yaku`) under an `assertions` object (or `extensions.debug`) — ignored by TUI and player scenarios
+- [x] Distinguish **client prefs** (`cpu_step_delay_ms`, timers) from engine state — already optional; document as non-authoritative for replay/scenario restore
+- [x] Bump `format_version`; migration note for existing files in `recordings_dir`
+- [x] **Authoring rule:** scenarios are edited as JSON (hand, wall, rivers, events, metadata). No Rust builder is the source of truth.
+
+#### Phase 14.2 — `librrmj`: parse, validate, restore — no builders
+
+**Delete (done):**
+
+- [x] Programmatic scenario builder module in `librrmj` (Rust-generated fixtures)
+- [x] Regenerate-from-Rust workflow and doc references
+
+**Keep / add:**
+
+- [x] `MatchRecording::from_json` / `validate` / `restore` / `apply_until` — sole entry for fixtures and saves
+- [x] `MatchRecording::capture` — TUI only: manual export + finalize on match end
+- [x] `RecordingPlayer` (step, seek, play-to-index) for replay mode — engine-side event cursor over `events[]` + derived `Game` snapshots
+
+**Verify:** `librrmj/tests/scenarios.rs` loads **only** `examples/scenarios/*.json`; no Rust code path constructs scenario state except test helpers used *inside* unit tests (not for committed fixtures).
+
+#### Phase 14.3 — TUI: remove autosave
+
+Removed per-step `persist_match` / async autosaves.
+
+- [x] Remove automatic per-step persistence
+- [x] **Manual save only** — pause menu export (existing 13.4) writes `in_progress` to user-chosen or default saves location
+- [x] On **match end** from an active session: write once with `match_status = finished` → appears in Replays menu
+- [x] Update help text / keybind docs (no “autosaves on quit”)
+- [x] Config: separate `saves_dir` vs `replays_dir` if useful; or single dir filtered by `match_status` (current model is fine if documented)
+
+#### Phase 14.4 — TUI: replay mode (observe-only)
+
+- [x] Load `finished` recording from replays list
+- [x] **Seat picker for viewing** — switch seat to see that hand’s concealed tiles, rivers, melds (full information; not fog-of-war)
+- [x] **Step / seek** through `events[]` from the start (play, pause, jump to hand boundary) — no human `apply_action`
+- [x] Replace interim static “replay review” snapshot with stepped playback driven by `RecordingPlayer`
+- [x] Discards, calls, wins animate or at least advance event-by-event per existing animation scaffolding
+
+#### Phase 14.5 — TUI: saved game mode
+
+- [x] Load game menu: **only** `in_progress` files
+- [x] Seat picker → assign human; other seats use `players[]` / `MatchSetup` from file
+- [x] Restore `HandSnapshot` at `event_index`; continue normal table loop until `MatchEnded`
+- [x] On completion → promote to replay (`finished`) per 14.3
+
+#### Phase 14.6 — TUI: scenarios (player / community)
+
+- [x] Scenarios menu or import path (generalize 13.5 debug import for non-debug use)
+- [x] Configurable `scenarios_dir` (community packs); default empty or user-managed — **not** the same as repo `examples/scenarios`
+- [x] Load → seat picker → play like saved game; optional `meta.title` / `description` / tags for browsing
+- [x] No `expected_*` assertions in UI
+
+#### Phase 14.7 — Debug scenarios (repo, CI, dev build only)
+
+- [x] `examples/scenarios/*.json` — hand-maintained JSON only (50+ files today)
+- [x] `librrmj/tests/scenarios.rs` — restore + optional assertion fields
+- [x] TUI `debug-menu` feature: list/load same directory for manual UI regression — **not compiled into default release binary**
+- [x] `docs/DEBUG_SCENARIOS.md` — catalog + “how to add a scenario” (edit JSON, run CI); **remove** “regenerate from Rust builders”
+
+#### Phase 14.8 — Migration & cleanup checklist
+
+- [x] Confirm every catalog row in `DEBUG_SCENARIOS.md` has a committed JSON file that parses and restores (`committed_scenarios_match_debug_catalog`)
+- [x] Grep repo for removed programmatic fixture builder — zero code hits
+- [x] Grep repo for removed regenerate workflow — zero code hits
+- [x] `REPLAY.md` and `PLAN.md` agree on terminology
+- [x] §8 gates green
+
+**Verify (Phase 14):** No scenario state is constructed in `librrmj` for committed fixtures. Autosave gone. Replay cannot submit actions. Saved game → finished replay promotion works once. Debug scenarios run in CI without `debug-menu` feature.
+
+---
+
+### Phase 15 — Hand planning & rules reference **(active)**
+
+> **Goal:** Make recommendations and the `?` overlay teach hand shape — not just yaku names and wait counts. All decomposition logic stays in `librrmj`; TUI renders tiles only.
+
+#### Phase 15.1 — Recommendations: full closest combination
 
 Today the overlay shows shanten, yaku list, han/fu/points, and at most one `Wait: {tile}` — not how the hand groups or which tiles are still missing.
 
@@ -421,7 +528,7 @@ Today the overlay shows shanten, yaku list, han/fu/points, and at most one `Wait
 
 **Verify:** fixture hands in `win_combinations` — top candidate decomposition matches `score_win` yaku for that path; overlay renders without calling yaku/fu tables in `rrmj-tui`.
 
-#### Phase 14.2 — Rules overlay (`?`): combination examples
+#### Phase 15.2 — Rules overlay (`?`): combination examples
 
 Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no illustrated standard shapes.
 
@@ -431,41 +538,41 @@ Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no i
 
 **Verify:** every baseline + pattern yaku in `cheatsheet.rs` has at least one example line or points to a shared shape; §8 gates green.
 
-#### Phase 14.3 — Dora highlight in hand
+#### Phase 15.3 — Dora highlight in hand
 
 **Not implemented today** — dora indicators render on the wall (`board/wall.rs`); hand/meld tiles use selection/drawn/match styling only. Red fives use aka styling via `tile.is_red()`, not indicator matching.
 
 - [ ] Highlight tiles in **concealed hand and open melds** that count as dora against current indicators (`view.dora_indicators`; aka when `RulesConfig` aka dora on).
 - [ ] Reuse `theme.dora_style()` (or a distinct aka-dora variant if needed); must not clash with picker selection / drawn-tile emphasis.
-- [ ] Rivers: optional subtle highlight when a discard matches dora (lower priority than 14.3 hand melds).
+- [ ] Rivers: optional subtle highlight when a discard matches dora (lower priority than 15.3 hand melds).
 
 **Verify:** manual check on `aka_dora_on` / dora scenario fixtures; dora tiles visually distinct at table with multiple indicators.
 
-**Verify (Phase 14):** TUI still presentation-only; no duplicated rule logic in `rrmj-tui`.
+**Verify (Phase 15):** TUI still presentation-only; no duplicated rule logic in `rrmj-tui`.
 
 ---
 
-### Phase 15 — TUI polish (deferred)
+### Phase 16 — TUI polish (deferred)
 
-> **Blocked on Phase 11 + 12 complete.**
+> **Blocked on Phase 14 complete.**
 
-#### Phase 15.1 — Display modes
+#### Phase 16.1 — Display modes
 
 - [ ] `text` / `ascii` / `unicode`; `display_mode` in config; migrate from `ascii_mode`
 
-#### Phase 15.2 — Table layout
+#### Phase 16.2 — Table layout
 
 - [ ] Seat geometry, spacing, 80×24 readable, scales up
 
-#### Phase 15.3 — Animations
+#### Phase 16.3 — Animations
 
 - [ ] Production timing for discard, calls, riichi, draw, win cues
 
-#### Phase 15.4 — Theming
+#### Phase 16.4 — Theming
 
 - [ ] Hex colors, expanded style tokens, settings preview
 
-#### Phase 15.5 — Rules UI
+#### Phase 16.5 — Rules UI
 
 - [ ] Richer rules reference than overlay (tabs/search if scope allows)
 
@@ -473,26 +580,25 @@ Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no i
 
 ---
 
-### Phase 16 — Post-release
+### Phase 17 — Post-release
 
-#### Phase 16.1 — Replay playback
+#### Phase 17.1 — Replay playback
 
-- [ ] `RecordingPlayer` in `librrmj` (step/seek events)
-- [ ] TUI playback screen (play/pause, jump to hands)
+> **Folded into Phase 14** (recordings model rework). Shipped as stepped replay via `RecordingPlayer`.
 
-#### Phase 16.2 — Online (`rrmj-net`)
+#### Phase 17.2 — Online (`rrmj-net`)
 
 - [ ] `docs/ONLINE.md`; wire format; `RemoteAgent`
 
-#### Phase 16.3 — Bevy client (`rrmj-bevy`)
+#### Phase 17.3 — Bevy client (`rrmj-bevy`)
 
-- [ ] New crate; same `Match` boundary; `docs/BEVY_PLAN.md`
+- [ ] New crate; same `Game` boundary; `docs/BEVY_PLAN.md`
 
-#### Phase 16.4 — Additional rulesets
+#### Phase 17.4 — Additional rulesets
 
 - [ ] New `rules/<name>/` + `RulesProfile` + fixtures + TUI picker
 
-#### Phase 16.5 — Optional
+#### Phase 17.5 — Optional
 
 - [ ] Stronger AI (expectimax / neural)
 
@@ -511,7 +617,7 @@ Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no i
 
 - Check off §10 phases here; do not duplicate in chat.
 - Yaku changes → `RULES.md` + `cheatsheet.rs` first.
-- Replay schema → bump `format_version` in `REPLAY.md`.
+- Replay / save / scenario schema → bump `format_version` in `REPLAY.md`; mode semantics in Phase 14.
 
 ---
 
@@ -519,9 +625,12 @@ Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no i
 
 | Date | Change |
 | ---- | ------ |
+| 2026-06-12 | **Phase 14 complete:** recordings/saves/replays/scenarios/debug; Phase 15 active |
+| 2026-06-12 | **Phase 14 = #1 priority:** recordings/saves/scenarios/debug; renumber 14→15, 15→16, 16→17 |
+| 2026-06-12 | Phase 17 (old): recordings rework drafted — superseded by promotion to Phase 14 |
 | 2026-06-10 | Drop release/DoD framing; Phase 11+12 = mandatory full ruleset ASAP |
-| 2026-06-11 | Phase 14: recommendations decomposition, rules examples, dora hand highlight |
+| 2026-06-11 | Hand planning & rules reference (now Phase 15): recommendations, rules examples, dora |
 | 2026-06-11 | Renumber: old Phase 14 → 15 (TUI polish), old Phase 15 → 16 (post-release) |
-| 2026-06-10 | Restructure: §9 shipped archive (Phases 0–10), §10 active Phases 11–16 with steps |
+| 2026-06-10 | Restructure: §9 shipped archive (Phases 0–10), §10 active Phases 11–17 with steps |
 | 2026-06-10 | Prior rewrite (priority list) — superseded by phase structure |
 | 2026-06-08 | Initial plan |

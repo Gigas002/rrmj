@@ -33,10 +33,7 @@ pub enum Event {
         tile: Tile,
     },
     /// A seat won the hand with full scoring breakdown.
-    Won {
-        seat: usize,
-        scoring: ScoringResult,
-    },
+    Won { seat: usize, scoring: ScoringResult },
     /// Score transfers applied to all seats.
     ScoresAdjusted { deltas: [i32; 4] },
     /// Live wall exhausted without a win.

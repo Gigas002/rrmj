@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Riichi tsumo",
   "description": "West wins riichi + menzen tsumo + tanyao on self-draw.",
   "tags": [
@@ -322,12 +322,14 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    "Tsumo"
-  ],
-  "expected_yaku": [
-    "riichi",
-    "menzen_tsumo",
-    "tanyao"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      "Tsumo"
+    ],
+    "expected_yaku": [
+      "riichi",
+      "menzen_tsumo",
+      "tanyao"
+    ]
+  }
 }

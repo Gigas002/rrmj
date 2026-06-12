@@ -13,7 +13,7 @@ use super::Replay;
 use super::apply::apply_events;
 use super::hand_snapshot::HandSnapshot;
 
-pub const FORMAT_VERSION: u32 = 2;
+pub const FORMAT_VERSION: u32 = 3;
 
 /// Whether a recording can be resumed or is a completed match.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,6 +57,18 @@ impl PlayerSetup {
             seat_ai,
         }
     }
+}
+
+/// CI-only assertions for debug scenarios (`examples/scenarios/*.json`).
+///
+/// Ignored by the TUI and player-authored scenarios. See `docs/REPLAY.md`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RecordingAssertions {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_legal_actions: Option<Vec<Action>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_yaku: Option<Vec<crate::scoring::Yaku>>,
 }
 
 /// Optional client-provided metadata for a recording.
@@ -117,11 +129,9 @@ pub struct MatchRecording {
     pub hand: HandSnapshot,
     pub events: Vec<Event>,
     pub event_index: usize,
+    /// CI-only checks for debug scenarios; absent in replays, saves, and player scenarios.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_legal_actions: Option<Vec<Action>>,
-    /// When set, CI scores the pending win and checks yaku (debug scenarios).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub expected_yaku: Option<Vec<crate::scoring::Yaku>>,
+    pub assertions: Option<RecordingAssertions>,
 }
 
 impl MatchRecording {
@@ -168,9 +178,20 @@ impl MatchRecording {
             hand: game.hand().to_snapshot(),
             events,
             event_index,
-            expected_legal_actions: None,
-            expected_yaku: None,
+            assertions: None,
         }
+    }
+
+    pub fn expected_legal_actions(&self) -> Option<&Vec<Action>> {
+        self.assertions
+            .as_ref()
+            .and_then(|assertions| assertions.expected_legal_actions.as_ref())
+    }
+
+    pub fn expected_yaku(&self) -> Option<&Vec<crate::scoring::Yaku>> {
+        self.assertions
+            .as_ref()
+            .and_then(|assertions| assertions.expected_yaku.as_ref())
     }
 
     pub fn match_setup(&self) -> MatchSetup {
@@ -237,9 +258,42 @@ impl MatchRecording {
     }
 
     pub fn from_json(text: &str) -> Result<Self, Error> {
-        serde_json::from_str(text).map_err(|err| Error::InvalidRecording {
+        let mut value: serde_json::Value =
+            serde_json::from_str(text).map_err(|err| Error::InvalidRecording {
+                detail: err.to_string(),
+            })?;
+        Self::migrate_wire_value(&mut value);
+        serde_json::from_value(value).map_err(|err| Error::InvalidRecording {
             detail: err.to_string(),
         })
+    }
+
+    /// Normalize legacy top-level assertion fields and bump `format_version` on read.
+    fn migrate_wire_value(value: &mut serde_json::Value) {
+        let Some(object) = value.as_object_mut() else {
+            return;
+        };
+
+        if object.get("assertions").is_none() {
+            let legal = object.remove("expected_legal_actions");
+            let yaku = object.remove("expected_yaku");
+            if legal.is_some() || yaku.is_some() {
+                let mut assertions = serde_json::Map::new();
+                if let Some(legal) = legal {
+                    assertions.insert("expected_legal_actions".into(), legal);
+                }
+                if let Some(yaku) = yaku {
+                    assertions.insert("expected_yaku".into(), yaku);
+                }
+                object.insert("assertions".into(), serde_json::Value::Object(assertions));
+            }
+        }
+
+        if let Some(version) = object.get("format_version").and_then(|v| v.as_u64())
+            && version < FORMAT_VERSION as u64
+        {
+            object.insert("format_version".into(), serde_json::json!(FORMAT_VERSION));
+        }
     }
 
     pub fn to_writer(&self, writer: &mut impl Write) -> Result<(), Error> {

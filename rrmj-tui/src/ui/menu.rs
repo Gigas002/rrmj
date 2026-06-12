@@ -19,6 +19,10 @@ const fn debug_menu_active(_app: &App) -> bool {
     false
 }
 
+fn scenarios_menu_active(app: &App) -> bool {
+    crate::ui::scenario_menu::is_scenarios_menu_mode(app.main_menu_mode())
+}
+
 fn recording_list_lines(
     app: &App,
     entries: &[crate::save::RecordingEntry],
@@ -98,18 +102,28 @@ pub fn draw_main_menu(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: 
         recording_list_lines(app, app.load_entries(), "No in-progress saves.", theme)
     } else if app.main_menu_mode() == MainMenuMode::Replays {
         recording_list_lines(app, app.replay_entries(), "No finished replays.", theme)
+    } else if scenarios_menu_active(app) {
+        crate::ui::scenario_menu::draw_scenario_lines(app, theme)
     } else {
         let items: Vec<&str> = if app.debug_menu_enabled() {
             vec![
                 "Start game",
                 "Load game",
                 "Replays",
+                "Scenarios",
                 "Debug",
                 "Settings",
                 "Exit",
             ]
         } else {
-            vec!["Start game", "Load game", "Replays", "Settings", "Exit"]
+            vec![
+                "Start game",
+                "Load game",
+                "Replays",
+                "Scenarios",
+                "Settings",
+                "Exit",
+            ]
         };
         items
             .iter()
@@ -129,6 +143,7 @@ pub fn draw_main_menu(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: 
     let title = match app.main_menu_mode() {
         MainMenuMode::LoadGame => "Load game",
         MainMenuMode::Replays => "Replays",
+        MainMenuMode::Scenarios => "Scenarios",
         #[cfg(feature = "debug-menu")]
         MainMenuMode::Debug => "Debug scenarios",
         MainMenuMode::Root => "Main menu",

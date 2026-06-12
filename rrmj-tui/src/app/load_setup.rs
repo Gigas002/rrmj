@@ -2,6 +2,13 @@ use librrmj::ai::MatchSetup;
 use librrmj::replay::MatchRecording;
 
 use crate::save::RecordingEntry;
+use crate::scenarios::ScenarioEntry;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResumeSetupKind {
+    SavedGame,
+    Scenario,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LoadSetupField {
@@ -27,6 +34,30 @@ pub struct LoadGameSetup {
 }
 
 impl LoadGameSetup {
+    pub fn from_scenario(
+        entry: ScenarioEntry,
+        recording: MatchRecording,
+        fallback_human_seat: usize,
+        fallback_cpu_delay_ms: u64,
+        fallback_turn_timer_ms: u64,
+        fallback_response_timer_ms: u64,
+    ) -> Self {
+        let recording_entry = RecordingEntry {
+            path: entry.path,
+            recording_id: entry.id,
+            label: entry.title,
+            detail: entry.description,
+        };
+        Self::new(
+            recording_entry,
+            recording,
+            fallback_human_seat,
+            fallback_cpu_delay_ms,
+            fallback_turn_timer_ms,
+            fallback_response_timer_ms,
+        )
+    }
+
     pub fn new(
         entry: RecordingEntry,
         recording: MatchRecording,
@@ -116,6 +147,16 @@ mod tests {
     use librrmj::agent::PlayerSlot;
 
     use super::*;
+
+    #[test]
+    fn rejects_finished_recording_for_load() {
+        let text = include_str!("../../../examples/scenarios/match_finished.json");
+        let recording = MatchRecording::from_json(text).unwrap();
+        assert_ne!(
+            recording.match_status,
+            librrmj::replay::MatchStatus::InProgress
+        );
+    }
 
     #[test]
     fn remaps_agents_when_study_seat_chosen() {

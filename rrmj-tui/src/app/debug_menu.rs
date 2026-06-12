@@ -2,13 +2,13 @@
 
 use crossterm::event::{KeyCode, KeyEvent};
 
-use super::path_input::{PathInputAction, PathInputDialog};
+use super::scenario_menu::{ImportScenarioTarget, SCENARIOS_MENU_INDEX, SETTINGS_MENU_INDEX};
 use super::{App, DebugScenarioSetup, DebugSetupField, MainMenuMode, Screen, TableMode};
 use crate::error::AppError;
 use crate::input::BindAction;
 use crate::scenarios::{self, ScenarioEntry};
 
-pub const DEBUG_MENU_INDEX: usize = 3;
+pub const DEBUG_MENU_INDEX: usize = 4;
 
 impl App {
     pub(super) fn handle_debug_mode_menu(
@@ -21,6 +21,9 @@ impl App {
         }
         if self.main_menu_mode == MainMenuMode::Replays {
             return self.handle_replays_menu(key, action);
+        }
+        if self.main_menu_mode == MainMenuMode::Scenarios {
+            return self.handle_scenarios_menu(key, action);
         }
         if self.main_menu_mode == MainMenuMode::Debug {
             return self.handle_debug_menu(key, action);
@@ -44,8 +47,9 @@ impl App {
                 }
                 1 => self.open_load_game_menu(),
                 super::REPLAYS_MENU_INDEX => self.open_replays_menu(),
+                SCENARIOS_MENU_INDEX => self.open_scenarios_menu(),
                 DEBUG_MENU_INDEX => self.open_debug_menu(),
-                4 => {
+                SETTINGS_MENU_INDEX => {
                     self.settings_field = super::SettingsField::Theme;
                     self.settings_open = true;
                     Ok(())
@@ -98,7 +102,7 @@ impl App {
     }
 
     fn open_debug_menu(&mut self) -> Result<(), AppError> {
-        let dir = self.config.resolved_scenarios_dir();
+        let dir = scenarios::bundled_debug_scenarios_dir();
         self.debug_entries = scenarios::list_scenarios(&dir)?;
         self.debug_filter_tag = None;
         self.main_menu_mode = MainMenuMode::Debug;
@@ -111,57 +115,13 @@ impl App {
         Ok(())
     }
 
-    fn default_import_scenario_path(&self) -> std::path::PathBuf {
-        self.config
-            .resolved_scenarios_dir()
-            .join("import.rrmj.json")
-    }
-
-    fn open_import_scenario(&mut self) {
-        self.import_scenario = Some(PathInputDialog::new(self.default_import_scenario_path()));
-    }
-
-    fn close_import_scenario(&mut self) {
-        self.import_scenario = None;
-    }
-
-    pub(super) fn handle_import_scenario_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
-        let is_activate = self.is_activate(&key);
-        let is_back = self.keybinds.is_bound(&key, BindAction::Back);
-        let dialog = self.import_scenario.as_mut().expect("import dialog open");
-        match dialog.handle_key(key, is_activate, is_back) {
-            PathInputAction::Continue => {}
-            PathInputAction::Cancel => self.close_import_scenario(),
-            PathInputAction::Confirm(path) => {
-                if path.is_empty() {
-                    self.status = "Enter a scenario file path".into();
-                    return Ok(());
-                }
-                match scenarios::load_scenario_from_path(&path) {
-                    Ok((entry, recording)) => {
-                        self.debug_setup = Some(DebugScenarioSetup::new(
-                            entry,
-                            recording,
-                            self.config.human_seat,
-                        ));
-                        self.close_import_scenario();
-                        self.main_menu_mode = MainMenuMode::Root;
-                        self.status.clear();
-                    }
-                    Err(err) => self.status = format!("Import failed: {err}"),
-                }
-            }
-        }
-        Ok(())
-    }
-
     fn handle_debug_menu(
         &mut self,
         key: &KeyEvent,
         action: Option<BindAction>,
     ) -> Result<(), AppError> {
         if key.code == KeyCode::Char('i') {
-            self.open_import_scenario();
+            self.open_import_scenario(ImportScenarioTarget::Debug);
             return Ok(());
         }
         if self.keybinds.is_bound(key, BindAction::Back) {
@@ -206,6 +166,7 @@ impl App {
                 detail: "no scenario selected".into(),
             })?;
         let recording = scenarios::read_scenario(&entry.path)?;
+        recording.validate().map_err(AppError::Engine)?;
         self.debug_setup = Some(DebugScenarioSetup::new(
             entry,
             recording,
@@ -272,6 +233,7 @@ impl App {
         self.cpu_step_wait_until = None;
         self.action_timer.reset();
         self.active_recording_id = None;
+        self.active_recording_meta = None;
         self.active_save_path = None;
         self.table_mode = TableMode::Normal;
         self.tile_index = 0;

@@ -286,7 +286,9 @@ fn open_melds(hand: &Hand) -> Vec<MeldComponent> {
             MeldKind::Pon | MeldKind::Kan(KanForm::Open) => {
                 Some(MeldComponent::from_triplet(meld.tiles()[0], true))
             }
-            MeldKind::Kan(KanForm::Closed) => Some(MeldComponent::from_triplet(meld.tiles()[0], false)),
+            MeldKind::Kan(KanForm::Closed) => {
+                Some(MeldComponent::from_triplet(meld.tiles()[0], false))
+            }
         })
         .collect()
 }

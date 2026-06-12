@@ -11,7 +11,7 @@ use librrmj::rules::{RulesConfig, RulesProfileId, RulesRegistry};
 
 use crate::error::AppError;
 
-pub use paths::{config_dir, config_path, keybinds_path, recordings_dir};
+pub use paths::{config_dir, config_path, keybinds_path, recordings_dir, scenarios_dir};
 
 /// User-facing settings loaded from `config.toml` or baked-in defaults.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,7 +27,6 @@ pub struct AppConfig {
     /// Reaction window for chi/pon/ron/pass; `0` = unlimited (pass-only still instant).
     pub response_timer_ms: u64,
     pub recordings_dir: Option<std::path::PathBuf>,
-    #[cfg(feature = "debug-menu")]
     pub scenarios_dir: Option<std::path::PathBuf>,
 }
 
@@ -42,7 +41,6 @@ impl Default for AppConfig {
             turn_timer_ms: crate::timers::DEFAULT_TURN_MS,
             response_timer_ms: crate::timers::DEFAULT_RESPONSE_MS,
             recordings_dir: None,
-            #[cfg(feature = "debug-menu")]
             scenarios_dir: None,
         }
     }
@@ -142,7 +140,6 @@ impl AppConfig {
         {
             cfg.recordings_dir = Some(value.into());
         }
-        #[cfg(feature = "debug-menu")]
         if let Some(value) = table.get("scenarios_dir").and_then(|v| v.as_str()) {
             cfg.scenarios_dir = Some(value.into());
         }
@@ -159,9 +156,8 @@ impl AppConfig {
         RulesConfig::default_for(self.rules_profile)
     }
 
-    #[cfg(feature = "debug-menu")]
     pub fn resolved_scenarios_dir(&self) -> std::path::PathBuf {
-        crate::scenarios::resolve_scenarios_dir(self.scenarios_dir.as_deref())
+        self.scenarios_dir.clone().unwrap_or_else(scenarios_dir)
     }
 
     pub fn save(&self, path: &Path) -> Result<(), AppError> {

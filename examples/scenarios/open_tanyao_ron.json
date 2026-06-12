@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Open tanyao ron",
   "description": "South rons with open pon — tanyao only.",
   "tags": [
@@ -340,11 +340,13 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    "Ron",
-    "Pass"
-  ],
-  "expected_yaku": [
-    "tanyao"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      "Ron",
+      "Pass"
+    ],
+    "expected_yaku": [
+      "tanyao"
+    ]
+  }
 }

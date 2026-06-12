@@ -9,7 +9,7 @@ use librrmj::replay::{MatchRecording, MatchStatus};
 
 use crate::error::AppError;
 
-/// Client-owned directory for all match recordings (in-progress and finished).
+/// Client-owned directory for match saves and replays (`match_status` filters menus).
 #[derive(Debug, Clone)]
 pub struct SavePaths {
     pub recordings_dir: PathBuf,
@@ -145,7 +145,7 @@ pub fn ensure_recording_extension(path: PathBuf) -> PathBuf {
     path.with_extension("rrmj.json")
 }
 
-/// Write a recording synchronously (manual export).
+/// Write a recording synchronously (pause-menu save).
 pub fn write_recording(path: &Path, recording: &MatchRecording) -> Result<(), AppError> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(AppError::Terminal)?;
@@ -154,7 +154,7 @@ pub fn write_recording(path: &Path, recording: &MatchRecording) -> Result<(), Ap
     fs::write(path, json).map_err(AppError::Terminal)
 }
 
-/// Write a recording without blocking the UI thread.
+/// Write a recording without blocking the UI thread (match-end replay promotion).
 pub fn write_recording_async(path: PathBuf, recording: MatchRecording) {
     let json = match recording.to_json() {
         Ok(text) => text,

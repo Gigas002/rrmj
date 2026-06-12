@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Ura dora (riichi)",
   "description": "Closed riichi win with ura-dora indicators exposed on the dead wall.",
   "tags": [
@@ -323,12 +323,14 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    "Tsumo"
-  ],
-  "expected_yaku": [
-    "riichi",
-    "menzen_tsumo",
-    "tanyao"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      "Tsumo"
+    ],
+    "expected_yaku": [
+      "riichi",
+      "menzen_tsumo",
+      "tanyao"
+    ]
+  }
 }

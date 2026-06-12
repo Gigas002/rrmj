@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Temporary furiten",
   "description": "South passed on a winning discard; temporary furiten blocks ron on that tile.",
   "tags": [
@@ -332,7 +332,9 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    "Pass"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      "Pass"
+    ]
+  }
 }

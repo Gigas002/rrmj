@@ -105,9 +105,7 @@ pub(crate) fn recent_opponent_discard(
         return None;
     }
     let discards = &view.seats[call.discarder].discards;
-    let index = discards
-        .iter()
-        .rposition(|tile| *tile == call.tile)?;
+    let index = discards.iter().rposition(|tile| *tile == call.tile)?;
     Some((call.discarder, index))
 }
 

@@ -6,18 +6,22 @@ mod snapshot;
 #[cfg(feature = "serde")]
 mod recording;
 
+#[cfg(feature = "serde")]
+mod player;
+
 #[cfg(test)]
 mod tests;
-
-#[cfg(all(test, feature = "serde"))]
-mod scenario_fixtures;
 
 pub use snapshot::MatchSnapshot;
 
 #[cfg(feature = "serde")]
 pub use hand_snapshot::HandSnapshot;
 #[cfg(feature = "serde")]
-pub use recording::{FORMAT_VERSION, MatchRecording, MatchStatus, PlayerSetup, RecordingMeta};
+pub use player::RecordingPlayer;
+#[cfg(feature = "serde")]
+pub use recording::{
+    FORMAT_VERSION, MatchRecording, MatchStatus, PlayerSetup, RecordingAssertions, RecordingMeta,
+};
 
 use crate::Error;
 use crate::event::Event;

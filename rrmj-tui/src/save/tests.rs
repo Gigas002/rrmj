@@ -77,3 +77,37 @@ fn parse_fixture_validates() {
     parsed.validate().unwrap();
     assert_eq!(parsed.match_status, MatchStatus::InProgress);
 }
+
+#[test]
+fn capture_promotes_finished_match_to_replay() {
+    let text = include_str!("../../../examples/scenarios/match_finished.json");
+    let recording = recording_from_json(text);
+    assert_eq!(recording.match_status, MatchStatus::Finished);
+
+    let game = recording.restore().unwrap();
+    assert!(game.is_ended());
+
+    let setup = recording.match_setup();
+    let captured = librrmj::replay::MatchRecording::capture(
+        &game,
+        &setup,
+        recording.human_seat.unwrap_or(0),
+        recording.cpu_step_delay_ms.unwrap_or(300),
+        recording.turn_timer_ms.unwrap_or(30_000),
+        recording.response_timer_ms.unwrap_or(5_000),
+        recording.meta.clone(),
+    );
+    assert_eq!(captured.match_status, MatchStatus::Finished);
+    assert_eq!(captured.meta.title, recording.meta.title);
+}
+
+#[test]
+fn in_progress_fixture_restores_playable_state() {
+    let text = include_str!("../../../examples/scenarios/dealer_tsumo.json");
+    let recording = recording_from_json(text);
+    assert_eq!(recording.match_status, MatchStatus::InProgress);
+
+    let game = recording.restore().unwrap();
+    assert!(!game.is_ended());
+    assert_eq!(game.events().len(), recording.events.len());
+}

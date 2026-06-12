@@ -7,7 +7,12 @@ use crate::app::App;
 use crate::theme::Theme;
 use crate::ui::popup;
 
-pub fn draw_recommendations_popup(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &Theme) {
+pub fn draw_recommendations_popup(
+    frame: &mut ratatui::Frame,
+    area: Rect,
+    app: &App,
+    theme: &Theme,
+) {
     let popup = popup::open_popup(frame, area, 80, 70);
 
     let mut lines = vec![

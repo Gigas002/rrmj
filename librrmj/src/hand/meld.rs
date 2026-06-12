@@ -140,7 +140,9 @@ impl Meld {
         }
 
         match self.kind {
-            MeldKind::Chi | MeldKind::Pon | MeldKind::Kan(KanForm::Open) if self.called.is_none() => {
+            MeldKind::Chi | MeldKind::Pon | MeldKind::Kan(KanForm::Open)
+                if self.called.is_none() =>
+            {
                 Err(Error::MissingCalledTile { kind: self.kind })
             }
             MeldKind::Kan(KanForm::Closed) if self.called.is_some() => {

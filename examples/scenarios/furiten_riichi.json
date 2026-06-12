@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Riichi furiten",
   "description": "Riichi furiten persists after a draw; South cannot ron a passed tile.",
   "tags": [
@@ -336,7 +336,9 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    "Pass"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      "Pass"
+    ]
+  }
 }

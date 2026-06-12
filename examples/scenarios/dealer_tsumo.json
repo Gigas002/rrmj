@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Dealer tsumo (tanyao)",
   "description": "East wins on tsumo; hand ends and next hand is dealt.",
   "tags": [
@@ -388,11 +388,13 @@
     }
   ],
   "event_index": 5,
-  "expected_legal_actions": [
-    "Tsumo"
-  ],
-  "expected_yaku": [
-    "menzen_tsumo",
-    "tanyao"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      "Tsumo"
+    ],
+    "expected_yaku": [
+      "menzen_tsumo",
+      "tanyao"
+    ]
+  }
 }

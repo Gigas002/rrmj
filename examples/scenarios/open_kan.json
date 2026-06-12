@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Open kan (daiminkan)",
   "description": "South can declare open kan on 6s; reveals dora and rinshan draw.",
   "tags": [
@@ -333,10 +333,12 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    {
-      "Kan": "Open"
-    },
-    "Pass"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      {
+        "Kan": "Open"
+      },
+      "Pass"
+    ]
+  }
 }

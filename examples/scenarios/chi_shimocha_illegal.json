@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Chi blocked for shimocha",
   "description": "West cannot chi — only kamicha may call chi.",
   "tags": [
@@ -332,7 +332,9 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    "Pass"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      "Pass"
+    ]
+  }
 }

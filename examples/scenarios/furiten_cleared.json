@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Temporary furiten cleared",
   "description": "After drawing, temporary furiten clears and South can ron again.",
   "tags": [
@@ -336,11 +336,13 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    "Ron",
-    "Pass"
-  ],
-  "expected_yaku": [
-    "tanyao"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      "Ron",
+      "Pass"
+    ],
+    "expected_yaku": [
+      "tanyao"
+    ]
+  }
 }

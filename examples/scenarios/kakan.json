@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Kakan (pon upgrade)",
   "description": "East can upgrade an open pon to kan with the fourth matching tile.",
   "tags": [
@@ -328,13 +328,15 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    {
-      "Kan": {
-        "Added": {
-          "meld_index": 0
+  "assertions": {
+    "expected_legal_actions": [
+      {
+        "Kan": {
+          "Added": {
+            "meld_index": 0
+          }
         }
       }
-    }
-  ]
+    ]
+  }
 }

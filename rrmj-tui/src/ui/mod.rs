@@ -10,11 +10,12 @@ mod menu;
 mod path_input;
 mod pause;
 mod popup;
-mod render;
 mod recommendations;
+mod render;
 mod replay_review;
 mod rules;
 mod rules_content;
+mod scenario_menu;
 mod scores;
 mod setup;
 mod table;
@@ -50,7 +51,7 @@ fn draw_main_menu_screen(frame: &mut Frame, area: Rect, app: &App, theme: &Theme
     if app.setup_open() {
         setup::draw_setup_popup(frame, area, app, theme);
     }
-    if app.load_setup_open() {
+    if app.resume_setup_open() {
         load_setup::draw_load_setup_popup(frame, area, app, theme);
     }
     #[cfg(feature = "debug-menu")]
@@ -60,7 +61,6 @@ fn draw_main_menu_screen(frame: &mut Frame, area: Rect, app: &App, theme: &Theme
     if app.settings_open() {
         menu::draw_settings_popup(frame, area, app, theme);
     }
-    #[cfg(feature = "debug-menu")]
     if app.import_scenario_open()
         && let Some(path) = app.import_scenario_path()
     {
@@ -68,7 +68,7 @@ fn draw_main_menu_screen(frame: &mut Frame, area: Rect, app: &App, theme: &Theme
             frame,
             area,
             "Import scenario",
-            "Load a scenario JSON file from disk.",
+            "Load a scenario JSON from any path (community packs or your own).",
             path,
             "Type path  enter import  esc cancel",
             theme,
@@ -87,10 +87,10 @@ fn draw_table_screen(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
         path_input::draw_path_input_popup(
             frame,
             area,
-            "Export save",
-            "Export current match to a file path.",
+            "Save game",
+            "Save in-progress match (match_status = in_progress).",
             path,
-            "Type path  enter export  esc cancel",
+            "Type path  enter save  esc cancel",
             theme,
         );
     } else if app.scores_open() {

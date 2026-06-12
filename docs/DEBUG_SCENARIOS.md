@@ -1,12 +1,36 @@
 # Debug scenario catalog
 
-Fixtures in `examples/scenarios/*.json` drive **CI** (`librrmj/tests/scenarios.rs`) and the TUI **Debug** menu (when compiled with `debug-menu`).
+Hand-maintained fixtures in `examples/scenarios/*.json` drive:
 
-Regenerate after changing builders:
+- **CI** — `librrmj/tests/scenarios.rs` (no `debug-menu` feature required)
+- **TUI dev UI** — Main menu → **Debug** when built with `debug-menu` (off in default release builds)
+
+**Source of truth:** JSON only. There is no Rust scenario builder; do not regenerate fixtures from code.
 
 ```bash
-cargo test -p librrmj --features serde write_all_scenario_fixtures -- --ignored --nocapture
+cargo test -p librrmj --features serde --test scenarios
 ```
+
+## How to add a scenario
+
+1. Copy an existing `examples/scenarios/*.json` with a similar setup.
+2. Edit `hand`, `wall`, `events`, `event_index`, and metadata (`title`, `description`, `tags`).
+3. Optional CI checks go under **`assertions`** (not top-level keys):
+   - `assertions.expected_legal_actions` — each action must appear in `legal_actions()` after `restore()`
+   - `assertions.expected_yaku` — each yaku must appear in `score_win` when the human seat can tsumo/ron
+4. Add a row to the table below.
+5. Run `cargo test -p librrmj --features serde --test scenarios`.
+
+Wire format: `docs/REPLAY.md` (`format_version` 3).
+
+## Player scenarios vs debug scenarios
+
+| | **Scenarios** menu (14.6) | **Debug** menu (14.7) |
+| --- | --- | --- |
+| Build | Default `rrmj-tui` | `--features debug-menu` only |
+| Directory | `scenarios_dir` in config (user packs) | `examples/scenarios/` (repo) |
+| Assertions in UI | Ignored | Ignored |
+| CI | No | Yes (`librrmj/tests/scenarios.rs`) |
 
 ## Scenarios (50)
 
@@ -65,7 +89,7 @@ cargo test -p librrmj --features serde write_all_scenario_fixtures -- --ignored 
 
 ## Winning-hand coverage
 
-Scenario fixtures with `expected_yaku` are scored on restore in `librrmj/tests/scenarios.rs`. Full yaku coverage is additionally asserted in:
+Fixtures with `assertions.expected_yaku` are scored on restore in `librrmj/tests/scenarios.rs`. Full yaku coverage is additionally asserted in:
 
 1. **Table-driven unit tests** — `librrmj/src/rules/standard/win_combinations/tests.rs`
 2. **Catalog gate** — `every_implemented_cheatsheet_row_has_win_fixture` in `win_combinations/tests.rs`
@@ -81,17 +105,18 @@ Representative scenario fixtures by category:
 
 Tests deliberately cover **win types** (yaku combinations), not meld layout variants (e.g. `1s2s3s` vs `2s3s4s`).
 
-## TUI
+## TUI debug menu (dev builds)
 
-Compile-time feature **`debug-menu`** (off by default):
+Compile-time feature **`debug-menu`** — **not** enabled in default release builds (`rrmj-tui` default features: `ai` only):
 
 ```bash
-cargo run -p rrmj-tui                              # no debug menu
-cargo run -p rrmj-tui --features debug-menu      # with debug menu
+cargo run -p rrmj-tui                              # no Debug menu
+cargo run -p rrmj-tui --features debug-menu      # Main menu → Debug
 ```
 
-- Main menu → **Debug** (when feature enabled)
-- `f` cycles tag filter while browsing scenarios
-- Pick scenario → seat picker → table
+- Lists **`examples/scenarios/*.json`** (repo fixtures; does not use `scenarios_dir`)
+- `f` cycles tag filter while browsing
+- `i` imports a scenario JSON from any path (defaults to `examples/scenarios/`)
+- Pick scenario → seat picker → table (`assertions` are not shown or enforced in the UI)
 
-`scenarios_dir` in `config.toml` overrides the default `examples/scenarios` path (only when `debug-menu` is enabled).
+Community / player packs: use the **Scenarios** menu and `scenarios_dir` — see `docs/REPLAY.md`.

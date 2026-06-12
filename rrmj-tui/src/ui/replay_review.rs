@@ -1,5 +1,5 @@
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::Style;
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
@@ -27,40 +27,46 @@ pub fn draw_replay_review(frame: &mut ratatui::Frame, area: Rect, app: &App, the
 }
 
 fn draw_board(frame: &mut ratatui::Frame, area: Rect, review: &ReplayReview, theme: &Theme) {
-    let view = librrmj::agent::PlayerView::from_game(&review.match_game, review.view_seat);
+    let game = review.player.game();
+    let view = librrmj::agent::PlayerView::from_game(game, review.view_seat);
     let mut sorted_hand = view.own_concealed.clone();
     sorted_hand.sort();
+
+    let recent_discard = review
+        .recent_discard_highlight()
+        .or_else(|| crate::ui::table::recent_opponent_discard(&view, review.view_seat));
 
     let ctx = PlayfieldContext {
         view: &view,
         human: review.view_seat,
         theme,
-        live_remaining: review.match_game.hand().wall().live_remaining(),
-        turn_seat: None,
+        live_remaining: game.hand().wall().live_remaining(),
+        turn_seat: Some(game.hand().current_actor()),
         selected_hand: None,
         drawn_hand: sorted_hand
             .iter()
             .rposition(|t| Some(*t) == view.turn.drawn_tile()),
         highlight_tile: None,
-        recent_discard: crate::ui::table::recent_opponent_discard(&view, review.view_seat),
+        recent_discard,
         sorted_hand: &sorted_hand,
     };
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(theme.block_style())
-        .title("Final table");
+        .title("Replay");
     let inner = block.inner(area);
     frame.render_widget(block, area);
     draw_playfield(frame, inner, &ctx);
 }
 
 fn draw_status_bar(frame: &mut ratatui::Frame, area: Rect, review: &ReplayReview, theme: &Theme) {
-    let hand = review.match_game.hand();
+    let hand = review.player.game().hand();
     let text = format!(
-        "View: {} · {} · {} events · esc back",
+        "{} · View {} · {} · {} · space play/pause · ←/→ step · tab seat · esc back",
+        review.status_text(),
         seat_label(review.view_seat, review.view_seat),
         phase_label(hand.phase()),
-        review.recording.events.len(),
+        review.title(),
     );
     frame.render_widget(
         Paragraph::new(Line::from(Span::styled(text, theme.status_style()))),
@@ -79,29 +85,31 @@ fn draw_info_panel(frame: &mut ratatui::Frame, area: Rect, review: &ReplayReview
 }
 
 fn draw_meta_panel(frame: &mut ratatui::Frame, area: Rect, review: &ReplayReview, theme: &Theme) {
-    let rec = &review.recording;
+    let rec = review.player.recording();
     let mut lines = vec![
         Line::from(Span::styled(review.title(), theme.status_style())),
         Line::from(""),
         Line::from(format!("Seed: {}", rec.seed)),
+        Line::from(format!("Hands in log: {}", rec.hand_index)),
         Line::from(format!(
-            "Hands played: {} · ended {} kyoku",
-            rec.hand_index, rec.kyoku
-        )),
-        Line::from(format!(
-            "Final round: {} · honba {}",
+            "Round at save: {} · honba {}",
             rec.round_wind.as_str(),
             rec.honba
         )),
         Line::from(""),
-        Line::from("Final scores:"),
+        Line::from("Scores at cursor:"),
     ];
-    for (seat, score) in rec.scores.iter().enumerate() {
+    for (seat, score) in review.player.game().scores().iter().enumerate() {
         lines.push(Line::from(format!(
             "  {}: {score}",
             crate::app::NewGameSetup::seat_name(seat)
         )));
     }
+    lines.push(Line::from(""));
+    lines.push(Line::from("Playback:"));
+    lines.push(Line::from("  home/end — start/end"));
+    lines.push(Line::from("  n / b — next/prev hand"));
+    lines.push(Line::from("  1-4 — view seat"));
     if let Some(desc) = rec.meta.description.as_ref()
         && !desc.is_empty()
     {
@@ -114,7 +122,7 @@ fn draw_meta_panel(frame: &mut ratatui::Frame, area: Rect, review: &ReplayReview
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(theme.block_style())
-                .title("Match summary"),
+                .title("Replay info"),
         ),
         area,
     );
@@ -123,15 +131,19 @@ fn draw_meta_panel(frame: &mut ratatui::Frame, area: Rect, review: &ReplayReview
 fn draw_event_log(frame: &mut ratatui::Frame, area: Rect, review: &ReplayReview, theme: &Theme) {
     let inner_height = area.height.saturating_sub(2) as usize;
     let events = review.event_lines();
+    let cursor = review.cursor_line_index();
     let visible: Vec<Line> = events
         .iter()
+        .enumerate()
         .skip(review.event_scroll)
         .take(inner_height)
-        .map(|line| {
-            Line::from(Span::styled(
-                line.clone(),
-                Style::default().fg(theme.primary),
-            ))
+        .map(|(index, line)| {
+            let style = if index == cursor {
+                theme.menu_selected_style().add_modifier(Modifier::BOLD)
+            } else {
+                Style::default().fg(theme.primary)
+            };
+            Line::from(Span::styled(line.clone(), style))
         })
         .collect();
 

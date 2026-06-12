@@ -1,7 +1,7 @@
 use crate::hand::{Concealed, Hand};
 use crate::rules::standard::score::score_hand;
-use crate::scoring::limits::base_points;
 use crate::rules::{RulesConfig, WinContext, WinTimingFlags};
+use crate::scoring::limits::base_points;
 use crate::scoring::{WinType, Yaku};
 use crate::state::HandState;
 use crate::tile::Tile;

@@ -29,6 +29,11 @@ pub fn recordings_dir() -> PathBuf {
     data_dir().join("recordings")
 }
 
+/// Community / player scenario packs (`scenarios_dir` in config).
+pub fn scenarios_dir() -> PathBuf {
+    data_dir().join("scenarios")
+}
+
 fn dirs_home() -> PathBuf {
     std::env::var_os("HOME")
         .map(PathBuf::from)

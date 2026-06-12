@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Non-dealer tsumo",
   "description": "South wins on tsumo (tanyao).",
   "tags": [
@@ -334,11 +334,13 @@
     }
   ],
   "event_index": 3,
-  "expected_legal_actions": [
-    "Tsumo"
-  ],
-  "expected_yaku": [
-    "menzen_tsumo",
-    "tanyao"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      "Tsumo"
+    ],
+    "expected_yaku": [
+      "menzen_tsumo",
+      "tanyao"
+    ]
+  }
 }

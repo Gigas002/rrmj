@@ -31,13 +31,7 @@ struct PathCollector<'a> {
 impl PathCollector<'_> {
     fn push(&mut self, win_type: WinType, win_tile: Tile, shanten: i8, wait_count: usize) {
         let timing = timing_flags(self.state, win_type);
-        let ctx = WinContext::new(
-            self.state,
-            self.seat,
-            win_type,
-            win_tile,
-            timing,
-        );
+        let ctx = WinContext::new(self.state, self.seat, win_type, win_tile, timing);
         if !self.profile.can_win(&ctx, self.config) {
             return;
         }
@@ -140,8 +134,7 @@ fn candidate_from_result(
 }
 
 fn timing_flags(state: &HandState, win_type: WinType) -> WinTimingFlags {
-    let is_chankan =
-        matches!(win_type, WinType::Ron { .. }) && state.is_chankan_window();
+    let is_chankan = matches!(win_type, WinType::Ron { .. }) && state.is_chankan_window();
     WinTimingFlags { is_chankan }
 }
 

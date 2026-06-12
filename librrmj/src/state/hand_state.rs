@@ -151,10 +151,8 @@ impl HandState {
     }
 
     pub fn last_discard(&self) -> Option<crate::agent::PendingCall> {
-        self.last_discard.map(|(discarder, tile)| crate::agent::PendingCall {
-            discarder,
-            tile,
-        })
+        self.last_discard
+            .map(|(discarder, tile)| crate::agent::PendingCall { discarder, tile })
     }
 
     /// Tile just drawn (or rinshan) for the current actor during discard phase.
@@ -813,10 +811,13 @@ impl HandState {
     }
 
     fn pop_called_discard(&mut self, discarder: usize) -> Result<(), Error> {
-        let tile = self.discards[discarder].last().copied().ok_or(Error::InvalidCall {
-            kind: CallKind::Pon,
-            reason: "no discard to call",
-        })?;
+        let tile = self.discards[discarder]
+            .last()
+            .copied()
+            .ok_or(Error::InvalidCall {
+                kind: CallKind::Pon,
+                reason: "no discard to call",
+            })?;
         self.discards[discarder].pop().ok_or(Error::InvalidCall {
             kind: CallKind::Pon,
             reason: "no discard to call",

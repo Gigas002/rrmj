@@ -1,5 +1,3 @@
-#![cfg(feature = "debug-menu")]
-
 #[cfg(test)]
 mod tests;
 
@@ -20,19 +18,10 @@ pub struct ScenarioEntry {
     pub tags: Vec<String>,
 }
 
-pub fn default_scenarios_dir() -> PathBuf {
+/// Repo CI fixtures (`examples/scenarios`) — debug menu and tests only.
+#[cfg(any(test, feature = "debug-menu"))]
+pub fn bundled_debug_scenarios_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../examples/scenarios")
-}
-
-pub fn resolve_scenarios_dir(configured: Option<&Path>) -> PathBuf {
-    if let Some(dir) = configured {
-        return dir.to_path_buf();
-    }
-    let dev = default_scenarios_dir();
-    if dev.exists() {
-        return dev;
-    }
-    PathBuf::from("examples/scenarios")
 }
 
 pub fn list_scenarios(dir: &Path) -> Result<Vec<ScenarioEntry>, AppError> {

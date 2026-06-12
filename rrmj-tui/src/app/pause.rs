@@ -12,7 +12,7 @@ impl PauseItem {
     pub const fn label(self) -> &'static str {
         match self {
             Self::Resume => "Resume",
-            Self::ExportSave => "Export save…",
+            Self::ExportSave => "Save game…",
             Self::MainMenu => "Return to main menu",
             Self::Quit => "Quit application",
         }

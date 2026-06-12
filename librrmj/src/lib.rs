@@ -37,6 +37,7 @@ pub use hand::{Concealed, Hand, KanForm, Meld, MeldKind};
 #[cfg(feature = "serde")]
 pub use replay::{
     FORMAT_VERSION, HandSnapshot, MatchRecording, MatchStatus, PlayerSetup, RecordingMeta,
+    RecordingPlayer,
 };
 pub use replay::{MatchSnapshot, Replay};
 pub use rules::{

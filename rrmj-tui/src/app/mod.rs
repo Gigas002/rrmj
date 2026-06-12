@@ -9,6 +9,7 @@ mod load_setup;
 mod path_input;
 mod pause;
 mod replay_review;
+mod scenario_menu;
 mod settings;
 mod setup;
 mod timers;
@@ -17,7 +18,7 @@ pub use actions::ActionMenu;
 #[cfg(feature = "debug-menu")]
 pub use debug_setup::{DebugScenarioSetup, DebugSetupField};
 pub use hand_result::HandResultSummary;
-pub use load_setup::{LoadGameSetup, LoadSetupField};
+pub use load_setup::{LoadGameSetup, LoadSetupField, ResumeSetupKind};
 pub use path_input::PathInputDialog;
 pub use pause::PauseItem;
 pub use replay_review::ReplayReview;
@@ -55,7 +56,8 @@ use self::path_input::PathInputAction;
 use crate::theme::Theme;
 use crate::timers::{TimerKind, format_decision_timer};
 use crate::ui;
-use librrmj::replay::{MatchRecording, RecordingMeta};
+use librrmj::game::MatchPhase;
+use librrmj::replay::{MatchRecording, MatchStatus, RecordingMeta, RecordingPlayer};
 
 use self::timers::{ActionTimerState, timeout_action};
 
@@ -71,12 +73,13 @@ pub enum MainMenuMode {
     Root,
     LoadGame,
     Replays,
+    Scenarios,
     #[cfg(feature = "debug-menu")]
     Debug,
 }
 
 pub(crate) const REPLAYS_MENU_INDEX: usize = 2;
-pub(crate) const ROOT_MENU_LEN: usize = if cfg!(feature = "debug-menu") { 6 } else { 5 };
+pub(crate) const ROOT_MENU_LEN: usize = if cfg!(feature = "debug-menu") { 7 } else { 6 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TableMode {
@@ -101,11 +104,17 @@ pub struct App {
     load_entries: Vec<RecordingEntry>,
     replay_entries: Vec<RecordingEntry>,
     replay_review: Option<ReplayReview>,
+    scenario_entries: Vec<crate::scenarios::ScenarioEntry>,
+    scenario_filter_tag: Option<String>,
+    scenario_setup: Option<LoadGameSetup>,
+    import_scenario: Option<PathInputDialog>,
+    import_scenario_target: scenario_menu::ImportScenarioTarget,
     #[cfg(feature = "debug-menu")]
     debug_entries: Vec<crate::scenarios::ScenarioEntry>,
     #[cfg(feature = "debug-menu")]
     debug_filter_tag: Option<String>,
     active_recording_id: Option<String>,
+    active_recording_meta: Option<RecordingMeta>,
     active_save_path: Option<PathBuf>,
     setup: Option<NewGameSetup>,
     load_setup: Option<LoadGameSetup>,
@@ -129,8 +138,6 @@ pub struct App {
     pause_open: bool,
     pause_index: PauseItem,
     export_save: Option<PathInputDialog>,
-    #[cfg(feature = "debug-menu")]
-    import_scenario: Option<PathInputDialog>,
     scores_open: bool,
     recommendations_open: bool,
     recommendations_scroll: usize,
@@ -164,11 +171,17 @@ impl App {
             load_entries: Vec::new(),
             replay_entries: Vec::new(),
             replay_review: None,
+            scenario_entries: Vec::new(),
+            scenario_filter_tag: None,
+            scenario_setup: None,
+            import_scenario: None,
+            import_scenario_target: scenario_menu::ImportScenarioTarget::Player,
             #[cfg(feature = "debug-menu")]
             debug_entries: Vec::new(),
             #[cfg(feature = "debug-menu")]
             debug_filter_tag: None,
             active_recording_id: None,
+            active_recording_meta: None,
             active_save_path: None,
             setup: None,
             load_setup: None,
@@ -192,8 +205,6 @@ impl App {
             pause_open: false,
             pause_index: PauseItem::Resume,
             export_save: None,
-            #[cfg(feature = "debug-menu")]
-            import_scenario: None,
             scores_open: false,
             recommendations_open: false,
             recommendations_scroll: 0,
@@ -227,6 +238,7 @@ impl App {
     ) -> Result<(), AppError> {
         while !self.quit {
             self.tick_cpu()?;
+            self.tick_replay()?;
             self.tick_action_timers()?;
             let theme = self.theme();
             terminal.draw(|frame| ui::draw(frame, self, &theme))?;
@@ -284,7 +296,6 @@ impl App {
             };
             let ended = self.match_game.as_ref().is_some_and(|game| game.is_ended());
             self.on_game_events(&events);
-            self.persist_match();
             if self.hand_result.is_some() || ended {
                 break;
             }
@@ -369,7 +380,6 @@ impl App {
             .expect("match present")
             .apply_action(seat, action)?;
         self.on_game_events(&events);
-        self.persist_match();
         self.table_mode = TableMode::Normal;
         self.action_timer.reset();
         Ok(())
@@ -399,13 +409,13 @@ impl App {
     }
 
     fn return_to_main_menu(&mut self) {
-        self.persist_match();
         self.match_game = None;
         self.agents = None;
         self.setup_meta = None;
         self.hand_result = None;
         self.match_summary = None;
         self.active_recording_id = None;
+        self.active_recording_meta = None;
         self.active_save_path = None;
         self.screen = Screen::MainMenu;
         self.main_menu_mode = MainMenuMode::Root;
@@ -448,19 +458,27 @@ impl App {
         self.export_save = None;
     }
 
+    fn persist_recording_meta(&self) -> RecordingMeta {
+        let id = self.active_recording_id.clone().unwrap_or_else(|| {
+            format!(
+                "match-{}",
+                self.match_game.as_ref().map(|g| g.seed()).unwrap_or(0)
+            )
+        });
+        let mut meta = self.active_recording_meta.clone().unwrap_or_default();
+        meta.recording_id = Some(id);
+        meta.updated_at = Some(unix_timestamp_string());
+        meta.client_version = Some(format!("rrmj-tui {}", librrmj::VERSION));
+        if meta.created_at.is_none() {
+            meta.created_at = Some(unix_timestamp_string());
+        }
+        meta
+    }
+
     fn capture_current_recording(&self) -> Option<MatchRecording> {
         let game = self.match_game.as_ref()?;
         let setup = self.setup_meta.as_ref()?;
-        let id = self
-            .active_recording_id
-            .clone()
-            .unwrap_or_else(|| format!("match-{}", game.seed()));
-        let meta = RecordingMeta {
-            recording_id: Some(id),
-            updated_at: Some(unix_timestamp_string()),
-            client_version: Some(format!("rrmj-tui {}", librrmj::VERSION)),
-            ..RecordingMeta::default()
-        };
+        let meta = self.persist_recording_meta();
         Some(MatchRecording::capture(
             game,
             setup,
@@ -475,7 +493,7 @@ impl App {
     fn handle_export_save_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
         let Some(recording) = self.capture_current_recording() else {
             self.close_export_save();
-            self.status = "No match to export".into();
+            self.status = "No match to save".into();
             return Ok(());
         };
         let is_activate = self.is_activate(&key);
@@ -486,17 +504,24 @@ impl App {
             PathInputAction::Cancel => self.close_export_save(),
             PathInputAction::Confirm(path) => {
                 if path.is_empty() {
-                    self.status = "Enter a file path to export".into();
+                    self.status = "Enter a file path to save".into();
                     return Ok(());
                 }
                 let path =
                     crate::save::ensure_recording_extension(crate::save::resolve_user_path(&path));
                 match crate::save::write_recording(&path, &recording) {
                     Ok(()) => {
-                        self.status = format!("Exported to {}", path.display());
+                        self.active_save_path = Some(path.clone());
+                        self.active_recording_id =
+                            recording.meta.recording_id.clone().or_else(|| {
+                                path.file_stem()
+                                    .map(|stem| stem.to_string_lossy().into_owned())
+                            });
+                        self.active_recording_meta = Some(recording.meta);
+                        self.status = format!("Saved to {}", path.display());
                         self.close_export_save();
                     }
-                    Err(err) => self.status = format!("Export failed: {err}"),
+                    Err(err) => self.status = format!("Save failed: {err}"),
                 }
             }
         }
@@ -554,21 +579,6 @@ impl App {
         }
     }
 
-    fn persist_match(&self) {
-        let Some(recording) = self.capture_current_recording() else {
-            return;
-        };
-        if self.match_game.as_ref().is_some_and(|game| game.is_ended()) {
-            return;
-        }
-        let id = self
-            .active_recording_id
-            .clone()
-            .unwrap_or_else(|| "autosave".into());
-        let path = self.save_paths().recording_path(&id);
-        write_recording_async(path, recording);
-    }
-
     fn finalize_finished_match(&mut self) {
         let (Some(game), Some(setup)) = (&self.match_game, &self.setup_meta) else {
             return;
@@ -576,16 +586,7 @@ impl App {
         if !game.is_ended() {
             return;
         }
-        let id = self
-            .active_recording_id
-            .clone()
-            .unwrap_or_else(|| format!("match-{}", game.seed()));
-        let meta = RecordingMeta {
-            recording_id: Some(id.clone()),
-            updated_at: Some(unix_timestamp_string()),
-            client_version: Some(format!("rrmj-tui {}", librrmj::VERSION)),
-            ..RecordingMeta::default()
-        };
+        let meta = self.persist_recording_meta();
         // Same file path; `capture` sets `match_status = finished` when the match ended.
         let recording = MatchRecording::capture(
             game,
@@ -596,19 +597,24 @@ impl App {
             self.response_timer_ms,
             meta,
         );
+        let fallback_id = recording
+            .meta
+            .recording_id
+            .clone()
+            .unwrap_or_else(|| format!("match-{}", game.seed()));
         let path = self
             .active_save_path
             .clone()
-            .unwrap_or_else(|| self.save_paths().recording_path(&id));
+            .unwrap_or_else(|| self.save_paths().recording_path(&fallback_id));
         write_recording_async(path, recording);
         self.active_recording_id = None;
+        self.active_recording_meta = None;
         self.active_save_path = None;
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
         let key = normalize_key_event(key);
 
-        #[cfg(feature = "debug-menu")]
         if self.import_scenario.is_some() {
             return self.handle_import_scenario_key(key);
         }
@@ -636,6 +642,7 @@ impl App {
         if self.load_setup.is_some() && self.screen == Screen::MainMenu {
             return self.handle_load_setup_key(key);
         }
+        self.handle_scenario_setup_key_if_open(key)?;
         #[cfg(feature = "debug-menu")]
         self.handle_debug_setup_key_if_open(key)?;
 
@@ -804,6 +811,9 @@ impl App {
             if self.main_menu_mode == MainMenuMode::Replays {
                 return self.handle_replays_menu(key, action);
             }
+            if self.main_menu_mode == MainMenuMode::Scenarios {
+                return self.handle_scenarios_menu(key, action);
+            }
 
             if self.is_activate(key) {
                 return match self.menu_index {
@@ -819,7 +829,8 @@ impl App {
                     }
                     1 => self.open_load_game_menu(),
                     REPLAYS_MENU_INDEX => self.open_replays_menu(),
-                    3 => {
+                    scenario_menu::SCENARIOS_MENU_INDEX => self.open_scenarios_menu(),
+                    scenario_menu::SETTINGS_MENU_INDEX => {
                         self.settings_field = SettingsField::Theme;
                         self.settings_open = true;
                         Ok(())
@@ -948,13 +959,17 @@ impl App {
                 detail: "no replay selected".into(),
             })?;
         let recording = read_recording(&entry.path)?;
-        let match_game = recording.restore()?;
         let title = recording
             .meta
             .title
             .clone()
             .unwrap_or_else(|| entry.label.clone());
-        self.replay_review = Some(ReplayReview::new(entry, recording, match_game));
+        let step_delay_ms = recording
+            .cpu_step_delay_ms
+            .map(crate::timers::normalize_cpu)
+            .unwrap_or_else(|| crate::timers::normalize_cpu(self.config.cpu_step_delay_ms));
+        let player = RecordingPlayer::new(recording).map_err(AppError::Engine)?;
+        self.replay_review = Some(ReplayReview::new(entry, player, step_delay_ms));
         self.screen = Screen::ReplayReview;
         self.status = format!("Replay: {title}");
         Ok(())
@@ -964,6 +979,25 @@ impl App {
         self.replay_review = None;
         self.screen = Screen::MainMenu;
         self.main_menu_mode = MainMenuMode::Replays;
+    }
+
+    fn tick_replay(&mut self) -> Result<(), AppError> {
+        if self.screen != Screen::ReplayReview {
+            return Ok(());
+        }
+        let visible = 12usize;
+        if let Some(review) = self.replay_review.as_mut() {
+            review.tick_autoplay()?;
+            review.sync_event_scroll_to_cursor(visible);
+            if let Some(index) = review.player.event_index() {
+                if let Some(event) = review.player.recording().events.get(index) {
+                    self.status = event_text::describe_event(event);
+                }
+            } else {
+                self.status = "Match start".into();
+            }
+        }
+        Ok(())
     }
 
     fn handle_replay_review_key(
@@ -981,16 +1015,42 @@ impl App {
         }
         let page = 8isize;
         let visible = 12usize;
-        if let Some(review) = self.replay_review.as_mut() {
-            match action {
-                Some(BindAction::MenuUp) => review.scroll_events(-1, visible),
-                Some(BindAction::MenuDown) => review.scroll_events(1, visible),
-                _ => match key.code {
-                    KeyCode::PageUp => review.scroll_events(-page, visible),
-                    KeyCode::PageDown => review.scroll_events(page, visible),
-                    _ => {}
-                },
+        let Some(review) = self.replay_review.as_mut() else {
+            return Ok(());
+        };
+
+        if key.code == KeyCode::Char(' ') {
+            review.toggle_playback();
+            return Ok(());
+        }
+        if let KeyCode::Char(seat @ ('1'..='4')) = key.code {
+            review.set_view_seat((seat as u8 - b'1') as usize);
+            return Ok(());
+        }
+
+        match action {
+            Some(BindAction::TilePrev) => review.step_back()?,
+            Some(BindAction::TileNext) => review.step_forward()?,
+            Some(BindAction::MenuCycle) => review.cycle_view_seat(),
+            Some(BindAction::MenuUp) => review.scroll_events(-1, visible),
+            Some(BindAction::MenuDown) => review.scroll_events(1, visible),
+            _ => match key.code {
+                KeyCode::Home => review.seek_start()?,
+                KeyCode::End => review.seek_end()?,
+                KeyCode::Char('n') => review.seek_next_hand()?,
+                KeyCode::Char('b') => review.seek_prev_hand()?,
+                KeyCode::PageUp => review.scroll_events(-page, visible),
+                KeyCode::PageDown => review.scroll_events(page, visible),
+                _ => {}
+            },
+        }
+        review.sync_event_scroll_to_cursor(visible);
+        if let Some(index) = review.player.event_index() {
+            if let Some(event) = review.player.recording().events.get(index) {
+                self.status = event_text::describe_event(event);
             }
+        } else {
+            self.status = "Match start".into();
         }
         Ok(())
     }
@@ -1005,6 +1065,14 @@ impl App {
                 detail: "no save selected".into(),
             })?;
         let recording = read_recording(&entry.path)?;
+        if recording.match_status != MatchStatus::InProgress {
+            self.status = "Only in-progress saves can be loaded".into();
+            return Ok(());
+        }
+        if recording.match_phase == MatchPhase::Ended {
+            self.status = "Save is already finished".into();
+            return Ok(());
+        }
         self.load_setup = Some(LoadGameSetup::new(
             entry,
             recording,
@@ -1079,6 +1147,14 @@ impl App {
         let setup = load.match_setup_for_load();
         let seed = load.recording.seed;
         let agents = setup.build_agents(seed);
+        if load.recording.match_status != MatchStatus::InProgress {
+            self.status = "Only in-progress saves can be loaded".into();
+            return Ok(());
+        }
+        if load.recording.match_phase == MatchPhase::Ended {
+            self.status = "Save is already finished".into();
+            return Ok(());
+        }
         let game = load.recording.restore()?;
         self.setup_meta = Some(setup);
         self.agents = Some(agents);
@@ -1090,6 +1166,7 @@ impl App {
         self.cpu_step_wait_until = None;
         self.action_timer.reset();
         self.active_recording_id = Some(load.entry.recording_id);
+        self.active_recording_meta = Some(load.recording.meta);
         self.active_save_path = Some(load.entry.path);
         self.table_mode = TableMode::Normal;
         self.tile_index = 0;
@@ -1210,16 +1287,15 @@ impl App {
         self.setup_meta = Some(match_setup);
         self.agents = Some(agents);
         self.match_game = Some(game);
-        let recording_id = format!("match-{seed}");
-        self.active_recording_id = Some(recording_id.clone());
-        self.active_save_path = Some(self.save_paths().recording_path(&recording_id));
+        self.active_recording_id = Some(format!("match-{seed}"));
+        self.active_recording_meta = None;
+        self.active_save_path = None;
         self.table_mode = TableMode::Normal;
         self.tile_index = 0;
         self.hand_result = None;
         self.match_summary = None;
         self.screen = Screen::Table;
-        self.status = "Match started".into();
-        self.persist_match();
+        self.status = "Match started (pause menu to save)".into();
         Ok(())
     }
 
@@ -1525,12 +1601,8 @@ impl App {
         self.setup.is_some()
     }
 
-    pub fn load_setup(&self) -> Option<&LoadGameSetup> {
-        self.load_setup.as_ref()
-    }
-
-    pub fn load_setup_open(&self) -> bool {
-        self.load_setup.is_some()
+    pub fn resume_setup_open(&self) -> bool {
+        self.load_setup.is_some() || self.scenario_setup.is_some()
     }
 
     pub const fn debug_menu_enabled(&self) -> bool {
@@ -1595,16 +1667,6 @@ impl App {
 
     pub fn export_save_path(&self) -> Option<&str> {
         self.export_save.as_ref().map(PathInputDialog::path)
-    }
-
-    #[cfg(feature = "debug-menu")]
-    pub fn import_scenario_open(&self) -> bool {
-        self.import_scenario.is_some()
-    }
-
-    #[cfg(feature = "debug-menu")]
-    pub fn import_scenario_path(&self) -> Option<&str> {
-        self.import_scenario.as_ref().map(PathInputDialog::path)
     }
 
     pub const fn settings_open(&self) -> bool {

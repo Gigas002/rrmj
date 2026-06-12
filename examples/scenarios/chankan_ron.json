@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Chankan ron",
   "description": "West rons the tile added during an opponent's kakan.",
   "tags": [
@@ -341,11 +341,13 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    "Ron",
-    "Pass"
-  ],
-  "expected_yaku": [
-    "chankan"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      "Ron",
+      "Pass"
+    ],
+    "expected_yaku": [
+      "chankan"
+    ]
+  }
 }

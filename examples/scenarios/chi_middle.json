@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Chi middle (shuntsu)",
   "description": "South can chi 4p-5p-6p on East's 5p discard.",
   "tags": [
@@ -332,16 +332,18 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    {
-      "Chi": {
-        "tiles": [
-          "4p",
-          "5p",
-          "6p"
-        ]
-      }
-    },
-    "Pass"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      {
+        "Chi": {
+          "tiles": [
+            "4p",
+            "5p",
+            "6p"
+          ]
+        }
+      },
+      "Pass"
+    ]
+  }
 }

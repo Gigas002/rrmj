@@ -32,7 +32,7 @@ quit = "q"
 help = "h"
 # Back / cancel (menus, tile pickers, overlays)
 back = "esc"
-# Leave the table and return to the main menu (autosaves in-progress matches)
+# Leave the table and return to the main menu (does not save)
 main_menu = "m"
 
 # ---------------------------------------------------------------------------

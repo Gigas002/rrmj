@@ -31,8 +31,7 @@ fn replay_serde_round_trip() {
 mod recording {
     use super::*;
     use crate::ai::MatchSetup;
-    use crate::replay::scenario_fixtures;
-    use crate::replay::{MatchRecording, RecordingMeta};
+    use crate::replay::{MatchRecording, RecordingMeta, RecordingPlayer};
 
     #[test]
     fn recording_capture_restore_round_trip() {
@@ -113,9 +112,61 @@ mod recording {
     }
 
     #[test]
-    #[ignore = "run manually: cargo test -p librrmj --features serde write_all_scenario_fixtures -- --ignored --nocapture"]
-    fn write_all_scenario_fixtures() {
-        scenario_fixtures::write_all();
+    fn recording_player_steps_to_restore_snapshot() {
+        let live = play_tsumo_hand(106);
+        let setup = MatchSetup::all_medium(live.seed());
+        let recording = MatchRecording::capture(
+            &live,
+            &setup,
+            0,
+            300,
+            30_000,
+            5_000,
+            RecordingMeta::default(),
+        );
+        let mut player = RecordingPlayer::new(recording).unwrap();
+        while player.step_forward().unwrap() {}
+        assert_eq!(player.game().snapshot(), live.snapshot());
+    }
+
+    #[test]
+    fn recording_player_seek_matches_apply_until() {
+        let live = play_tsumo_hand(107);
+        let setup = MatchSetup::all_medium(live.seed());
+        let recording = MatchRecording::capture(
+            &live,
+            &setup,
+            0,
+            300,
+            30_000,
+            5_000,
+            RecordingMeta::default(),
+        );
+        let index = recording.event_index;
+        let mut player = RecordingPlayer::new(recording.clone()).unwrap();
+        player.play_to_index(index).unwrap();
+        let via_apply = recording.apply_until(index).unwrap();
+        assert_eq!(player.game().snapshot(), via_apply.snapshot());
+    }
+
+    #[test]
+    fn recording_player_step_back_reaches_start() {
+        let live = play_tsumo_hand(108);
+        let setup = MatchSetup::all_medium(live.seed());
+        let recording = MatchRecording::capture(
+            &live,
+            &setup,
+            0,
+            300,
+            30_000,
+            5_000,
+            RecordingMeta::default(),
+        );
+        let mut player = RecordingPlayer::new(recording).unwrap();
+        assert!(player.step_forward().unwrap());
+        assert!(!player.at_start());
+        while player.step_back().unwrap() {}
+        assert!(player.at_start());
     }
 
     #[test]

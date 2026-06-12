@@ -3,27 +3,32 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 
-use crate::app::{App, LoadGameSetup, LoadSetupField};
+use crate::app::{App, LoadGameSetup, LoadSetupField, ResumeSetupKind};
 use crate::theme::Theme;
 use crate::ui::popup;
 
 pub fn draw_load_setup_popup(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &Theme) {
-    let Some(load) = app.load_setup() else {
+    let Some((load, kind)) = app.resume_setup() else {
         return;
     };
     let popup = popup::open_popup(frame, area, 80, 76);
-    draw_load_setup_content(frame, popup, load, theme);
+    draw_load_setup_content(frame, popup, load, kind, theme);
 }
 
 fn draw_load_setup_content(
     frame: &mut ratatui::Frame,
     area: Rect,
     load: &LoadGameSetup,
+    kind: ResumeSetupKind,
     theme: &Theme,
 ) {
     let saved = LoadGameSetup::seat_name(load.saved_human_seat);
+    let source_label = match kind {
+        ResumeSetupKind::SavedGame => "Save",
+        ResumeSetupKind::Scenario => "Scenario",
+    };
     let mut lines = vec![
-        Line::from(format!("Save: {}", load.entry.label)),
+        Line::from(format!("{source_label}: {}", load.entry.label)),
         Line::from(""),
         Line::from(vec![
             Span::raw("Originally played as: "),
@@ -90,7 +95,11 @@ fn draw_load_setup_content(
     } else {
         Style::default().fg(theme.primary)
     };
-    lines.push(Line::from(Span::styled("> Load game", confirm_style)));
+    let confirm_label = match kind {
+        ResumeSetupKind::SavedGame => "> Load game",
+        ResumeSetupKind::Scenario => "> Start scenario",
+    };
+    lines.push(Line::from(Span::styled(confirm_label, confirm_style)));
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         "↑/↓ navigate  space/tab cycle  enter load  esc back",
@@ -101,7 +110,10 @@ fn draw_load_setup_content(
         Block::default()
             .borders(Borders::ALL)
             .border_style(theme.block_style())
-            .title("Load game — choose seat"),
+            .title(match kind {
+                ResumeSetupKind::SavedGame => "Load game — choose seat",
+                ResumeSetupKind::Scenario => "Scenario — choose seat",
+            }),
     );
     frame.render_widget(body, area);
 }

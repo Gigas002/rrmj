@@ -17,8 +17,32 @@ fn scenarios_dir() -> PathBuf {
         .join("scenarios")
 }
 
+fn debug_catalog_ids() -> Vec<String> {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("docs")
+        .join("DEBUG_SCENARIOS.md");
+    let text = fs::read_to_string(&path).expect("read DEBUG_SCENARIOS.md");
+    let section = text
+        .split("## Scenarios")
+        .nth(1)
+        .expect("scenarios section")
+        .split("## Winning-hand")
+        .next()
+        .expect("winning-hand boundary");
+    section
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            let rest = line.strip_prefix("| `")?;
+            let id = rest.split('`').next()?;
+            Some(id.to_string())
+        })
+        .collect()
+}
+
 fn verify_expected_yaku(recording: &MatchRecording, game: &librrmj::game::Game) {
-    let Some(expected) = &recording.expected_yaku else {
+    let Some(expected) = recording.expected_yaku() else {
         return;
     };
     let seat = recording.human_seat.expect("human seat for expected_yaku");
@@ -78,7 +102,7 @@ fn verify_expected_yaku(recording: &MatchRecording, game: &librrmj::game::Game) 
 }
 
 #[test]
-fn scenario_fixtures_restore() {
+fn committed_scenarios_restore() {
     let dir = scenarios_dir();
     if !dir.exists() {
         return;
@@ -100,7 +124,7 @@ fn scenario_fixtures_restore() {
         recording.validate().expect("validate scenario");
         let game = recording.restore().expect("restore scenario");
 
-        if let Some(expected) = &recording.expected_legal_actions {
+        if let Some(expected) = recording.expected_legal_actions() {
             let seat = game.pending_seat().expect("pending seat for scenario");
             let legal = game.hand().legal_actions_for(seat);
             for action in expected {
@@ -119,7 +143,99 @@ fn scenario_fixtures_restore() {
 }
 
 #[test]
-fn win_scenario_fixtures_cover_all_v0_yaku() {
+fn committed_scenarios_match_debug_catalog() {
+    let dir = scenarios_dir();
+    if !dir.exists() {
+        return;
+    }
+
+    let catalog = debug_catalog_ids();
+    assert_eq!(
+        catalog.len(),
+        50,
+        "DEBUG_SCENARIOS.md scenario table should list 50 ids"
+    );
+
+    let mut on_disk = std::collections::HashSet::new();
+    for entry in fs::read_dir(&dir).expect("read scenarios dir").flatten() {
+        let path = entry.path();
+        if path.extension().is_some_and(|ext| ext == "json")
+            && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+        {
+            on_disk.insert(stem.to_string());
+        }
+    }
+
+    for id in &catalog {
+        assert!(
+            on_disk.contains(id),
+            "missing examples/scenarios/{id}.json for catalog row"
+        );
+        let path = dir.join(format!("{id}.json"));
+        let text = fs::read_to_string(&path).expect("read scenario");
+        let recording = MatchRecording::from_json(&text).expect("parse scenario");
+        recording.validate().expect("validate scenario");
+        recording.restore().expect("restore scenario");
+    }
+
+    for id in &on_disk {
+        assert!(
+            catalog.iter().any(|c| c == id),
+            "examples/scenarios/{id}.json is not listed in DEBUG_SCENARIOS.md"
+        );
+    }
+}
+
+#[test]
+fn committed_scenarios_fixture_count() {
+    let dir = scenarios_dir();
+    if !dir.exists() {
+        return;
+    }
+
+    let count = fs::read_dir(&dir)
+        .expect("read scenarios dir")
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "json"))
+        .count();
+    assert_eq!(
+        count, 50,
+        "update docs/DEBUG_SCENARIOS.md when adding or removing fixtures"
+    );
+}
+
+#[test]
+fn committed_scenarios_use_assertions_object() {
+    let dir = scenarios_dir();
+    if !dir.exists() {
+        return;
+    }
+
+    for entry in fs::read_dir(&dir).expect("read dir").flatten() {
+        let path = entry.path();
+        if path.extension().is_none_or(|ext| ext != "json") {
+            continue;
+        }
+        let text = fs::read_to_string(&path).expect("read scenario");
+        let value: serde_json::Value = serde_json::from_str(&text).expect("parse scenario json");
+        let Some(object) = value.as_object() else {
+            continue;
+        };
+        assert!(
+            !object.contains_key("expected_legal_actions"),
+            "{}: move expected_legal_actions under assertions",
+            path.display()
+        );
+        assert!(
+            !object.contains_key("expected_yaku"),
+            "{}: move expected_yaku under assertions",
+            path.display()
+        );
+    }
+}
+
+#[test]
+fn committed_scenarios_cover_baseline_yaku() {
     let dir = scenarios_dir();
     if !dir.exists() {
         return;
@@ -131,8 +247,8 @@ fn win_scenario_fixtures_cover_all_v0_yaku() {
         if path.extension().is_some_and(|e| e == "json") {
             let text = fs::read_to_string(&path).expect("read");
             let recording = MatchRecording::from_json(&text).expect("parse");
-            if let Some(expected) = recording.expected_yaku {
-                yaku_seen.extend(expected);
+            if let Some(expected) = recording.expected_yaku() {
+                yaku_seen.extend(expected.iter().copied());
             }
         }
     }

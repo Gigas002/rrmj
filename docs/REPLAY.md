@@ -1,28 +1,73 @@
 # Match recording format (`*.rrmj.json`)
 
-Version **1** — lossless save points for in-progress games, finished replays, and dev scenarios.
+Version **3** — one parse-only wire document for replays, saved games, scenarios, and debug scenarios.
 
-**Filesystem paths are client-owned** (`rrmj-tui` chooses `recordings_dir`). `librrmj` only serializes to/from readers and writers.
+**Filesystem paths are client-owned** (`rrmj-tui` chooses `recordings_dir` and `scenarios_dir`). `librrmj` only serializes to/from readers and writers; it does not synthesize scenario state in code.
+
+## Usage modes (one schema, four clients)
+
+The same top-level JSON backs every mode. **How the file is used** is determined by the client (menu, path, and `match_status`), not by separate on-disk types.
+
+| Mode | What it is | Player decides? | Where it starts | Typical source |
+| ---- | ---------- | --------------- | --------------- | -------------- |
+| **Replay** | Watch a completed game from the first event to the last | **No** — observe only | Event `0` (or seek) | `recordings_dir`, `match_status = finished` |
+| **Saved game** | Resume a match interrupted mid-play | **Yes** — human seat + CPUs | Saved `HandSnapshot` + `event_index` | Manual save only; `match_status = in_progress` |
+| **Scenario** | Preset study / challenge (“win hand X in Y turns”) | **Yes** (usually) | As authored in the file | User path or community `scenarios_dir` |
+| **Debug scenario** | Same wire shape; **CI + dev UI** only | Yes (dev testing) | As authored | Repo `examples/scenarios/*.json`; not in release app build |
+
+```mermaid
+flowchart LR
+  subgraph wire ["*.rrmj.json"]
+    H[HandSnapshot]
+    E[events + event_index]
+    S[match_status]
+  end
+  wire --> Replay["Replay mode\nobserve, step events"]
+  wire --> Save["Saved game\nresume, play"]
+  wire --> Scenario["Scenario\npreset challenge"]
+  wire --> Debug["Debug scenario\nCI + debug-menu"]
+```
+
+### `match_status` — play vs observe
+
+| Value | Meaning | Typical mode |
+| ----- | ------- | -------------- |
+| `in_progress` | Match not finished; client may resume and call `apply_action` | **Saved game**, **scenario** |
+| `finished` | Match complete; client steps events for review only | **Replay** |
+
+When a saved game is played to completion, the client sets `match_status = finished` (rewrite in place or move to the replays list — TUI policy).
+
+**Replay vs saved game on disk:** same schema. Menus filter by `match_status` — files are not moved between directories unless the client chooses to.
+
+### `recording_kind` (not used)
+
+An optional `recording_kind` enum (`replay` | `save` | `scenario` | `debug`) is **not** part of the wire format. `match_status` plus client context (which directory / menu loaded the file) is sufficient.
+
+## Authoring rule
+
+**Committed scenarios are edited as JSON** — hand layout, wall, rivers, events, metadata. No Rust builder is the source of truth for `examples/scenarios/*.json`. CI loads files with `MatchRecording::from_json` only.
+
+To add or change a debug scenario: edit the JSON under `examples/scenarios/`, run `cargo test -p librrmj --features serde --test scenarios`.
 
 ## Top-level fields
 
 | Field | Type | Required | Notes |
 | ----- | ---- | -------- | ----- |
-| `format_version` | `u32` | yes | Must be `1` |
+| `format_version` | `u32` | yes | Must be `3` (see [Migration](#migration)) |
 | `recording_id` | string | no | Client-generated stable id |
 | `created_at` / `updated_at` | string (ISO-8601) | no | Client metadata |
 | `client_version` | string | no | e.g. `rrmj-tui 0.1.0` |
-| `title` / `description` | string | no | Debug menu / UI labels |
+| `title` / `description` | string | no | UI labels |
 | `tags` | `[string]` | no | e.g. `chi`, `tsumo`, `match-flow` |
 | `rules_profile` | string | yes | e.g. `standard` |
 | `rules_config` | object | yes | Same schema as `RulesConfig` |
 | `seed` | `u64` | yes | Match RNG seed |
 | `players` | `[PlayerSetup; 4]` | yes | Seat bindings |
-| `human_seat` | `usize` | no | `0`–`3` |
-| `cpu_step_delay_ms` | `u64` | no | TUI pause between CPU decisions (ms) |
-| `turn_timer_ms` | `u64` | no | Discard thinking limit (ms); draw is automatic; `0` = off |
-| `response_timer_ms` | `u64` | no | Reaction window limit for calls (ms); `0` = off; alias `reaction_pass_delay_ms` |
-| `match_status` | `in_progress` \| `finished` | yes | UI filter: Load game vs Replays |
+| `human_seat` | `usize` | no | `0`–`3`; recommended for saves and scenarios |
+| `cpu_step_delay_ms` | `u64` | no | **Client pref** — see below |
+| `turn_timer_ms` | `u64` | no | **Client pref** — discard thinking limit (ms); `0` = off |
+| `response_timer_ms` | `u64` | no | **Client pref** — reaction window (ms); `0` = off; alias `reaction_pass_delay_ms` |
+| `match_status` | `in_progress` \| `finished` | yes | Play vs observe discriminator |
 | `dealer` | `usize` | yes | Current dealer seat |
 | `round_wind` | `east` \| `south` | yes | |
 | `kyoku` | `u8` | yes | |
@@ -34,7 +79,39 @@ Version **1** — lossless save points for in-progress games, finished replays, 
 | `hand` | `HandSnapshot` | yes | Full tile + flow state |
 | `events` | `[Event]` | yes | Complete applied history |
 | `event_index` | `usize` | yes | Last applied event index |
-| `expected_legal_actions` | `[Action]` | no | CI assertion hook only |
+| `assertions` | object | no | **CI only** — see below |
+
+### Client preferences (non-authoritative)
+
+These fields affect TUI timing only. They are **not** used to restore engine state; `restore()` ignores them.
+
+| Field | Purpose |
+| ----- | ------- |
+| `cpu_step_delay_ms` | Pause between CPU decisions |
+| `turn_timer_ms` | Human discard thinking limit |
+| `response_timer_ms` | Human reaction window for calls |
+
+Omit them in hand-authored scenarios when irrelevant.
+
+### `assertions` (CI / debug scenarios only)
+
+Optional object consumed by `librrmj/tests/scenarios.rs`. **Ignored by the TUI** and player-authored scenario packs.
+
+| Field | Type | Purpose |
+| ----- | ---- | ------- |
+| `expected_legal_actions` | `[Action]` | After `restore()`, each action must be in `legal_actions()` for the pending seat |
+| `expected_yaku` | `[Yaku]` | Score the pending win and assert these yaku are present |
+
+Example:
+
+```json
+"assertions": {
+  "expected_legal_actions": ["Tsumo"],
+  "expected_yaku": ["pinfu", "menzen_tsumo"]
+}
+```
+
+Versions 1–2 placed these fields at the top level; `from_json` migrates them into `assertions` on read.
 
 ## `HandSnapshot`
 
@@ -70,21 +147,48 @@ recording.restore()?;           // lossless Match
 recording.apply_until(index)?;  // replay events for regression
 recording.to_json() / from_json();
 recording.to_writer(&mut w) / from_reader(&mut r);
+
+// Observe-only stepped playback (replay mode)
+let mut player = RecordingPlayer::new(recording)?;
+player.step_forward()?;         // apply next event
+player.step_back()?;            // undo
+player.play_to_index(12)?;      // seek
+player.seek_hand(1)?;           // jump to second hand
 ```
+
+`from_json` normalizes legacy v1/v2 files (top-level assertion fields, older `format_version`) before deserialize.
 
 ## Client conventions (`rrmj-tui`)
 
-All recordings live in **`recordings_dir`** (default `$XDG_DATA_HOME/rrmj/recordings/`). Menus filter by **`match_status`** — files are never moved between directories.
+| Directory | Filter | Mode |
+| --------- | ------ | ---- |
+| `recordings_dir` | `match_status = finished` | **Replays** — observe, step events |
+| `recordings_dir` | `match_status = in_progress` | **Load game** — restore and resume |
 
-| `match_status` | Menu | Action |
-| -------------- | ---- | ------ |
-| `in_progress` | **Load game** | Restore and resume (seat picker; saved `human_seat` recommended) |
-| `finished` | **Replays** | Review / playback (§11.4) |
+One directory holds both in-progress saves and finished replays; menus filter by `match_status`. Config key: `recordings_dir` (legacy alias when reading: `saves_dir`). Community scenario packs use a separate `scenarios_dir`; repo CI fixtures live in `examples/scenarios/` (debug menu / `librrmj` tests only).
 
-Autosave writes after each engine step (async). On match end, the client sets `match_status = finished` and rewrites the **same** file.
+**Persistence policy (`rrmj-tui`):**
 
-Config key: `recordings_dir` (legacy alias: `saves_dir`).
+- **In progress:** manual save only — pause menu → **Save game** writes `match_status = in_progress` to a user-chosen or default path under `recordings_dir`.
+- **Match end:** one automatic write with `match_status = finished` (same file as the last manual save when set, otherwise `recordings_dir/match-{seed}.rrmj.json`) → appears in **Replays**.
+- **Quit / return to menu:** does not write unless you saved manually or the match already ended.
+
+## Migration
+
+| `format_version` | Change |
+| ---------------- | ------ |
+| **1** | Initial format; top-level `expected_legal_actions` |
+| **2** | Added `expected_yaku`; scenarios committed at v2 |
+| **3** | Assertion fields moved under `assertions`; documented four usage modes |
+
+**Upgrading files in `recordings_dir`:**
+
+1. Set `"format_version": 3`.
+2. If present, move `expected_legal_actions` and `expected_yaku` into an `assertions` object and remove the top-level keys.
+3. No engine-state changes required — `hand`, `events`, and `event_index` are unchanged.
+
+`MatchRecording::from_json` performs steps 1–2 automatically for v1/v2 files. Re-save to persist v3 on disk.
 
 ## Fixtures
 
-Committed scenarios live in `examples/scenarios/*.json` and are exercised by `librrmj/tests/scenarios.rs` and the Debug menu (Phase 10.1.1).
+Committed debug scenarios: `examples/scenarios/*.json` — exercised by `librrmj/tests/scenarios.rs` and the TUI debug menu (`debug-menu` feature). See `docs/DEBUG_SCENARIOS.md`.

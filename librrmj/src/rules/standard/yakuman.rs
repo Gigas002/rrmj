@@ -152,9 +152,7 @@ pub fn is_suukantsu_hand(ctx: &WinContext<'_>) -> bool {
     ctx.hand()
         .melds()
         .iter()
-        .filter(|meld| {
-            matches!(meld.kind(), MeldKind::Kan(_))
-        })
+        .filter(|meld| matches!(meld.kind(), MeldKind::Kan(_)))
         .count()
         >= 4
 }

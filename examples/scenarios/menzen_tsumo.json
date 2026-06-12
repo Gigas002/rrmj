@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "title": "Menzen tsumo",
   "description": "West wins on tsumo with closed hand (tanyao + menzen tsumo).",
   "tags": [
@@ -322,11 +322,13 @@
     }
   ],
   "event_index": 1,
-  "expected_legal_actions": [
-    "Tsumo"
-  ],
-  "expected_yaku": [
-    "menzen_tsumo",
-    "tanyao"
-  ]
+  "assertions": {
+    "expected_legal_actions": [
+      "Tsumo"
+    ],
+    "expected_yaku": [
+      "menzen_tsumo",
+      "tanyao"
+    ]
+  }
 }

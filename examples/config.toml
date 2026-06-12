@@ -73,3 +73,25 @@ turn_timer_ms = 30000
 # Shown on the active player's panel during the reaction window.
 # Legacy key: reaction_pass_delay_ms
 response_timer_ms = 5000
+
+# ---------------------------------------------------------------------------
+# recordings_dir — saves and replays (optional)
+# ---------------------------------------------------------------------------
+# Default: $XDG_DATA_HOME/rrmj/recordings/ (or ~/.local/share/rrmj/recordings/)
+#
+# In-progress saves (pause menu → Save game) and finished replays (written once
+# at match end) share this directory. Load game lists match_status = in_progress;
+# Replays lists match_status = finished.
+#
+# Legacy alias when reading config: saves_dir
+# recordings_dir = "~/rrmj/recordings"
+
+# ---------------------------------------------------------------------------
+# scenarios_dir — community scenario packs (optional)
+# ---------------------------------------------------------------------------
+# Default: $XDG_DATA_HOME/rrmj/scenarios/ (or ~/.local/share/rrmj/scenarios/)
+#
+# Player scenarios live here — not the same as repo examples/scenarios (debug/CI).
+# Copy or symlink JSON packs into this directory, or press i in Scenarios to import.
+#
+# scenarios_dir = "~/rrmj/scenarios"

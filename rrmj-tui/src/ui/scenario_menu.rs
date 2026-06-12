@@ -1,22 +1,25 @@
-#![cfg(feature = "debug-menu")]
-
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 
 use crate::app::{App, MainMenuMode};
 use crate::theme::Theme;
 
-pub fn draw_debug_scenario_lines(app: &App, theme: &Theme) -> Vec<Line<'static>> {
-    let entries = app.filtered_debug_entries();
+pub fn draw_scenario_lines(app: &App, theme: &Theme) -> Vec<Line<'static>> {
+    let entries = app.filtered_scenario_entries();
     let filter = app
-        .debug_filter_tag()
+        .scenario_filter_tag()
         .map(|t| format!("[{t}] "))
         .unwrap_or_default();
     if entries.is_empty() {
+        let dir = app.config().resolved_scenarios_dir();
         return vec![
             Line::from("No scenarios found."),
             Line::from(Span::styled(
-                "Repo fixtures: examples/scenarios (debug build only)",
+                format!("Directory: {}", dir.display()),
+                Style::default().fg(theme.muted),
+            )),
+            Line::from(Span::styled(
+                "Set scenarios_dir in config.toml or copy JSON packs there.",
                 Style::default().fg(theme.muted),
             )),
             Line::from(""),
@@ -57,6 +60,6 @@ pub fn draw_debug_scenario_lines(app: &App, theme: &Theme) -> Vec<Line<'static>>
         .collect()
 }
 
-pub fn is_debug_menu_mode(mode: MainMenuMode) -> bool {
-    mode == MainMenuMode::Debug
+pub const fn is_scenarios_menu_mode(mode: MainMenuMode) -> bool {
+    matches!(mode, MainMenuMode::Scenarios)
 }
