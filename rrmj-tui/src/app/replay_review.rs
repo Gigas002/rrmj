@@ -1,4 +1,4 @@
-use librrmj::game::Match;
+use librrmj::game::Game;
 use librrmj::replay::MatchRecording;
 
 use super::event_text::describe_event;
@@ -8,13 +8,13 @@ use crate::save::RecordingEntry;
 pub struct ReplayReview {
     pub entry: RecordingEntry,
     pub recording: MatchRecording,
-    pub match_game: Match,
+    pub match_game: Game,
     pub view_seat: usize,
     pub event_scroll: usize,
 }
 
 impl ReplayReview {
-    pub fn new(entry: RecordingEntry, recording: MatchRecording, match_game: Match) -> Self {
+    pub fn new(entry: RecordingEntry, recording: MatchRecording, match_game: Game) -> Self {
         let view_seat = recording.human_seat.unwrap_or(0);
         Self {
             entry,

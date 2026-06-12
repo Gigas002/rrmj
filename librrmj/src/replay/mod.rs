@@ -21,7 +21,7 @@ pub use recording::{FORMAT_VERSION, MatchRecording, MatchStatus, PlayerSetup, Re
 
 use crate::Error;
 use crate::event::Event;
-use crate::game::Match;
+use crate::game::Game;
 use crate::rules::{RulesConfig, RulesProfileId};
 
 use apply::apply_events;
@@ -51,7 +51,7 @@ impl Replay {
         }
     }
 
-    pub fn from_match(game: &Match) -> Self {
+    pub fn from_game(game: &Game) -> Self {
         Self {
             rules_profile: game.config().profile,
             rules_config: game.config().clone(),
@@ -61,14 +61,14 @@ impl Replay {
     }
 
     /// Rebuild match state by applying the recorded event log.
-    pub fn apply_all(&self) -> Result<Match, Error> {
-        let mut game = Match::new(self.rules_config.clone(), self.seed)?;
+    pub fn apply_all(&self) -> Result<Game, Error> {
+        let mut game = Game::new(self.rules_config.clone(), self.seed)?;
         apply_events(&mut game, &self.events, None)?;
         Ok(game)
     }
 
     pub fn snapshots(&self) -> Result<Vec<MatchSnapshot>, Error> {
-        let mut game = Match::new(self.rules_config.clone(), self.seed)?;
+        let mut game = Game::new(self.rules_config.clone(), self.seed)?;
         let mut out = vec![game.snapshot()];
         let mut hand_starts = 0usize;
 

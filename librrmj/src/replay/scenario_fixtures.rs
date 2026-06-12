@@ -14,7 +14,7 @@ use rand::rngs::StdRng;
 use crate::action::{Action, KanIntent};
 use crate::ai::MatchSetup;
 use crate::event::Event;
-use crate::game::{AbortiveDrawKind, Match, MatchLength, MatchPhase, RoundWind};
+use crate::game::{AbortiveDrawKind, Game, MatchLength, MatchPhase, RoundWind};
 use crate::hand::{Concealed, Hand, Meld};
 use crate::replay::{FORMAT_VERSION, MatchRecording, MatchStatus, PlayerSetup, RecordingMeta};
 use crate::rules::RulesConfig;
@@ -703,7 +703,7 @@ fn meta(title: &str, description: &str, tags: &[&str]) -> RecordingMeta {
 }
 
 fn capture_match(
-    game: &Match,
+    game: &Game,
     human_seat: usize,
     meta: RecordingMeta,
     expected: Option<Vec<Action>>,
@@ -838,14 +838,14 @@ fn pass_all_except(state: &mut HandState, skip: usize) {
     }
 }
 
-fn force_tsumo_win(game: &mut Match, seat: usize) {
+fn force_tsumo_win(game: &mut Game, seat: usize) {
     let hand = game.hand_mut();
     hand.set_concealed(seat, winning_tanyao_tiles());
     hand.last_draw = Some(Tile::pin(2));
     hand.is_dealer_first_turn = false;
 }
 
-fn force_ron_win(game: &mut Match, winner: usize) {
+fn force_ron_win(game: &mut Game, winner: usize) {
     crate::test_util::fixtures::force_ron_win(game, winner);
 }
 
@@ -853,13 +853,13 @@ fn force_ron_win(game: &mut Match, winner: usize) {
 
 fn dealer_first_turn() -> MatchRecording {
     let seed = 1001;
-    let game = Match::new(RulesConfig::standard(), seed).unwrap();
+    let game = Game::new(RulesConfig::standard(), seed).unwrap();
     capture_match(&game, 0, meta("", "", &[]), None)
 }
 
 fn draw_after_discard() -> MatchRecording {
     let seed = 1002;
-    let mut game = Match::new(RulesConfig::standard(), seed).unwrap();
+    let mut game = Game::new(RulesConfig::standard(), seed).unwrap();
     let tile = game.hand().hand(0).concealed().tiles()[0];
     game.apply_action(0, Action::Discard(tile)).unwrap();
     for seat in 1..4 {
@@ -1090,7 +1090,7 @@ fn ron_over_pon() -> MatchRecording {
 
 fn non_dealer_tsumo() -> MatchRecording {
     let seed = 2030;
-    let mut game = Match::new(RulesConfig::standard(), seed).unwrap();
+    let mut game = Game::new(RulesConfig::standard(), seed).unwrap();
     let tile = game.hand().hand(0).concealed().tiles()[0];
     game.apply_action(0, Action::Discard(tile)).unwrap();
     for seat in 1..4 {
@@ -1105,7 +1105,7 @@ fn non_dealer_tsumo() -> MatchRecording {
 
 fn dealer_tsumo_after_honba() -> MatchRecording {
     let seed = 42;
-    let mut game = Match::new(RulesConfig::standard(), seed).unwrap();
+    let mut game = Game::new(RulesConfig::standard(), seed).unwrap();
     let dealer = game.dealer();
     force_tsumo_win(&mut game, dealer);
     game.apply_action(dealer, Action::Tsumo).unwrap();
@@ -1160,7 +1160,7 @@ fn reaction_pass() -> MatchRecording {
 
 fn exhaustive_draw() -> MatchRecording {
     let seed = 2060;
-    let mut game = Match::new(RulesConfig::standard(), seed).unwrap();
+    let mut game = Game::new(RulesConfig::standard(), seed).unwrap();
     game.hand_mut()
         .play_out_discards(|state, seat| state.hand(seat).concealed().tiles()[0])
         .unwrap();
@@ -1169,7 +1169,7 @@ fn exhaustive_draw() -> MatchRecording {
 
 fn honba_carry() -> MatchRecording {
     let seed = 2070;
-    let mut game = Match::new(RulesConfig::standard(), seed).unwrap();
+    let mut game = Game::new(RulesConfig::standard(), seed).unwrap();
     let dealer = game.dealer();
     force_tsumo_win(&mut game, dealer);
     game.apply_action(dealer, Action::Tsumo).unwrap();
@@ -1179,7 +1179,7 @@ fn honba_carry() -> MatchRecording {
 fn south_round() -> MatchRecording {
     let mut config = RulesConfig::standard();
     config.match_length = MatchLength::Hanchan;
-    let mut game = Match::new(config, 2080).unwrap();
+    let mut game = Game::new(config, 2080).unwrap();
 
     for _ in 0..4 {
         let winner = (game.dealer() + 1) % 4;
@@ -2163,7 +2163,7 @@ fn dealer_adjusted_hand(dealer: usize, seat: usize, tiles: Vec<Tile>) -> Vec<Til
 
 fn exhaustive_draw_mixed() -> MatchRecording {
     let seed = 2155;
-    let mut game = Match::new(RulesConfig::standard(), seed).unwrap();
+    let mut game = Game::new(RulesConfig::standard(), seed).unwrap();
     let dealer = game.dealer();
     let hand = game.hand_mut();
     hand.set_concealed(0, dealer_adjusted_hand(dealer, 0, tenpai_waiting_on_p2()));

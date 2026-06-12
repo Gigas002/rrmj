@@ -1,6 +1,6 @@
 //! Yakuman (limit-hand) detection for the standard profile.
 
-use crate::hand::MeldKind;
+use crate::hand::{KanForm, MeldKind};
 use crate::rules::profile_trait::WinContext;
 use crate::rules::standard::patterns;
 use crate::rules::standard::win::{all_tiles_in_hand, tiles_with_win_tile};
@@ -110,7 +110,7 @@ pub fn is_suuankou_hand(ctx: &WinContext<'_>) -> bool {
         .hand()
         .melds()
         .iter()
-        .any(|meld| !matches!(meld.kind(), MeldKind::ClosedKan))
+        .any(|meld| !matches!(meld.kind(), MeldKind::Kan(KanForm::Closed)))
     {
         return false;
     }
@@ -153,10 +153,7 @@ pub fn is_suukantsu_hand(ctx: &WinContext<'_>) -> bool {
         .melds()
         .iter()
         .filter(|meld| {
-            matches!(
-                meld.kind(),
-                MeldKind::OpenKan | MeldKind::ClosedKan | MeldKind::AddedKan
-            )
+            matches!(meld.kind(), MeldKind::Kan(_))
         })
         .count()
         >= 4

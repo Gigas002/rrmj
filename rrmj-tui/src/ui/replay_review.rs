@@ -27,7 +27,7 @@ pub fn draw_replay_review(frame: &mut ratatui::Frame, area: Rect, app: &App, the
 }
 
 fn draw_board(frame: &mut ratatui::Frame, area: Rect, review: &ReplayReview, theme: &Theme) {
-    let view = librrmj::agent::PlayerView::from_match(&review.match_game, review.view_seat);
+    let view = librrmj::agent::PlayerView::from_game(&review.match_game, review.view_seat);
     let mut sorted_hand = view.own_concealed.clone();
     sorted_hand.sort();
 

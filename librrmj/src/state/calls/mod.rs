@@ -1,6 +1,6 @@
 use crate::Error;
 use crate::action::Action;
-use crate::hand::{Concealed, Hand, Meld, MeldKind};
+use crate::hand::{Concealed, Hand, KanForm, Meld, MeldKind};
 use crate::tile::{Tile, TileIdentity};
 
 use super::next_seat;
@@ -122,7 +122,7 @@ pub fn upgrade_pon_to_open_kan(pon: &Meld, added: Tile) -> Result<Meld, Error> {
     tiles.push(added);
     if tiles.len() != 4 {
         return Err(Error::InvalidMeldTileCount {
-            kind: MeldKind::OpenKan,
+            kind: MeldKind::Kan(KanForm::Open),
             expected: 4,
             actual: tiles.len(),
         });

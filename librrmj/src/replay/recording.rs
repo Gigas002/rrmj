@@ -5,7 +5,7 @@ use crate::agent::PlayerSlot;
 use crate::ai::{AiConfig, MatchSetup};
 use crate::error::Error;
 use crate::event::Event;
-use crate::game::{Match, MatchPhase, RoundWind};
+use crate::game::{Game, MatchPhase, RoundWind};
 use crate::rules::{RulesConfig, RulesProfileId};
 use crate::state::HandState;
 
@@ -127,7 +127,7 @@ pub struct MatchRecording {
 impl MatchRecording {
     /// Snapshot the current match for persistence or dev scenarios.
     pub fn capture(
-        game: &Match,
+        game: &Game,
         setup: &MatchSetup,
         human_seat: usize,
         cpu_step_delay_ms: u64,
@@ -206,14 +206,14 @@ impl MatchRecording {
     }
 
     /// Restore a live match from this save point.
-    pub fn restore(&self) -> Result<Match, Error> {
+    pub fn restore(&self) -> Result<Game, Error> {
         self.validate()?;
         let hand = HandState::from_snapshot(self.hand.clone(), self.rules_config.clone())?;
-        Ok(Match::restore_from_hand(self, hand))
+        Ok(Game::restore_from_hand(self, hand))
     }
 
     /// Replay events from the start through `index` (for regression / scenario tests).
-    pub fn apply_until(&self, index: usize) -> Result<Match, Error> {
+    pub fn apply_until(&self, index: usize) -> Result<Game, Error> {
         if index >= self.events.len() {
             return Err(Error::InvalidRecording {
                 detail: format!("apply_until index {index} >= {}", self.events.len()),
@@ -225,7 +225,7 @@ impl MatchRecording {
             seed: self.seed,
             events: self.events.clone(),
         };
-        let mut game = Match::new(self.rules_config.clone(), self.seed)?;
+        let mut game = Game::new(self.rules_config.clone(), self.seed)?;
         apply_events(&mut game, &replay.events, Some(index))?;
         Ok(game)
     }

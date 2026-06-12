@@ -1,4 +1,4 @@
-use crate::game::Match;
+use crate::game::Game;
 use crate::game::RoundWind;
 use crate::hand::Meld;
 use crate::state::{HandPhase, HandState, SEAT_COUNT};
@@ -96,7 +96,7 @@ pub struct PlayerView {
 }
 
 impl PlayerView {
-    pub fn from_match(game: &Match, seat: usize) -> Self {
+    pub fn from_game(game: &Game, seat: usize) -> Self {
         Self::from_hand(
             game.hand(),
             seat,

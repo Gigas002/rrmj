@@ -20,9 +20,9 @@ use crate::rules::{RulesConfig, RulesRegistry};
 use crate::state::{HandEndReason, HandState};
 use crate::wall::Wall;
 
-/// Multi-hand match with round progression, honba, and renchan.
+/// Multi-hand game session with round progression, honba, and renchan.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Match {
+pub struct Game {
     config: RulesConfig,
     seed: u64,
     dealer: usize,
@@ -37,7 +37,7 @@ pub struct Match {
     events: Vec<Event>,
 }
 
-impl Match {
+impl Game {
     pub fn new(config: RulesConfig, seed: u64) -> Result<Self, Error> {
         let scores = [config.starting_points; 4];
         let mut wall = Wall::new(&config, hand_rng(seed, 0));
@@ -122,7 +122,7 @@ impl Match {
         self.phase == MatchPhase::Ended
     }
 
-    /// Reconstruct a match from a validated recording hand snapshot.
+    /// Reconstruct a game from a validated recording hand snapshot.
     #[cfg(feature = "serde")]
     pub(crate) fn restore_from_hand(
         recording: &crate::replay::MatchRecording,
@@ -310,14 +310,5 @@ fn hand_outcome(reason: Option<HandEndReason>) -> HandOutcome {
         Some(HandEndReason::ExhaustiveDraw) => HandOutcome::ExhaustiveDraw,
         Some(HandEndReason::AbortiveDraw(kind)) => HandOutcome::AbortiveDraw(kind),
         None => HandOutcome::ExhaustiveDraw,
-    }
-}
-
-#[cfg(test)]
-impl Match {
-    pub(crate) fn finish_hand_for_test(&mut self) -> Result<Vec<Event>, Error> {
-        let events = self.finish_hand()?;
-        self.record_events(events.clone());
-        Ok(events)
     }
 }

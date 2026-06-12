@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::hand::MeldKind;
+use crate::hand::{KanForm, MeldKind};
 use crate::rules::RulesConfig;
 use crate::rules::profile_trait::WinContext;
 use crate::rules::standard::win;
@@ -56,8 +56,8 @@ fn open_meld_fu(kind: MeldKind, tile: crate::tile::Tile) -> u8 {
     match kind {
         MeldKind::Chi => 0,
         MeldKind::Pon => win::triplet_fu(tile, false),
-        MeldKind::OpenKan | MeldKind::AddedKan => win::triplet_fu(tile, false).saturating_mul(4),
-        MeldKind::ClosedKan => win::triplet_fu(tile, true).saturating_mul(4),
+        MeldKind::Kan(KanForm::Open) => win::triplet_fu(tile, false).saturating_mul(4),
+        MeldKind::Kan(KanForm::Closed) => win::triplet_fu(tile, true).saturating_mul(4),
     }
 }
 

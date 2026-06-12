@@ -1,10 +1,12 @@
 mod concealed;
+mod kan;
 mod meld;
 
 #[cfg(test)]
 mod tests;
 
 pub use concealed::Concealed;
+pub use kan::KanForm;
 pub use meld::{Meld, MeldKind, MeldTileCount};
 
 use crate::Error;

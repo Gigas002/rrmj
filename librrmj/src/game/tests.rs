@@ -1,10 +1,19 @@
-use super::{Match, MatchLength, RoundWind};
+use super::{Game, MatchLength, RoundWind};
 use crate::action::Action;
+use crate::error::Error;
 use crate::event::Event;
 use crate::game::HandOutcome;
 use crate::rules::RulesConfig;
 use crate::rules::flow::advance_after_hand;
 use crate::test_util::fixtures::{force_ron_win, force_tsumo_win};
+
+impl Game {
+    fn finish_hand_for_test(&mut self) -> Result<Vec<Event>, Error> {
+        let events = self.finish_hand()?;
+        self.record_events(events.clone());
+        Ok(events)
+    }
+}
 
 // --- flow helpers ---
 
@@ -80,7 +89,7 @@ fn east_only_match_ends_after_four_kyoku() {
     let mut config = RulesConfig::standard();
     config.match_length = MatchLength::EastOnly;
 
-    let mut game = Match::new(config, 100).unwrap();
+    let mut game = Game::new(config, 100).unwrap();
     assert_eq!(game.round_wind(), RoundWind::East);
     assert_eq!(game.kyoku(), 1);
 
@@ -105,7 +114,7 @@ fn east_only_match_ends_after_four_kyoku() {
 #[test]
 fn honba_carries_into_next_hand() {
     let config = RulesConfig::standard();
-    let mut game = Match::new(config, 200).unwrap();
+    let mut game = Game::new(config, 200).unwrap();
 
     let dealer = game.dealer();
     force_tsumo_win(&mut game, dealer);
@@ -118,7 +127,7 @@ fn honba_carries_into_next_hand() {
 #[test]
 fn scores_carry_between_hands() {
     let config = RulesConfig::standard();
-    let mut game = Match::new(config, 300).unwrap();
+    let mut game = Game::new(config, 300).unwrap();
     let starting = game.config().starting_points;
 
     let dealer = game.dealer();
@@ -135,7 +144,7 @@ fn target_score_ends_match_early() {
     config.match_length = MatchLength::EastOnly;
     config.target_score = Some(26_000);
 
-    let mut game = Match::new(config, 400).unwrap();
+    let mut game = Game::new(config, 400).unwrap();
     let dealer = game.dealer();
     force_tsumo_win(&mut game, dealer);
     let events = game.apply_action(dealer, Action::Tsumo).unwrap();
@@ -150,7 +159,7 @@ fn hanchan_runs_eight_kyoku() {
     let mut config = RulesConfig::standard();
     config.match_length = MatchLength::Hanchan;
 
-    let mut game = Match::new(config, 600).unwrap();
+    let mut game = Game::new(config, 600).unwrap();
     let mut hands_played = 0u8;
 
     while !game.is_ended() && hands_played < 16 {
@@ -168,7 +177,7 @@ fn exhaustive_draw_advances_match() {
     let mut config = RulesConfig::standard();
     config.match_length = MatchLength::EastOnly;
 
-    let mut game = Match::new(config, 500).unwrap();
+    let mut game = Game::new(config, 500).unwrap();
     let kyoku_before = game.kyoku();
 
     game.hand_mut()

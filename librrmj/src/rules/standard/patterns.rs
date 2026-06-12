@@ -1,6 +1,6 @@
 //! Pattern-yaku detection via winning-hand decomposition.
 
-use crate::hand::{Hand, MeldKind};
+use crate::hand::{Hand, KanForm, MeldKind};
 use crate::rules::profile_trait::WinContext;
 use crate::tile::{Suit, Tile, TileKind};
 
@@ -283,10 +283,10 @@ fn open_melds(hand: &Hand) -> Vec<MeldComponent> {
                 let rank = tiles[0].rank()?;
                 Some(MeldComponent::from_sequence(suit, rank, true))
             }
-            MeldKind::Pon | MeldKind::OpenKan | MeldKind::AddedKan => {
+            MeldKind::Pon | MeldKind::Kan(KanForm::Open) => {
                 Some(MeldComponent::from_triplet(meld.tiles()[0], true))
             }
-            MeldKind::ClosedKan => Some(MeldComponent::from_triplet(meld.tiles()[0], false)),
+            MeldKind::Kan(KanForm::Closed) => Some(MeldComponent::from_triplet(meld.tiles()[0], false)),
         })
         .collect()
 }

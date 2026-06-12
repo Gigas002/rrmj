@@ -1,14 +1,64 @@
 use crate::Error;
 use crate::tile::Tile;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+use super::kan::KanForm;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MeldKind {
     Chi,
     Pon,
-    OpenKan,
-    ClosedKan,
-    AddedKan,
+    Kan(KanForm),
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for MeldKind {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for MeldKind {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        MeldKind::parse_str(&value).map_err(serde::de::Error::custom)
+    }
+}
+
+impl MeldKind {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Chi => "Chi",
+            Self::Pon => "Pon",
+            Self::Kan(KanForm::Open) => "OpenKan",
+            Self::Kan(KanForm::Closed) => "ClosedKan",
+        }
+    }
+
+    fn parse_str(value: &str) -> Result<Self, String> {
+        match value {
+            "Chi" => Ok(Self::Chi),
+            "Pon" => Ok(Self::Pon),
+            "OpenKan" | "AddedKan" => Ok(Self::Kan(KanForm::Open)),
+            "ClosedKan" => Ok(Self::Kan(KanForm::Closed)),
+            other => Err(format!("unknown meld kind: {other}")),
+        }
+    }
+
+    pub const fn kan_form(self) -> Option<KanForm> {
+        match self {
+            Self::Kan(form) => Some(form),
+            _ => None,
+        }
+    }
+
+    pub const fn is_open_kan(self) -> bool {
+        matches!(self, Self::Kan(KanForm::Open))
+    }
+
+    pub const fn is_closed_kan(self) -> bool {
+        matches!(self, Self::Kan(KanForm::Closed))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,7 +71,7 @@ impl MeldKind {
     pub const fn tile_count(self) -> MeldTileCount {
         match self {
             Self::Chi | Self::Pon => MeldTileCount::Three,
-            Self::OpenKan | Self::ClosedKan | Self::AddedKan => MeldTileCount::Four,
+            Self::Kan(_) => MeldTileCount::Four,
         }
     }
 }
@@ -56,15 +106,11 @@ impl Meld {
     }
 
     pub fn open_kan(tiles: [Tile; 4], called: Tile) -> Result<Self, Error> {
-        Self::try_new(MeldKind::OpenKan, tiles.to_vec(), Some(called))
+        Self::try_new(MeldKind::Kan(KanForm::Open), tiles.to_vec(), Some(called))
     }
 
     pub fn closed_kan(tiles: [Tile; 4]) -> Result<Self, Error> {
-        Self::try_new(MeldKind::ClosedKan, tiles.to_vec(), None)
-    }
-
-    pub fn added_kan(tile: Tile) -> Result<Self, Error> {
-        Self::try_new(MeldKind::AddedKan, vec![tile], None)
+        Self::try_new(MeldKind::Kan(KanForm::Closed), tiles.to_vec(), None)
     }
 
     pub const fn kind(&self) -> MeldKind {
@@ -82,10 +128,7 @@ impl Meld {
     pub fn validate(&self) -> Result<(), Error> {
         let expected = match self.kind.tile_count() {
             MeldTileCount::Three => 3,
-            MeldTileCount::Four => match self.kind {
-                MeldKind::AddedKan => 1,
-                _ => 4,
-            },
+            MeldTileCount::Four => 4,
         };
 
         if self.tiles.len() != expected {
@@ -97,10 +140,10 @@ impl Meld {
         }
 
         match self.kind {
-            MeldKind::Chi | MeldKind::Pon | MeldKind::OpenKan if self.called.is_none() => {
+            MeldKind::Chi | MeldKind::Pon | MeldKind::Kan(KanForm::Open) if self.called.is_none() => {
                 Err(Error::MissingCalledTile { kind: self.kind })
             }
-            MeldKind::ClosedKan | MeldKind::AddedKan if self.called.is_some() => {
+            MeldKind::Kan(KanForm::Closed) if self.called.is_some() => {
                 Err(Error::UnexpectedCalledTile { kind: self.kind })
             }
             _ => Ok(()),

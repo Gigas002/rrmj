@@ -37,7 +37,7 @@ use librrmj::action::{Action, KanIntent};
 use librrmj::agent::{PlayerSlot, PlayerView};
 use librrmj::ai::{MatchSetup, SeatAgent};
 use librrmj::event::Event as GameEvent;
-use librrmj::game::Match;
+use librrmj::game::Game;
 use librrmj::rules::WinPathCandidate;
 use librrmj::state::HandPhase;
 use ratatui::Terminal;
@@ -111,7 +111,7 @@ pub struct App {
     load_setup: Option<LoadGameSetup>,
     #[cfg(feature = "debug-menu")]
     debug_setup: Option<DebugScenarioSetup>,
-    match_game: Option<Match>,
+    match_game: Option<Game>,
     agents: Option<[SeatAgent; 4]>,
     setup_meta: Option<MatchSetup>,
     human_seat_active: usize,
@@ -1200,7 +1200,7 @@ impl App {
             .unwrap_or(1);
         let match_setup = setup.to_match_setup(seed);
         let agents = match_setup.build_agents(seed);
-        let game = Match::new(self.config.rules_config(), seed)?;
+        let game = Game::new(self.config.rules_config(), seed)?;
         self.human_seat_active = setup.human_seat;
         self.cpu_step_delay_ms = setup.cpu_step_delay_ms;
         self.turn_timer_ms = setup.turn_timer_ms;
@@ -1625,7 +1625,7 @@ impl App {
 
     pub fn player_view(&self) -> Option<PlayerView> {
         let game = self.match_game.as_ref()?;
-        Some(PlayerView::from_match(game, self.human_seat_active))
+        Some(PlayerView::from_game(game, self.human_seat_active))
     }
 
     pub fn action_menu(&self) -> ActionMenu {

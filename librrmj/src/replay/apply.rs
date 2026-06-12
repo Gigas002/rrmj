@@ -1,10 +1,10 @@
 use crate::Error;
 use crate::event::Event;
-use crate::game::Match;
+use crate::game::Game;
 use crate::state::HandPhase;
 
 /// Rebuild match state by applying events from the log, optionally stopping early.
-pub fn apply_events(game: &mut Match, events: &[Event], until: Option<usize>) -> Result<(), Error> {
+pub fn apply_events(game: &mut Game, events: &[Event], until: Option<usize>) -> Result<(), Error> {
     let mut hand_starts = 0usize;
     for (index, event) in events.iter().enumerate() {
         apply_one_event(game, event, events.get(index + 1), &mut hand_starts)?;
@@ -17,7 +17,7 @@ pub fn apply_events(game: &mut Match, events: &[Event], until: Option<usize>) ->
 
 /// Apply a single event at `index` from a fresh or partially replayed match.
 pub fn apply_one_event(
-    game: &mut Match,
+    game: &mut Game,
     event: &Event,
     next: Option<&Event>,
     hand_starts: &mut usize,

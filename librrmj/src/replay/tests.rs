@@ -4,7 +4,7 @@ use crate::test_util::fixtures::play_tsumo_hand;
 #[test]
 fn replay_apply_all_matches_live_play() {
     let live = play_tsumo_hand(42);
-    let replay = Replay::from_match(&live);
+    let replay = Replay::from_game(&live);
     let replayed = replay.apply_all().unwrap();
     assert_eq!(live.snapshot(), replayed.snapshot());
 }
@@ -12,7 +12,7 @@ fn replay_apply_all_matches_live_play() {
 #[test]
 fn replay_snapshots_end_at_live_state() {
     let live = play_tsumo_hand(43);
-    let replay = Replay::from_match(&live);
+    let replay = Replay::from_game(&live);
     let snapshots = replay.snapshots().unwrap();
     assert_eq!(*snapshots.last().unwrap(), live.snapshot());
 }
@@ -21,7 +21,7 @@ fn replay_snapshots_end_at_live_state() {
 #[cfg(feature = "serde")]
 fn replay_serde_round_trip() {
     let live = play_tsumo_hand(7);
-    let replay = Replay::from_match(&live);
+    let replay = Replay::from_game(&live);
     let json = serde_json::to_string(&replay).unwrap();
     let decoded: Replay = serde_json::from_str(&json).unwrap();
     assert_eq!(replay, decoded);
@@ -121,7 +121,7 @@ mod recording {
     #[test]
     fn replay_still_works_after_refactor() {
         let live = play_tsumo_hand(105);
-        let replay = Replay::from_match(&live);
+        let replay = Replay::from_game(&live);
         let replayed = replay.apply_all().unwrap();
         assert_eq!(live.snapshot(), replayed.snapshot());
     }

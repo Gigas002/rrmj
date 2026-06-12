@@ -28,8 +28,7 @@
       "slot": "Cpu",
       "ai": {
         "difficulty": "Medium",
-        "personality_seed": 2154,
-        "think_time_hint_ms": null
+        "personality_seed": 2154
       }
     },
     {
@@ -39,16 +38,14 @@
       "slot": "Cpu",
       "ai": {
         "difficulty": "Medium",
-        "personality_seed": 2154,
-        "think_time_hint_ms": null
+        "personality_seed": 2154
       }
     },
     {
       "slot": "Cpu",
       "ai": {
         "difficulty": "Medium",
-        "personality_seed": 2154,
-        "think_time_hint_ms": null
+        "personality_seed": 2154
       }
     }
   ],

@@ -31,9 +31,9 @@ pub use ai::{
 pub use error::Error;
 pub use event::Event;
 pub use game::{
-    AbortiveDrawKind, HandOutcome, Match, MatchLength, MatchPhase, RoundWind, StepResult,
+    AbortiveDrawKind, Game, HandOutcome, MatchLength, MatchPhase, RoundWind, StepResult,
 };
-pub use hand::{Concealed, Hand, Meld, MeldKind};
+pub use hand::{Concealed, Hand, KanForm, Meld, MeldKind};
 #[cfg(feature = "serde")]
 pub use replay::{
     FORMAT_VERSION, HandSnapshot, MatchRecording, MatchStatus, PlayerSetup, RecordingMeta,

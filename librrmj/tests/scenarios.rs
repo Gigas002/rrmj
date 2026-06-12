@@ -17,7 +17,7 @@ fn scenarios_dir() -> PathBuf {
         .join("scenarios")
 }
 
-fn verify_expected_yaku(recording: &MatchRecording, game: &librrmj::game::Match) {
+fn verify_expected_yaku(recording: &MatchRecording, game: &librrmj::game::Game) {
     let Some(expected) = &recording.expected_yaku else {
         return;
     };

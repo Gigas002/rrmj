@@ -1,7 +1,7 @@
 use crate::Error;
 use crate::action::{Action, KanIntent};
 use crate::event::Event;
-use crate::hand::{Hand, Meld, MeldKind};
+use crate::hand::{Hand, KanForm, Meld, MeldKind};
 use crate::rules::{RulesConfig, RulesRegistry, WinTimingFlags};
 use crate::scoring::WinType;
 use crate::state::calls::{
@@ -547,7 +547,7 @@ impl HandState {
             Event::Called {
                 seat,
                 from: seat,
-                meld: MeldKind::ClosedKan,
+                meld: MeldKind::Kan(KanForm::Closed),
                 tiles,
             },
             Event::DoraRevealed { tile: dora },
@@ -614,7 +614,7 @@ impl HandState {
             Event::Called {
                 seat,
                 from: seat,
-                meld: MeldKind::OpenKan,
+                meld: MeldKind::Kan(KanForm::Open),
                 tiles: meld_tiles,
             },
             Event::DoraRevealed { tile: dora },
@@ -980,7 +980,7 @@ fn replay_build_meld(kind: MeldKind, tiles: &[Tile], called: Option<Tile>) -> Re
             })?;
             Meld::pon(arr, called)
         }
-        MeldKind::OpenKan => {
+        MeldKind::Kan(KanForm::Open) => {
             let arr: [Tile; 4] = tiles.try_into().map_err(|_| Error::ReplayMismatch {
                 detail: "open kan event has wrong tile count",
             })?;
@@ -989,12 +989,11 @@ fn replay_build_meld(kind: MeldKind, tiles: &[Tile], called: Option<Tile>) -> Re
             })?;
             Meld::open_kan(arr, called)
         }
-        MeldKind::ClosedKan => {
+        MeldKind::Kan(KanForm::Closed) => {
             let arr: [Tile; 4] = tiles.try_into().map_err(|_| Error::ReplayMismatch {
                 detail: "closed kan event has wrong tile count",
             })?;
             Meld::closed_kan(arr)
         }
-        MeldKind::AddedKan => Meld::added_kan(tiles[0]),
     }
 }

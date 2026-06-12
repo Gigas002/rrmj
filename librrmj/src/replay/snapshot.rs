@@ -1,4 +1,4 @@
-use crate::game::{Match, MatchPhase, RoundWind};
+use crate::game::{Game, MatchPhase, RoundWind};
 use crate::state::HandPhase;
 
 /// Comparable match state for replay verification.
@@ -17,7 +17,7 @@ pub struct MatchSnapshot {
     pub meld_counts: [usize; 4],
 }
 
-impl Match {
+impl Game {
     pub fn snapshot(&self) -> MatchSnapshot {
         let hand = self.hand();
         MatchSnapshot {

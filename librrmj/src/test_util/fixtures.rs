@@ -1,6 +1,6 @@
 use crate::action::Action;
 use crate::event::Event;
-use crate::game::Match;
+use crate::game::Game;
 use crate::rules::RulesConfig;
 use crate::state::HandPhase;
 use crate::tile::Tile;
@@ -39,13 +39,13 @@ pub fn tenpai_after_draw_p2() -> Vec<Tile> {
     hand
 }
 
-pub fn force_tsumo_win(game: &mut Match, seat: usize) {
+pub fn force_tsumo_win(game: &mut Game, seat: usize) {
     let hand = game.hand_mut();
     hand.set_concealed(seat, winning_tanyao_tiles());
     hand.last_draw = Some(Tile::pin(2));
 }
 
-pub fn force_ron_setup(game: &mut Match, winner: usize) {
+pub fn force_ron_setup(game: &mut Game, winner: usize) {
     let dealer = game.dealer();
     let hand = game.hand_mut();
     hand.set_concealed(winner, tenpai_waiting_on_p2());
@@ -56,7 +56,7 @@ pub fn force_ron_setup(game: &mut Match, winner: usize) {
         .expect("dealer discard for ron setup");
 }
 
-pub fn resolve_pending_reactions(game: &mut Match, winner: usize) -> Vec<Event> {
+pub fn resolve_pending_reactions(game: &mut Game, winner: usize) -> Vec<Event> {
     let mut events = Vec::new();
     while game.hand().phase() == HandPhase::Reaction {
         let seat = game.hand().pending_reaction_seat().expect("reaction seat");
@@ -71,13 +71,13 @@ pub fn resolve_pending_reactions(game: &mut Match, winner: usize) -> Vec<Event> 
 }
 
 /// Sets up and resolves a ron win through the match API (advances match state).
-pub fn force_ron_win(game: &mut Match, winner: usize) -> Vec<Event> {
+pub fn force_ron_win(game: &mut Game, winner: usize) -> Vec<Event> {
     force_ron_setup(game, winner);
     resolve_pending_reactions(game, winner)
 }
 
-pub fn play_tsumo_hand(seed: u64) -> Match {
-    let mut game = Match::new(RulesConfig::standard(), seed).unwrap();
+pub fn play_tsumo_hand(seed: u64) -> Game {
+    let mut game = Game::new(RulesConfig::standard(), seed).unwrap();
     let winner = game.dealer();
     force_tsumo_win(&mut game, winner);
     game.apply_action(winner, Action::Tsumo).unwrap();

@@ -59,7 +59,7 @@ impl Agent for SeatAgent {
     }
 }
 
-/// Per-seat assignment for building agents alongside a [`crate::game::Match`].
+/// Per-seat assignment for building agents alongside a [`crate::game::Game`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MatchSetup {
     pub slots: [PlayerSlot; 4],
