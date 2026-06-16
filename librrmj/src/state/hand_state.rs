@@ -301,7 +301,14 @@ impl HandState {
         let in_hands: usize = self.hands.iter().map(|h| h.total_tiles()).sum();
         let in_rivers: usize = self.discards.iter().map(|d| d.len()).sum();
         let in_wall = self.wall.live_remaining() + self.wall.dead_wall().len();
-        let in_reaction = usize::from(self.reaction.is_some());
+        // Kakan reactions hold a tile removed from hand but not yet in a river.
+        // Discard reactions reference the last river tile — already counted above.
+        let in_reaction = self
+            .reaction
+            .as_ref()
+            .filter(|r| r.kind == ReactionKind::Kakan)
+            .map(|_| 1)
+            .unwrap_or(0);
         in_hands + in_rivers + in_wall + in_reaction
     }
 

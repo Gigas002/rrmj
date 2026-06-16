@@ -51,3 +51,31 @@ fn tanyao_fixture_is_winning() {
     .unwrap();
     assert!(win::is_winning_hand(&hand, Some(Tile::pin(2))));
 }
+
+#[test]
+fn open_hand_tsumo_does_not_double_count_win_tile() {
+    use crate::hand::Meld;
+    use crate::tile::{Dragon, Suit};
+
+    let hand = Hand::new(
+        Concealed::from_tiles(vec![
+            Tile::sou(2),
+            Tile::sou(2),
+            Tile::red_five(Suit::Sou),
+            Tile::sou(6),
+            Tile::sou(7),
+        ]),
+        vec![
+            Meld::pon([Tile::dragon(Dragon::White); 3], Tile::dragon(Dragon::White)).unwrap(),
+            Meld::chi([Tile::pin(5), Tile::pin(6), Tile::pin(7)], Tile::pin(6)).unwrap(),
+            Meld::chi(
+                [Tile::red_five(Suit::Man), Tile::man(6), Tile::man(7)],
+                Tile::red_five(Suit::Man),
+            )
+            .unwrap(),
+        ],
+    )
+    .unwrap();
+
+    assert!(win::is_winning_hand(&hand, Some(Tile::sou(2))));
+}

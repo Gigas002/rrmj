@@ -172,6 +172,12 @@ fn action_help(app: &App, theme: &Theme) -> Vec<Line<'static>> {
                 );
                 lines.push(Line::from(spans));
             }
+            if app.table_mode() == TableMode::PickChi {
+                lines.push(Line::from(Span::styled(
+                    "←/→ or c cycle variant, enter confirm, esc cancel",
+                    theme.muted_style(),
+                )));
+            }
         }
         if menu.can_open_kan {
             lines.push(bind_line(

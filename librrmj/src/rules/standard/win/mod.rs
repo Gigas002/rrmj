@@ -7,10 +7,13 @@ use crate::tile::{Suit, Tile, TileKind, Wind};
 
 pub fn is_winning_hand(hand: &Hand, win_tile: Option<Tile>) -> bool {
     let mut concealed = hand.concealed().tiles().to_vec();
-    if let Some(tile) = win_tile
-        && (concealed.len() < 14 || !concealed.contains(&tile))
-    {
-        concealed.push(tile);
+    if let Some(tile) = win_tile {
+        // Ron waits have concealed.len() % 3 == 1 and need the called tile added.
+        // Tsumo completes with concealed.len() % 3 == 2 and the draw already in hand.
+        let ron_shape = concealed.len() % 3 == 1;
+        if ron_shape || !concealed.contains(&tile) {
+            concealed.push(tile);
+        }
     }
     concealed.sort();
 

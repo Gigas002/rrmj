@@ -1415,8 +1415,13 @@ impl App {
                 if menu.chi.len() == 1 {
                     return Ok(Some(Action::Chi { tiles: menu.chi[0] }));
                 }
-                self.table_mode = TableMode::PickChi;
-                self.chi_index = 0;
+                if self.table_mode == TableMode::PickChi {
+                    self.bump_tile_index(1);
+                } else {
+                    self.table_mode = TableMode::PickChi;
+                    self.chi_index = 0;
+                    self.tile_index = 0;
+                }
             }
             Some(BindAction::Discard) if !menu.discards.is_empty() => {
                 self.table_mode = TableMode::PickDiscard;
@@ -1496,8 +1501,12 @@ impl App {
         if len == 0 {
             return;
         }
-        let idx = self.tile_index as isize + delta;
-        let wrapped = (idx.rem_euclid(len as isize)) as usize;
+        let current = if self.table_mode == TableMode::PickChi {
+            self.chi_index
+        } else {
+            self.tile_index
+        };
+        let wrapped = ((current as isize + delta).rem_euclid(len as isize)) as usize;
         if self.table_mode == TableMode::PickChi {
             self.chi_index = wrapped;
         } else {
