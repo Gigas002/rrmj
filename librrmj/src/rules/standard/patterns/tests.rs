@@ -1,6 +1,6 @@
 use crate::hand::{Concealed, Hand};
-use crate::rules::{RulesConfig, WinContext, WinTimingFlags};
 use crate::rules::standard::patterns;
+use crate::rules::{RulesConfig, WinContext, WinTimingFlags};
 use crate::scoring::WinType;
 use crate::state::HandState;
 use crate::tile::Tile;

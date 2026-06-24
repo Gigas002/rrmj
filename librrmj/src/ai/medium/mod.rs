@@ -35,9 +35,7 @@ impl Agent for MediumAgent {
 
         match view.phase {
             HandPhase::Reaction => choose_reaction(view, legal, CallPolicy::Conservative),
-            HandPhase::Discard => {
-                choose_discard(&mut self.rng, view, legal, DiscardPolicy::MEDIUM)
-            }
+            HandPhase::Discard => choose_discard(&mut self.rng, view, legal, DiscardPolicy::MEDIUM),
             _ => *legal
                 .choose(&mut self.rng)
                 .expect("legal actions must be non-empty"),

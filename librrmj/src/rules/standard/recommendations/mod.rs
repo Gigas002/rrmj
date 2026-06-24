@@ -33,11 +33,7 @@ impl Collector<'_> {
     }
 }
 
-pub(crate) fn collect(
-    state: &HandState,
-    seat: usize,
-    config: &RulesConfig,
-) -> Vec<Recommendation> {
+pub(crate) fn collect(state: &HandState, seat: usize, config: &RulesConfig) -> Vec<Recommendation> {
     let Ok(profile) = RulesRegistry::get(config.profile) else {
         return Vec::new();
     };

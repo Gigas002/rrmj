@@ -14,7 +14,10 @@ pub struct RulesConfig {
     pub starting_points: i32,
     pub aka_dora: bool,
     pub kiriage: bool,
-    #[cfg_attr(feature = "serde", serde(rename = "game_length", alias = "match_length"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "game_length", alias = "match_length")
+    )]
     pub game_length: GameLength,
     /// When set, the match ends as soon as any seat reaches this score.
     pub target_score: Option<i32>,

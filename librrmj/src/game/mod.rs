@@ -228,12 +228,10 @@ impl Game {
         let profile = RulesRegistry::get(self.config.profile)?;
         let dealer_tenpai = profile.is_tenpai(self.hand.hand(self.dealer), &self.config);
 
-        if profile.game_flow().is_game_over(
-            self.round_wind,
-            self.kyoku,
-            &self.scores,
-            &self.config,
-        ) {
+        if profile
+            .game_flow()
+            .is_game_over(self.round_wind, self.kyoku, &self.scores, &self.config)
+        {
             self.table_riichi_sticks = 0;
             self.phase = GamePhase::Ended;
             return Ok(vec![Event::GameEnded {

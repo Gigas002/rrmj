@@ -22,11 +22,7 @@ pub struct DebugScenarioSetup {
 }
 
 impl DebugScenarioSetup {
-    pub fn new(
-        entry: ScenarioEntry,
-        recording: GameRecording,
-        fallback_human_seat: usize,
-    ) -> Self {
+    pub fn new(entry: ScenarioEntry, recording: GameRecording, fallback_human_seat: usize) -> Self {
         let saved_human_seat = recording.human_seat.unwrap_or(fallback_human_seat);
         Self {
             entry,

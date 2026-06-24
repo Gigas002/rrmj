@@ -9,8 +9,8 @@ use crate::rules::standard::patterns;
 use crate::rules::standard::win;
 use crate::scoring::{WinType, Yaku};
 
-pub use yakuman::is_kokushi_tiles;
 use crate::tile::{Dragon, Tile, Wind};
+pub use yakuman::is_kokushi_tiles;
 
 pub fn detect_yaku(ctx: &WinContext<'_>, _config: &RulesConfig) -> Vec<Yaku> {
     let mut yaku = Vec::new();

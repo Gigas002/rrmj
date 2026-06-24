@@ -9,7 +9,10 @@ fn dora_tile_advances_numbered_ranks() {
 
 #[test]
 fn dora_tile_advances_honors() {
-    assert_eq!(dora_tile(Tile::wind(Wind::North)), Some(Tile::wind(Wind::East)));
+    assert_eq!(
+        dora_tile(Tile::wind(Wind::North)),
+        Some(Tile::wind(Wind::East))
+    );
     assert_eq!(
         dora_tile(Tile::dragon(Dragon::Red)),
         Some(Tile::dragon(Dragon::White))

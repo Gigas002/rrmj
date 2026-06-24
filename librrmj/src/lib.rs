@@ -27,9 +27,7 @@ pub use ai::{
 };
 pub use error::Error;
 pub use event::Event;
-pub use game::{
-    AbortiveDrawKind, Game, GameLength, GamePhase, HandOutcome, RoundWind, StepResult,
-};
+pub use game::{AbortiveDrawKind, Game, GameLength, GamePhase, HandOutcome, RoundWind, StepResult};
 pub use hand::{Concealed, Hand, KanForm, Meld, MeldKind};
 #[cfg(feature = "serde")]
 pub use replay::{

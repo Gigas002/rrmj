@@ -66,7 +66,11 @@ fn open_hand_tsumo_does_not_double_count_win_tile() {
             Tile::sou(7),
         ]),
         vec![
-            Meld::pon([Tile::dragon(Dragon::White); 3], Tile::dragon(Dragon::White)).unwrap(),
+            Meld::pon(
+                [Tile::dragon(Dragon::White); 3],
+                Tile::dragon(Dragon::White),
+            )
+            .unwrap(),
             Meld::chi([Tile::pin(5), Tile::pin(6), Tile::pin(7)], Tile::pin(6)).unwrap(),
             Meld::chi(
                 [Tile::red_five(Suit::Man), Tile::man(6), Tile::man(7)],

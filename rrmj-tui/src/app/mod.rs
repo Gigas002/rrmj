@@ -294,7 +294,10 @@ impl App {
                     None => break,
                 }
             };
-            let ended = self.active_game.as_ref().is_some_and(|game| game.is_ended());
+            let ended = self
+                .active_game
+                .as_ref()
+                .is_some_and(|game| game.is_ended());
             self.on_game_events(&events);
             if self.hand_result.is_some() || ended {
                 break;

@@ -302,7 +302,9 @@ impl GameRecording {
             }
         }
 
-        if let Some(rules) = object.get_mut("rules_config").and_then(|v| v.as_object_mut())
+        if let Some(rules) = object
+            .get_mut("rules_config")
+            .and_then(|v| v.as_object_mut())
             && rules.get("game_length").is_none()
             && let Some(length) = rules.remove("match_length")
         {

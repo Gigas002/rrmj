@@ -76,7 +76,8 @@ pub fn choose_reaction(view: &PlayerView, legal: &[Action], policy: CallPolicy) 
             continue;
         };
         let strength = evaluate_hand(&after_hand, Some(view));
-        if strength.improves_over(baseline, accept_equal_ukeire) && strength.is_better_than(best_strength)
+        if strength.improves_over(baseline, accept_equal_ukeire)
+            && strength.is_better_than(best_strength)
         {
             best_strength = strength;
             best = *action;
@@ -94,7 +95,12 @@ pub fn should_defend(view: &PlayerView, hand: &Hand, from_shanten: i8) -> bool {
     any_opponent_riichi(view) && shanten_to_tenpai(hand) >= from_shanten
 }
 
-pub fn choose_discard(rng: &mut impl Rng, view: &PlayerView, legal: &[Action], policy: DiscardPolicy) -> Action {
+pub fn choose_discard(
+    rng: &mut impl Rng,
+    view: &PlayerView,
+    legal: &[Action],
+    policy: DiscardPolicy,
+) -> Action {
     if let Some(kan) = choose_kan(rng, view, legal, policy) {
         return kan;
     }
@@ -197,14 +203,14 @@ fn choose_kan(
     for action in legal {
         let after = match action {
             Action::Kan(KanIntent::Closed { tile }) => simulate_closed_kan(&hand, *tile)?,
-            Action::Kan(KanIntent::Added { meld_index }) => {
-                simulate_added_kan(&hand, *meld_index)?
-            }
+            Action::Kan(KanIntent::Added { meld_index }) => simulate_added_kan(&hand, *meld_index)?,
             _ => continue,
         };
         let strength = evaluate_hand(&after, Some(view));
         if strength.improves_over(baseline, accept_equal_ukeire)
-            && best.as_ref().is_none_or(|(_, best_strength)| strength.is_better_than(*best_strength))
+            && best
+                .as_ref()
+                .is_none_or(|(_, best_strength)| strength.is_better_than(*best_strength))
         {
             best = Some((*action, strength));
         }
@@ -251,7 +257,9 @@ fn score_discard(
     }
     let mut strength = evaluate_hand(&after, Some(view));
     if matches!(action, Action::Riichi { .. }) && plain > 0 {
-        strength.weighted = strength.weighted.saturating_add(weighted_waiting_count(&after, view));
+        strength.weighted = strength
+            .weighted
+            .saturating_add(weighted_waiting_count(&after, view));
     }
     let safety = if defending {
         tile_safety(view, tile)

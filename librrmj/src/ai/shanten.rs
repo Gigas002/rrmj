@@ -225,11 +225,8 @@ mod tests {
             Tile::sou(8),
             Tile::sou(9),
         ];
-        let meld = crate::hand::Meld::pon(
-            [Tile::man(5), Tile::man(5), Tile::man(5)],
-            Tile::man(5),
-        )
-        .unwrap();
+        let meld = crate::hand::Meld::pon([Tile::man(5), Tile::man(5), Tile::man(5)], Tile::man(5))
+            .unwrap();
         let hand = Hand::new(Concealed::from_tiles(concealed), vec![meld]).unwrap();
         assert!(best_waiting_potential(&hand) > 0);
     }
