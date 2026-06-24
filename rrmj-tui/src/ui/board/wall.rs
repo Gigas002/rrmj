@@ -47,9 +47,7 @@ pub fn wall_lines(
 
     lines.push(Line::from(Span::styled(
         "Dead wall ░░░░░░░░░░░░░░",
-        Style::default()
-            .fg(theme.muted)
-            .add_modifier(Modifier::DIM),
+        Style::default().fg(theme.muted).add_modifier(Modifier::DIM),
     )));
 
     lines

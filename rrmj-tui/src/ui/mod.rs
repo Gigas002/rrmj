@@ -1,14 +1,27 @@
 mod board;
+#[cfg(feature = "debug-menu")]
+mod debug_menu;
+#[cfg(feature = "debug-menu")]
+mod debug_setup;
 mod hand_result;
 mod help;
+mod load_setup;
 mod menu;
+mod path_input;
+mod pause;
 mod popup;
+mod recommendations;
 mod render;
+mod replay_review;
 mod rules;
+mod rules_content;
+mod scenario_menu;
+mod scores;
 mod setup;
 mod table;
 mod widgets;
 
+pub use recommendations::recommendation_line_count;
 pub use rules::rules_line_count;
 
 use ratatui::Frame;
@@ -22,6 +35,7 @@ pub fn draw(frame: &mut Frame, app: &App, theme: &Theme) {
     match app.screen() {
         Screen::MainMenu => draw_main_menu_screen(frame, area, app, theme),
         Screen::Table => draw_table_screen(frame, area, app, theme),
+        Screen::ReplayReview => replay_review::draw_replay_review(frame, area, app, theme),
     }
 
     if app.help_open() {
@@ -37,16 +51,56 @@ fn draw_main_menu_screen(frame: &mut Frame, area: Rect, app: &App, theme: &Theme
     if app.setup_open() {
         setup::draw_setup_popup(frame, area, app, theme);
     }
+    if app.resume_setup_open() {
+        load_setup::draw_load_setup_popup(frame, area, app, theme);
+    }
+    #[cfg(feature = "debug-menu")]
+    if app.debug_setup_open() {
+        debug_setup::draw_debug_setup_popup(frame, area, app, theme);
+    }
     if app.settings_open() {
         menu::draw_settings_popup(frame, area, app, theme);
+    }
+    if app.import_scenario_open()
+        && let Some(path) = app.import_scenario_path()
+    {
+        path_input::draw_path_input_popup(
+            frame,
+            area,
+            "Import scenario",
+            "Load a scenario JSON from any path (community packs or your own).",
+            path,
+            "Type path  enter import  esc cancel",
+            theme,
+        );
     }
 }
 
 fn draw_table_screen(frame: &mut Frame, area: Rect, app: &App, theme: &Theme) {
     table::draw_table(frame, area, app, theme);
+    if app.pause_open() {
+        pause::draw_pause_popup(frame, area, app.pause_index(), theme);
+    }
+    if app.export_save_open()
+        && let Some(path) = app.export_save_path()
+    {
+        path_input::draw_path_input_popup(
+            frame,
+            area,
+            "Save game",
+            "Save in-progress game (game_status = in_progress).",
+            path,
+            "Type path  enter save  esc cancel",
+            theme,
+        );
+    } else if app.scores_open() {
+        scores::draw_scores_popup(frame, area, app, theme);
+    } else if app.recommendations_open() {
+        recommendations::draw_recommendations_popup(frame, area, app, theme);
+    }
     if app.hand_result().is_some() {
         hand_result::draw_hand_result_popup(frame, area, app, theme);
-    } else if app.match_summary().is_some() {
-        hand_result::draw_match_summary_popup(frame, area, app, theme);
+    } else if app.game_summary().is_some() {
+        hand_result::draw_game_summary_popup(frame, area, app, theme);
     }
 }

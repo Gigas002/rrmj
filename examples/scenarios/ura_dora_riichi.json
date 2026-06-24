@@ -1,0 +1,336 @@
+{
+  "format_version": 3,
+  "title": "Ura dora (riichi)",
+  "description": "Closed riichi win with ura-dora indicators exposed on the dead wall.",
+  "tags": [
+    "dora",
+    "riichi",
+    "tsumo",
+    "scoring"
+  ],
+  "rules_profile": "Standard",
+  "rules_config": {
+    "profile": "Standard",
+    "starting_points": 25000,
+    "aka_dora": true,
+    "kiriage": false,
+    "match_length": "Hanchan",
+    "target_score": null,
+    "abortive_nine_terminals": true,
+    "abortive_four_winds": true,
+    "abortive_four_kongs": true,
+    "abortive_four_riichis": true,
+    "double_ron": true,
+    "triple_ron": false
+  },
+  "seed": 2150,
+  "players": [
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2150
+      }
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2150
+      }
+    },
+    {
+      "slot": "Human"
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2150
+      }
+    }
+  ],
+  "human_seat": 2,
+  "cpu_step_delay_ms": 300,
+  "turn_timer_ms": 30000,
+  "response_timer_ms": 5000,
+  "match_status": "in_progress",
+  "dealer": 2,
+  "round_wind": "East",
+  "kyoku": 1,
+  "honba": 0,
+  "scores": [
+    25000,
+    25000,
+    25000,
+    25000
+  ],
+  "table_riichi_sticks": 0,
+  "hand_index": 0,
+  "match_phase": "InHand",
+  "hand": {
+    "dealer": 2,
+    "current_actor": 2,
+    "phase": "Discard",
+    "hands": [
+      {
+        "concealed": {
+          "tiles": [
+            "2m",
+            "4m",
+            "9m",
+            "1p",
+            "2p",
+            "9p",
+            "1s",
+            "2s",
+            "5s",
+            "7s",
+            "8s",
+            "W",
+            "N"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "3m",
+            "5m",
+            "1p",
+            "1p",
+            "2p",
+            "3p",
+            "6p",
+            "7p",
+            "3s",
+            "3s",
+            "8s",
+            "wd",
+            "wd"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "2m",
+            "3m",
+            "4m",
+            "2p",
+            "2p",
+            "3p",
+            "4p",
+            "5p",
+            "5s",
+            "5s",
+            "5s",
+            "6s",
+            "7s",
+            "8s"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "3m",
+            "7m",
+            "7m",
+            "3p",
+            "6p",
+            "6p",
+            "8p",
+            "3s",
+            "5s",
+            "5sr",
+            "6s",
+            "gd",
+            "rd"
+          ]
+        },
+        "melds": []
+      }
+    ],
+    "discards": [
+      [],
+      [],
+      [],
+      []
+    ],
+    "wall": {
+      "live": [
+        "4s",
+        "4s",
+        "S",
+        "9s",
+        "1s",
+        "S",
+        "8p",
+        "1s",
+        "W",
+        "2m",
+        "9m",
+        "N",
+        "9p",
+        "6s",
+        "E",
+        "rd",
+        "5p",
+        "2m",
+        "N",
+        "8p",
+        "8m",
+        "8m",
+        "2s",
+        "gd",
+        "1m",
+        "6m",
+        "3p",
+        "5pr",
+        "2p",
+        "W",
+        "7p",
+        "9p",
+        "4s",
+        "6m",
+        "3m",
+        "6m",
+        "S",
+        "3s",
+        "N",
+        "1m",
+        "8s",
+        "9s",
+        "6m",
+        "4s",
+        "2s",
+        "4p",
+        "7s",
+        "6s",
+        "1m",
+        "5mr",
+        "7m",
+        "8s",
+        "wd",
+        "E",
+        "7p",
+        "7p",
+        "1m",
+        "gd",
+        "2s",
+        "4m",
+        "4p",
+        "gd",
+        "7s",
+        "W",
+        "6p",
+        "rd",
+        "S",
+        "9s",
+        "7m"
+      ],
+      "dead": [
+        "3p",
+        "3p",
+        "2p",
+        "rd",
+        "5p",
+        "9m",
+        "8m",
+        "8m",
+        "9m",
+        "1p",
+        "9p",
+        "E",
+        "4m",
+        "5m"
+      ],
+      "kan_count": 0,
+      "rinshan_taken": 0
+    },
+    "scores": [
+      25000,
+      25000,
+      25000,
+      25000
+    ],
+    "riichi": [
+      false,
+      false,
+      true,
+      false
+    ],
+    "table_riichi_sticks": 0,
+    "honba": 0,
+    "last_draw": "2p",
+    "first_discards": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "is_dealer_first_turn": false,
+    "temporary_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "riichi_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "ippatsu_live": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "double_riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "calls_made": false,
+    "is_rinshan_draw": false,
+    "live_draws": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "events": [
+    {
+      "Dealt": {
+        "dealer": 2
+      }
+    },
+    {
+      "HandStarted": {
+        "dealer": 2,
+        "round_wind": "East",
+        "kyoku": 1,
+        "honba": 0
+      }
+    }
+  ],
+  "event_index": 1,
+  "assertions": {
+    "expected_legal_actions": [
+      "Tsumo"
+    ],
+    "expected_yaku": [
+      "riichi",
+      "menzen_tsumo",
+      "tanyao"
+    ]
+  }
+}

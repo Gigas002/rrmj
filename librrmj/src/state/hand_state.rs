@@ -1,15 +1,15 @@
 use crate::Error;
-use crate::action::Action;
+use crate::action::{Action, KanIntent};
 use crate::event::Event;
-use crate::hand::{Hand, Meld, MeldKind};
-use crate::rules::RulesConfig;
+use crate::hand::{Hand, KanForm, Meld, MeldKind};
+use crate::rules::{RulesConfig, RulesRegistry, WinTimingFlags};
 use crate::scoring::WinType;
 use crate::state::calls::{
-    CallKind, chi_actions, closed_kan_options, kamicha, resolve_chi, resolve_closed_kan,
-    resolve_open_kan, resolve_pon,
+    CallKind, can_kakan, chi_actions, closed_kan_options, kakan_options, kamicha, resolve_chi,
+    resolve_closed_kan, resolve_kakan_tile, resolve_open_kan, resolve_pon, upgrade_pon_to_open_kan,
 };
 use crate::state::end_reason::HandEndReason;
-use crate::state::reaction::{ReactionState, call_kind};
+use crate::state::reaction::{ReactionKind, ReactionState, call_kind};
 use crate::tile::Tile;
 use crate::wall::{DealResult, WALL_SIZE, Wall};
 
@@ -17,6 +17,7 @@ pub const SEAT_COUNT: usize = 4;
 
 /// Phase of an in-progress hand.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum HandPhase {
     Draw,
     Discard,
@@ -34,6 +35,8 @@ pub struct HandState {
     discards: [Vec<Tile>; SEAT_COUNT],
     wall: Wall,
     pub(crate) reaction: Option<ReactionState>,
+    /// Most recent table discard (stays visible until called or replaced).
+    pub(crate) last_discard: Option<(usize, Tile)>,
     pub(crate) config: RulesConfig,
     pub(crate) scores: [i32; 4],
     pub(crate) riichi: [bool; 4],
@@ -42,6 +45,17 @@ pub struct HandState {
     pub(crate) last_draw: Option<Tile>,
     pub(crate) first_discards: [Option<Tile>; SEAT_COUNT],
     pub(crate) is_dealer_first_turn: bool,
+    pub(crate) temporary_furiten: [bool; 4],
+    pub(crate) riichi_furiten: [bool; 4],
+    /// Ippatsu still possible after riichi (voided by any call or kan).
+    pub(crate) ippatsu_live: [bool; 4],
+    pub(crate) double_riichi: [bool; 4],
+    /// Any chi/pon/open-kan call has resolved this hand (blocks double riichi).
+    pub(crate) calls_made: bool,
+    /// True when `last_draw` came from a rinshan replacement tile.
+    pub(crate) is_rinshan_draw: bool,
+    /// Live-wall draws taken during play (excludes initial deal and rinshan).
+    pub(crate) live_draws: [u8; 4],
     pub(crate) end_reason: Option<HandEndReason>,
 }
 
@@ -67,6 +81,7 @@ impl HandState {
             discards: std::array::from_fn(|_| Vec::new()),
             wall,
             reaction: None,
+            last_discard: None,
             config,
             scores,
             riichi: [false; 4],
@@ -75,12 +90,19 @@ impl HandState {
             last_draw: None,
             first_discards: [None; SEAT_COUNT],
             is_dealer_first_turn: true,
+            temporary_furiten: [false; 4],
+            riichi_furiten: [false; 4],
+            ippatsu_live: [false; 4],
+            double_riichi: [false; 4],
+            calls_made: false,
+            is_rinshan_draw: false,
+            live_draws: [0; SEAT_COUNT],
             end_reason: None,
         }
     }
 
     pub fn end_reason(&self) -> Option<HandEndReason> {
-        self.end_reason
+        self.end_reason.clone()
     }
 
     pub const fn dealer(&self) -> usize {
@@ -128,6 +150,22 @@ impl HandState {
             })
     }
 
+    pub fn last_discard(&self) -> Option<crate::agent::PendingCall> {
+        self.last_discard
+            .map(|(discarder, tile)| crate::agent::PendingCall { discarder, tile })
+    }
+
+    /// Tile just drawn (or rinshan) for the current actor during discard phase.
+    pub fn last_drawn_tile(&self) -> Option<Tile> {
+        self.last_draw
+    }
+
+    pub(crate) fn is_chankan_window(&self) -> bool {
+        self.reaction
+            .as_ref()
+            .is_some_and(|reaction| reaction.kind == ReactionKind::Kakan)
+    }
+
     pub fn legal_actions_for(&self, seat: usize) -> Vec<Action> {
         match self.phase {
             HandPhase::Draw if seat == self.current_actor => vec![Action::Draw],
@@ -140,15 +178,23 @@ impl HandState {
                     actions.push(Action::Tsumo);
                 }
                 if self.can_declare_riichi(seat) {
+                    let profile = RulesRegistry::get(self.config.profile).ok();
                     for &tile in self.hands[seat].concealed().tiles() {
-                        actions.push(Action::Riichi { discard: tile });
+                        if profile.is_some_and(|p| {
+                            p.is_riichi_discard(self.hand(seat), tile, &self.config)
+                        }) {
+                            actions.push(Action::Riichi { discard: tile });
+                        }
                     }
                 }
                 for tile in self.hands[seat].concealed().tiles().iter().copied() {
                     actions.push(Action::Discard(tile));
                 }
                 for tile in closed_kan_options(self.hands[seat].concealed()) {
-                    actions.push(Action::ClosedKan { tile });
+                    actions.push(Action::Kan(KanIntent::Closed { tile }));
+                }
+                for meld_index in kakan_options(&self.hands[seat]) {
+                    actions.push(Action::Kan(KanIntent::Added { meld_index }));
                 }
                 actions
             }
@@ -201,7 +247,14 @@ impl HandState {
                         let tile = self.last_draw.ok_or(Error::CannotWin)?;
                         self.resolve_win(seat, WinType::Tsumo, tile)
                     }
-                    Action::ClosedKan { tile } => self.apply_closed_kan(seat, tile),
+                    Action::Kan(KanIntent::Closed { tile }) => self.apply_closed_kan(seat, tile),
+                    Action::Kan(KanIntent::Added { meld_index }) => {
+                        self.apply_kakan(seat, meld_index)
+                    }
+                    Action::Kan(KanIntent::Open) => Err(Error::IllegalAction {
+                        action,
+                        phase: self.phase,
+                    }),
                     Action::AbortiveNineTerminals => self.apply_abortive_nine_terminals(seat),
                     _ => Err(Error::IllegalAction {
                         action,
@@ -248,7 +301,15 @@ impl HandState {
         let in_hands: usize = self.hands.iter().map(|h| h.total_tiles()).sum();
         let in_rivers: usize = self.discards.iter().map(|d| d.len()).sum();
         let in_wall = self.wall.live_remaining() + self.wall.dead_wall().len();
-        in_hands + in_rivers + in_wall
+        // Kakan reactions hold a tile removed from hand but not yet in a river.
+        // Discard reactions reference the last river tile — already counted above.
+        let in_reaction = self
+            .reaction
+            .as_ref()
+            .filter(|r| r.kind == ReactionKind::Kakan)
+            .map(|_| 1)
+            .unwrap_or(0);
+        in_hands + in_rivers + in_wall + in_reaction
     }
 
     pub fn validate_tile_conservation(&self) -> Result<(), Error> {
@@ -262,14 +323,99 @@ impl HandState {
         Ok(())
     }
 
+    /// Lossless hand snapshot for match recordings.
+    #[cfg(feature = "serde")]
+    pub fn to_snapshot(&self) -> crate::replay::HandSnapshot {
+        crate::replay::HandSnapshot {
+            dealer: self.dealer,
+            current_actor: self.current_actor,
+            phase: self.phase,
+            hands: self.hands.clone(),
+            discards: self.discards.clone(),
+            wall: self.wall.snapshot(),
+            reaction: self.reaction.clone(),
+            last_discard: self.last_discard,
+            scores: self.scores,
+            riichi: self.riichi,
+            table_riichi_sticks: self.table_riichi_sticks,
+            honba: self.honba,
+            last_draw: self.last_draw,
+            first_discards: self.first_discards,
+            is_dealer_first_turn: self.is_dealer_first_turn,
+            temporary_furiten: self.temporary_furiten,
+            riichi_furiten: self.riichi_furiten,
+            ippatsu_live: self.ippatsu_live,
+            double_riichi: self.double_riichi,
+            calls_made: self.calls_made,
+            is_rinshan_draw: self.is_rinshan_draw,
+            live_draws: self.live_draws,
+            end_reason: self.end_reason.clone(),
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn from_snapshot(
+        snapshot: crate::replay::HandSnapshot,
+        config: RulesConfig,
+    ) -> Result<Self, Error> {
+        let wall = Wall::from_snapshot(snapshot.wall)?;
+        let state = Self {
+            dealer: snapshot.dealer,
+            current_actor: snapshot.current_actor,
+            phase: snapshot.phase,
+            hands: snapshot.hands,
+            discards: snapshot.discards,
+            wall,
+            reaction: snapshot.reaction,
+            last_discard: snapshot.last_discard,
+            config,
+            scores: snapshot.scores,
+            riichi: snapshot.riichi,
+            table_riichi_sticks: snapshot.table_riichi_sticks,
+            honba: snapshot.honba,
+            last_draw: snapshot.last_draw,
+            first_discards: snapshot.first_discards,
+            is_dealer_first_turn: snapshot.is_dealer_first_turn,
+            temporary_furiten: snapshot.temporary_furiten,
+            riichi_furiten: snapshot.riichi_furiten,
+            ippatsu_live: snapshot.ippatsu_live,
+            double_riichi: snapshot.double_riichi,
+            calls_made: snapshot.calls_made,
+            is_rinshan_draw: snapshot.is_rinshan_draw,
+            live_draws: snapshot.live_draws,
+            end_reason: snapshot.end_reason,
+        };
+        state.validate_tile_conservation()?;
+        Ok(state)
+    }
+
     #[cfg(test)]
     pub fn set_concealed(&mut self, seat: usize, tiles: Vec<Tile>) {
         *self.hands[seat].concealed_mut() = crate::hand::Concealed::from_tiles(tiles);
     }
 
+    pub(crate) fn replace_hand(&mut self, seat: usize, hand: Hand) {
+        self.hands[seat] = hand;
+    }
+
+    #[cfg(test)]
+    pub fn set_hand(&mut self, seat: usize, hand: Hand) {
+        self.replace_hand(seat, hand);
+    }
+
     #[cfg(test)]
     pub fn push_discard_for_test(&mut self, seat: usize, tile: Tile) {
         self.discards[seat].push(tile);
+    }
+
+    #[cfg(test)]
+    pub fn set_honba_for_test(&mut self, honba: u8) {
+        self.honba = honba;
+    }
+
+    #[cfg(test)]
+    pub fn set_table_riichi_sticks_for_test(&mut self, sticks: u8) {
+        self.table_riichi_sticks = sticks;
     }
 
     fn can_respond(&self, seat: usize) -> bool {
@@ -291,6 +437,10 @@ impl HandState {
             actions.push(Action::Ron);
         }
 
+        if reaction.kind == ReactionKind::Kakan {
+            return actions;
+        }
+
         let concealed = self.hands[seat].concealed();
         let called = reaction.tile;
 
@@ -301,7 +451,7 @@ impl HandState {
             actions.push(Action::Pon);
         }
         if crate::state::calls::can_open_kan(concealed, called) {
-            actions.push(Action::OpenKan);
+            actions.push(Action::Kan(KanIntent::Open));
         }
 
         actions
@@ -319,6 +469,9 @@ impl HandState {
         self.hands[seat].concealed_mut().push(tile);
         self.hands[seat].sort_concealed();
         self.last_draw = Some(tile);
+        self.is_rinshan_draw = false;
+        self.live_draws[seat] += 1;
+        self.clear_temporary_furiten(seat);
         self.phase = HandPhase::Discard;
 
         Ok(vec![Event::Drawn { seat, tile }])
@@ -344,6 +497,7 @@ impl HandState {
         self.hands[seat].concealed_mut().remove(tile)?;
         self.discards[seat].push(tile);
         self.last_draw = None;
+        self.last_discard = Some((seat, tile));
 
         if self.first_discards[seat].is_none() {
             self.first_discards[seat] = Some(tile);
@@ -363,11 +517,6 @@ impl HandState {
         } else {
             vec![Event::Discarded { seat, tile }]
         };
-
-        if self.wall.live_remaining() == 0 {
-            self.current_actor = super::next_seat(seat);
-            return self.resolve_exhaustive_draw(events);
-        }
 
         if let Some(kind) = self.check_abortive_after_discard(seat, tile) {
             return self.resolve_abortive_draw(kind, events);
@@ -396,12 +545,14 @@ impl HandState {
         self.hands[seat].concealed_mut().push(rinshan);
         self.hands[seat].sort_concealed();
         self.last_draw = Some(rinshan);
+        self.is_rinshan_draw = true;
+        self.void_ippatsu();
 
         let mut events = vec![
             Event::Called {
                 seat,
                 from: seat,
-                meld: MeldKind::ClosedKan,
+                meld: MeldKind::Kan(KanForm::Closed),
                 tiles,
             },
             Event::DoraRevealed { tile: dora },
@@ -415,6 +566,76 @@ impl HandState {
             events.extend(self.resolve_abortive_draw(kind, Vec::new())?);
         }
 
+        Ok(events)
+    }
+
+    fn apply_kakan(&mut self, seat: usize, meld_index: usize) -> Result<Vec<Event>, Error> {
+        if self.phase != HandPhase::Discard {
+            return Err(Error::WrongPhase {
+                expected: HandPhase::Discard,
+                actual: self.phase,
+            });
+        }
+        if !can_kakan(&self.hands[seat], meld_index) {
+            return Err(Error::InvalidCall {
+                kind: CallKind::OpenKan,
+                reason: "cannot kakan",
+            });
+        }
+
+        let tile = resolve_kakan_tile(&self.hands[seat], meld_index)?;
+        self.hands[seat].concealed_mut().remove(tile)?;
+
+        self.phase = HandPhase::Reaction;
+        self.reaction = Some(ReactionState::new_kakan(seat, tile, meld_index));
+        self.void_ippatsu();
+
+        Ok(vec![Event::KakanDeclared {
+            seat,
+            meld_index,
+            tile,
+        }])
+    }
+
+    fn complete_kakan(
+        &mut self,
+        seat: usize,
+        meld_index: usize,
+        tile: Tile,
+    ) -> Result<Vec<Event>, Error> {
+        let pon = self.hands[seat].melds()[meld_index].clone();
+        let upgraded = upgrade_pon_to_open_kan(&pon, tile)?;
+        let meld_tiles: Vec<Tile> = upgraded.tiles().to_vec();
+        self.hands[seat].melds_mut()[meld_index] = upgraded;
+
+        let (rinshan, dora) = self.wall.apply_kan()?;
+        self.hands[seat].concealed_mut().push(rinshan);
+        self.hands[seat].sort_concealed();
+        self.last_draw = Some(rinshan);
+        self.is_rinshan_draw = true;
+        self.void_ippatsu();
+
+        let mut events = vec![
+            Event::Called {
+                seat,
+                from: seat,
+                meld: MeldKind::Kan(KanForm::Open),
+                tiles: meld_tiles,
+            },
+            Event::DoraRevealed { tile: dora },
+            Event::RinshanDrawn {
+                seat,
+                tile: rinshan,
+            },
+        ];
+
+        if let Some(kind) = self.check_abortive_after_kan() {
+            events.extend(self.resolve_abortive_draw(kind, Vec::new())?);
+            return Ok(events);
+        }
+
+        self.current_actor = seat;
+        self.phase = HandPhase::Discard;
         Ok(events)
     }
 
@@ -437,14 +658,16 @@ impl HandState {
             if self.is_furiten(seat, reaction.tile) {
                 return Err(Error::Furiten);
             }
-            let from = reaction.discarder;
-            let win_tile = reaction.tile;
-            self.reaction.take();
-            self.pop_called_discard(from)?;
-            return self.resolve_win(seat, WinType::Ron { from }, win_tile);
+            if !self.can_ron(seat) {
+                return Err(Error::CannotWin);
+            }
         }
 
-        if action != Action::Pass {
+        if action == Action::Pass && self.can_ron(seat) {
+            self.mark_passed_win(seat);
+        }
+
+        if action != Action::Pass && action != Action::Ron {
             self.validate_call_action(seat, action)?;
         }
 
@@ -479,13 +702,19 @@ impl HandState {
                     });
                 }
             }
-            Action::OpenKan => {
+            Action::Kan(KanIntent::Open) => {
                 if !crate::state::calls::can_open_kan(self.hands[seat].concealed(), called) {
                     return Err(Error::InvalidCall {
                         kind: CallKind::OpenKan,
                         reason: "cannot open kan",
                     });
                 }
+            }
+            Action::Kan(_) => {
+                return Err(Error::IllegalAction {
+                    action,
+                    phase: HandPhase::Reaction,
+                });
             }
             _ => {
                 return Err(Error::IllegalAction {
@@ -500,7 +729,35 @@ impl HandState {
 
     fn resolve_reaction(&mut self) -> Result<Vec<Event>, Error> {
         let reaction = self.reaction.take().expect("reaction state");
+        let max_rons = self.config.max_rons();
+        let ron_winners = reaction.ron_winners(max_rons);
+        let is_chankan = reaction.kind == ReactionKind::Kakan;
+        if !ron_winners.is_empty() {
+            let from = reaction.discarder;
+            let win_tile = reaction.tile;
+            if reaction.kind == ReactionKind::Discard {
+                self.pop_called_discard(from)?;
+            }
+            return self.resolve_multi_ron(
+                ron_winners,
+                WinType::Ron { from },
+                win_tile,
+                WinTimingFlags { is_chankan },
+            );
+        }
+
+        if reaction.kind == ReactionKind::Kakan {
+            let seat = reaction.discarder;
+            let meld_index = reaction
+                .kakan_meld_index
+                .expect("kakan reaction missing meld index");
+            return self.complete_kakan(seat, meld_index, reaction.tile);
+        }
+
         let Some((caller, action)) = reaction.winning_call() else {
+            if self.wall.live_remaining() == 0 {
+                return self.resolve_exhaustive_draw(Vec::new());
+            }
             self.phase = HandPhase::Draw;
             self.current_actor = kamicha(reaction.discarder);
             return Ok(Vec::new());
@@ -511,7 +768,9 @@ impl HandState {
         let resolved = match action {
             Action::Chi { tiles } => resolve_chi(self.hands[caller].concealed(), called, tiles)?,
             Action::Pon => resolve_pon(self.hands[caller].concealed(), called)?,
-            Action::OpenKan => resolve_open_kan(self.hands[caller].concealed(), called)?,
+            Action::Kan(KanIntent::Open) => {
+                resolve_open_kan(self.hands[caller].concealed(), called)?
+            }
             _ => unreachable!("winning call must be chi/pon/open kan"),
         };
 
@@ -525,6 +784,8 @@ impl HandState {
         }
 
         self.hands[caller].melds_mut().push(resolved.meld);
+        self.calls_made = true;
+        self.void_ippatsu();
 
         let mut events = vec![Event::Called {
             seat: caller,
@@ -538,6 +799,7 @@ impl HandState {
             self.hands[caller].concealed_mut().push(rinshan);
             self.hands[caller].sort_concealed();
             self.last_draw = Some(rinshan);
+            self.is_rinshan_draw = true;
             events.push(Event::DoraRevealed { tile: dora });
             events.push(Event::RinshanDrawn {
                 seat: caller,
@@ -556,10 +818,20 @@ impl HandState {
     }
 
     fn pop_called_discard(&mut self, discarder: usize) -> Result<(), Error> {
+        let tile = self.discards[discarder]
+            .last()
+            .copied()
+            .ok_or(Error::InvalidCall {
+                kind: CallKind::Pon,
+                reason: "no discard to call",
+            })?;
         self.discards[discarder].pop().ok_or(Error::InvalidCall {
             kind: CallKind::Pon,
             reason: "no discard to call",
         })?;
+        if self.last_discard == Some((discarder, tile)) {
+            self.last_discard = None;
+        }
         Ok(())
     }
 
@@ -573,11 +845,15 @@ impl HandState {
                     });
                 }
             }
-            Event::HandStarted { .. } => {}
+            Event::HandStarted { .. } => {
+                self.last_discard = None;
+            }
             Event::Drawn { seat, tile } => {
                 self.hands[*seat].concealed_mut().push(*tile);
                 self.hands[*seat].sort_concealed();
                 self.last_draw = Some(*tile);
+                self.is_rinshan_draw = false;
+                self.live_draws[*seat] += 1;
                 self.current_actor = *seat;
                 self.phase = HandPhase::Discard;
                 let _ = self.wall.draw_live();
@@ -586,6 +862,7 @@ impl HandState {
                 self.hands[*seat].concealed_mut().remove(*tile)?;
                 self.discards[*seat].push(*tile);
                 self.last_draw = None;
+                self.last_discard = Some((*seat, *tile));
                 if self.first_discards[*seat].is_none() {
                     self.first_discards[*seat] = Some(*tile);
                 }
@@ -594,9 +871,14 @@ impl HandState {
                 }
             }
             Event::RiichiDeclared { seat, discard: _ } => {
+                let is_first_discard = self.first_discards[*seat].is_none();
                 self.scores[*seat] -= 1_000;
                 self.table_riichi_sticks += 1;
                 self.riichi[*seat] = true;
+                self.ippatsu_live[*seat] = true;
+                if is_first_discard && !self.calls_made {
+                    self.double_riichi[*seat] = true;
+                }
             }
             Event::Called {
                 seat,
@@ -610,6 +892,9 @@ impl HandState {
                 self.discards[*from].pop().ok_or(Error::ReplayMismatch {
                     detail: "no discard to complete call event",
                 })?;
+                if self.last_discard == Some((*from, called)) {
+                    self.last_discard = None;
+                }
                 let meld = replay_build_meld(*meld, tiles, Some(called))?;
                 for tile in meld.tiles() {
                     if meld.called() != Some(*tile) {
@@ -620,19 +905,37 @@ impl HandState {
                 self.current_actor = *seat;
                 self.phase = HandPhase::Discard;
                 self.reaction = None;
+                self.calls_made = true;
+                self.void_ippatsu();
             }
             Event::DoraRevealed { tile: _ } => {
                 let _ = self.wall.apply_kan();
+                self.void_ippatsu();
             }
             Event::RinshanDrawn { seat, tile } => {
                 self.hands[*seat].concealed_mut().push(*tile);
                 self.hands[*seat].sort_concealed();
                 self.last_draw = Some(*tile);
+                self.is_rinshan_draw = true;
+            }
+            Event::KakanDeclared {
+                seat,
+                meld_index: _,
+                tile,
+            } => {
+                self.hands[*seat].concealed_mut().remove(*tile)?;
+                self.phase = HandPhase::Reaction;
+                self.reaction = None;
+                self.void_ippatsu();
             }
             Event::Won { seat, .. } => {
                 self.phase = HandPhase::Ended;
                 self.reaction = None;
-                self.end_reason = Some(HandEndReason::Win { winner: *seat });
+                if !matches!(self.end_reason, Some(HandEndReason::Win { .. })) {
+                    self.end_reason = Some(HandEndReason::Win {
+                        winners: vec![*seat],
+                    });
+                }
             }
             Event::ScoresAdjusted { deltas } => {
                 self.apply_deltas(deltas);
@@ -648,23 +951,13 @@ impl HandState {
                 self.reaction = None;
                 self.end_reason = Some(HandEndReason::AbortiveDraw(*kind));
             }
-            Event::MatchEnded { .. } => {}
+            Event::GameEnded { .. } => {}
         }
         Ok(())
     }
 
     /// Completes reaction-phase bookkeeping after a discard event in replay.
     pub fn apply_discard_followup(&mut self, seat: usize) -> Result<(), Error> {
-        if self.wall.live_remaining() == 0 {
-            self.current_actor = super::next_seat(seat);
-            let profile = crate::rules::RulesRegistry::get(self.config.profile)?;
-            let deltas = profile.score_exhaustive_draw(self, &self.config);
-            self.apply_deltas(&deltas);
-            self.phase = HandPhase::Ended;
-            self.reaction = None;
-            self.end_reason = Some(HandEndReason::ExhaustiveDraw);
-            return Ok(());
-        }
         self.current_actor = super::next_seat(seat);
         self.phase = HandPhase::Reaction;
         let tile = *self.discards[seat].last().ok_or(Error::ReplayMismatch {
@@ -695,7 +988,7 @@ fn replay_build_meld(kind: MeldKind, tiles: &[Tile], called: Option<Tile>) -> Re
             })?;
             Meld::pon(arr, called)
         }
-        MeldKind::OpenKan => {
+        MeldKind::Kan(KanForm::Open) => {
             let arr: [Tile; 4] = tiles.try_into().map_err(|_| Error::ReplayMismatch {
                 detail: "open kan event has wrong tile count",
             })?;
@@ -704,12 +997,11 @@ fn replay_build_meld(kind: MeldKind, tiles: &[Tile], called: Option<Tile>) -> Re
             })?;
             Meld::open_kan(arr, called)
         }
-        MeldKind::ClosedKan => {
+        MeldKind::Kan(KanForm::Closed) => {
             let arr: [Tile; 4] = tiles.try_into().map_err(|_| Error::ReplayMismatch {
                 detail: "closed kan event has wrong tile count",
             })?;
             Meld::closed_kan(arr)
         }
-        MeldKind::AddedKan => Meld::added_kan(tiles[0]),
     }
 }

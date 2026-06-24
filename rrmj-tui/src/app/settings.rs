@@ -1,12 +1,24 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsField {
     Theme,
+    RulesProfile,
     DefaultDifficulty,
     HumanSeat,
+    CpuStepDelay,
+    TurnTimer,
+    ResponseTimer,
 }
 
 impl SettingsField {
-    pub const ALL: [Self; 3] = [Self::Theme, Self::DefaultDifficulty, Self::HumanSeat];
+    pub const ALL: [Self; 7] = [
+        Self::Theme,
+        Self::RulesProfile,
+        Self::DefaultDifficulty,
+        Self::HumanSeat,
+        Self::CpuStepDelay,
+        Self::TurnTimer,
+        Self::ResponseTimer,
+    ];
 
     pub fn next(self) -> Self {
         let fields = Self::ALL;

@@ -1,0 +1,62 @@
+#![cfg(feature = "debug-menu")]
+
+use ratatui::style::Style;
+use ratatui::text::{Line, Span};
+
+use crate::app::{App, MainMenuMode};
+use crate::theme::Theme;
+
+pub fn draw_debug_scenario_lines(app: &App, theme: &Theme) -> Vec<Line<'static>> {
+    let entries = app.filtered_debug_entries();
+    let filter = app
+        .debug_filter_tag()
+        .map(|t| format!("[{t}] "))
+        .unwrap_or_default();
+    if entries.is_empty() {
+        return vec![
+            Line::from("No scenarios found."),
+            Line::from(Span::styled(
+                "Repo fixtures: examples/scenarios (debug build only)",
+                Style::default().fg(theme.muted),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "i import from path  Enter or Esc to return",
+                Style::default().fg(theme.muted),
+            )),
+        ];
+    }
+
+    entries
+        .iter()
+        .enumerate()
+        .map(|(i, entry)| {
+            let prefix = if i == app.menu_index() { "> " } else { "  " };
+            let style = if i == app.menu_index() {
+                theme.menu_selected_style()
+            } else {
+                Style::default().fg(theme.primary)
+            };
+            let tags = if entry.tags.is_empty() {
+                String::new()
+            } else {
+                format!("[{}] ", entry.tags.join(","))
+            };
+            Line::from(vec![
+                Span::styled(format!("{prefix}{tags}{}", entry.title), style),
+                Span::raw(" — "),
+                Span::styled(entry.description.clone(), Style::default().fg(theme.muted)),
+            ])
+        })
+        .chain(
+            std::iter::once(Line::from("")).chain(std::iter::once(Line::from(Span::styled(
+                format!("{filter}f cycle tag filter  i import from path"),
+                Style::default().fg(theme.muted),
+            )))),
+        )
+        .collect()
+}
+
+pub fn is_debug_menu_mode(mode: MainMenuMode) -> bool {
+    mode == MainMenuMode::Debug
+}

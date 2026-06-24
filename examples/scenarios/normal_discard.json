@@ -1,0 +1,322 @@
+{
+  "format_version": 3,
+  "title": "Normal discard",
+  "description": "Dealer must choose a tile to discard.",
+  "tags": [
+    "discard"
+  ],
+  "rules_profile": "Standard",
+  "rules_config": {
+    "profile": "Standard",
+    "starting_points": 25000,
+    "aka_dora": true,
+    "kiriage": false,
+    "match_length": "Hanchan",
+    "target_score": null,
+    "abortive_nine_terminals": true,
+    "abortive_four_winds": true,
+    "abortive_four_kongs": true,
+    "abortive_four_riichis": true,
+    "double_ron": true,
+    "triple_ron": false
+  },
+  "seed": 1001,
+  "players": [
+    {
+      "slot": "Human"
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 1001
+      }
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 1001
+      }
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 1001
+      }
+    }
+  ],
+  "human_seat": 0,
+  "cpu_step_delay_ms": 300,
+  "turn_timer_ms": 30000,
+  "response_timer_ms": 5000,
+  "match_status": "in_progress",
+  "dealer": 0,
+  "round_wind": "East",
+  "kyoku": 1,
+  "honba": 0,
+  "scores": [
+    25000,
+    25000,
+    25000,
+    25000
+  ],
+  "table_riichi_sticks": 0,
+  "hand_index": 0,
+  "match_phase": "InHand",
+  "hand": {
+    "dealer": 0,
+    "current_actor": 0,
+    "phase": "Discard",
+    "hands": [
+      {
+        "concealed": {
+          "tiles": [
+            "1m",
+            "4m",
+            "7m",
+            "9m",
+            "2p",
+            "5pr",
+            "1s",
+            "1s",
+            "2s",
+            "3s",
+            "9s",
+            "wd",
+            "rd",
+            "rd"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "2m",
+            "5m",
+            "6m",
+            "8m",
+            "7p",
+            "9p",
+            "9p",
+            "6s",
+            "S",
+            "S",
+            "W",
+            "N",
+            "gd"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "3m",
+            "6m",
+            "9m",
+            "9m",
+            "1p",
+            "5p",
+            "8p",
+            "2s",
+            "4s",
+            "8s",
+            "9s",
+            "E",
+            "N"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "2m",
+            "4m",
+            "5mr",
+            "8m",
+            "5p",
+            "8p",
+            "3s",
+            "4s",
+            "7s",
+            "S",
+            "N",
+            "gd",
+            "gd"
+          ]
+        },
+        "melds": []
+      }
+    ],
+    "discards": [
+      [],
+      [],
+      [],
+      []
+    ],
+    "wall": {
+      "live": [
+        "1p",
+        "4p",
+        "8p",
+        "4m",
+        "7p",
+        "gd",
+        "7m",
+        "7m",
+        "3p",
+        "5s",
+        "5s",
+        "2s",
+        "3m",
+        "3s",
+        "6p",
+        "1p",
+        "2m",
+        "6s",
+        "E",
+        "1p",
+        "3p",
+        "2p",
+        "4s",
+        "9p",
+        "4p",
+        "9s",
+        "1s",
+        "5m",
+        "6s",
+        "E",
+        "6p",
+        "6p",
+        "3p",
+        "2p",
+        "5sr",
+        "7s",
+        "9m",
+        "9s",
+        "W",
+        "N",
+        "wd",
+        "4m",
+        "1m",
+        "W",
+        "rd",
+        "5s",
+        "7p",
+        "S",
+        "8s",
+        "4p",
+        "6m",
+        "1s",
+        "2p",
+        "8s",
+        "2s",
+        "8p",
+        "4p",
+        "6s",
+        "8m",
+        "1m",
+        "5m",
+        "3s",
+        "6p",
+        "1m",
+        "wd",
+        "7s",
+        "3m",
+        "6m",
+        "8m"
+      ],
+      "dead": [
+        "9p",
+        "8s",
+        "7p",
+        "2m",
+        "wd",
+        "W",
+        "5p",
+        "3m",
+        "rd",
+        "3p",
+        "E",
+        "7s",
+        "4s",
+        "7m"
+      ],
+      "kan_count": 0,
+      "rinshan_taken": 0
+    },
+    "scores": [
+      25000,
+      25000,
+      25000,
+      25000
+    ],
+    "riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "table_riichi_sticks": 0,
+    "honba": 0,
+    "first_discards": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "is_dealer_first_turn": true,
+    "temporary_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "riichi_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "ippatsu_live": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "double_riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "calls_made": false,
+    "is_rinshan_draw": false,
+    "live_draws": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "events": [
+    {
+      "Dealt": {
+        "dealer": 0
+      }
+    },
+    {
+      "HandStarted": {
+        "dealer": 0,
+        "round_wind": "East",
+        "kyoku": 1,
+        "honba": 0
+      }
+    }
+  ],
+  "event_index": 1
+}

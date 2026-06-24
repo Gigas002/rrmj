@@ -32,6 +32,8 @@ quit = "q"
 help = "h"
 # Back / cancel (menus, tile pickers, overlays)
 back = "esc"
+# Leave the table and return to the main menu (does not save)
+main_menu = "m"
 
 # ---------------------------------------------------------------------------
 # [menu] — main menu, settings, new-game setup
@@ -57,6 +59,8 @@ ron = "r"
 pon = "o"
 chi = "c"
 open_kan = "k"
+# Upgrade an open pon to kan (kakan) on your discard turn
+kakan = "u"
 # Your turn
 tsumo = "t"
 riichi = "i"
@@ -77,3 +81,7 @@ confirm = "enter"
 continue = "enter"
 # Rules and yaku reference (also bound to y in the client)
 rules = "?"
+# Current scores (in-match overlay)
+scores = "s"
+# Win path recommendations (human turn)
+recommendations = "e"

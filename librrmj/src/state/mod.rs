@@ -11,6 +11,8 @@ mod tests;
 pub use calls::CallKind;
 pub use end_reason::HandEndReason;
 pub use hand_state::{HandPhase, HandState, SEAT_COUNT};
+#[cfg(feature = "serde")]
+pub use reaction::{ReactionKind, ReactionState};
 
 pub fn next_seat(seat: usize) -> usize {
     debug_assert!(seat < SEAT_COUNT);

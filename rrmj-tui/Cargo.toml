@@ -14,11 +14,12 @@ path = "src/main.rs"
 [features]
 default = ["ai"]
 ai = ["librrmj/ai"]
+debug-menu = []
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 crossterm = "0.29"
-librrmj = { path = "../librrmj", features = ["ai"] }
+librrmj = { path = "../librrmj", features = ["ai", "serde"] }
 ratatui = "0.30"
 thiserror = "2"
 toml = "1"

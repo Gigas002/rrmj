@@ -12,16 +12,11 @@ pub fn draw_setup_popup(frame: &mut ratatui::Frame, area: Rect, app: &App, theme
     let Some(setup) = app.setup() else {
         return;
     };
-    let popup = popup::open_popup(frame, area, 80, 72);
+    let popup = popup::open_popup(frame, area, 80, 78);
     draw_setup_content(frame, popup, setup, theme);
 }
 
-fn draw_setup_content(
-    frame: &mut ratatui::Frame,
-    area: Rect,
-    setup: &NewGameSetup,
-    theme: &Theme,
-) {
+fn draw_setup_content(frame: &mut ratatui::Frame, area: Rect, setup: &NewGameSetup, theme: &Theme) {
     let mut lines = Vec::new();
     lines.push(Line::from("Configure seats, then confirm."));
     lines.push(Line::from(""));
@@ -68,6 +63,39 @@ fn draw_setup_content(
         ),
     ]));
 
+    let cpu_style = if setup.selected == SetupField::CpuStepDelay {
+        theme.menu_selected_style()
+    } else {
+        Style::default().fg(theme.primary)
+    };
+    lines.push(Line::from(vec![
+        Span::raw("CPU decision delay: "),
+        Span::styled(crate::timers::label_cpu(setup.cpu_step_delay_ms), cpu_style),
+    ]));
+
+    let turn_style = if setup.selected == SetupField::TurnTimer {
+        theme.menu_selected_style()
+    } else {
+        Style::default().fg(theme.primary)
+    };
+    lines.push(Line::from(vec![
+        Span::raw("Turn timer: "),
+        Span::styled(crate::timers::label_turn(setup.turn_timer_ms), turn_style),
+    ]));
+
+    let response_style = if setup.selected == SetupField::ResponseTimer {
+        theme.menu_selected_style()
+    } else {
+        Style::default().fg(theme.primary)
+    };
+    lines.push(Line::from(vec![
+        Span::raw("Call response timer: "),
+        Span::styled(
+            crate::timers::label_response(setup.response_timer_ms),
+            response_style,
+        ),
+    ]));
+
     let confirm_style = if setup.selected == SetupField::Confirm {
         theme.status_style().add_modifier(Modifier::BOLD)
     } else {
@@ -80,13 +108,11 @@ fn draw_setup_content(
         Style::default().fg(theme.muted),
     )));
 
-    let body = Paragraph::new(lines)
-        .wrap(Wrap { trim: true })
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(theme.block_style())
-                .title("New game setup"),
-        );
+    let body = Paragraph::new(lines).wrap(Wrap { trim: true }).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(theme.block_style())
+            .title("New game setup"),
+    );
     frame.render_widget(body, area);
 }

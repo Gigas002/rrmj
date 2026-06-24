@@ -3,7 +3,7 @@ use crate::action::Action;
 use crate::agent::{Agent, PlayerView};
 use crate::event::Event;
 
-use super::Match;
+use super::Game;
 
 /// Result of advancing the match by one agent decision.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -13,7 +13,7 @@ pub struct StepResult {
     pub events: Vec<Event>,
 }
 
-impl Match {
+impl Game {
     /// Seat that must act next, if any.
     pub fn pending_seat(&self) -> Option<usize> {
         if self.is_ended() {
@@ -47,7 +47,7 @@ impl Match {
             return Ok(None);
         }
 
-        let view = PlayerView::from_match(self, seat);
+        let view = PlayerView::from_game(self, seat);
         let action = agents[seat].decide(&view, &legal);
         let events = self.apply_action(seat, action)?;
 

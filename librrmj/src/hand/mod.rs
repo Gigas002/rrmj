@@ -1,16 +1,19 @@
 mod concealed;
+mod kan;
 mod meld;
 
 #[cfg(test)]
 mod tests;
 
 pub use concealed::Concealed;
+pub use kan::KanForm;
 pub use meld::{Meld, MeldKind, MeldTileCount};
 
 use crate::Error;
 
 /// A player's hand: concealed tiles plus open melds.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Hand {
     concealed: Concealed,
     melds: Vec<Meld>,

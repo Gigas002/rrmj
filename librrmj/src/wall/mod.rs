@@ -1,9 +1,13 @@
 mod layout;
+#[cfg(feature = "serde")]
+mod snapshot;
 
 #[cfg(test)]
 mod tests;
 
 pub use layout::WallLayout;
+#[cfg(feature = "serde")]
+pub use snapshot::WallSnapshot;
 
 use rand::Rng;
 use rand::seq::SliceRandom;

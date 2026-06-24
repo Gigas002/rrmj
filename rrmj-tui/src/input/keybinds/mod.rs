@@ -123,11 +123,7 @@ impl Keybinds {
         self.chord(action) == KeyChord::new(event.code, event.modifiers)
     }
 
-    pub fn is_any_bound(
-        &self,
-        event: &crossterm::event::KeyEvent,
-        actions: &[BindAction],
-    ) -> bool {
+    pub fn is_any_bound(&self, event: &crossterm::event::KeyEvent, actions: &[BindAction]) -> bool {
         actions.iter().any(|action| self.is_bound(event, *action))
     }
 
@@ -151,6 +147,7 @@ fn parse_action_key(key: &str) -> Option<BindAction> {
         "global.quit" => Some(BindAction::Quit),
         "global.help" => Some(BindAction::Help),
         "global.back" => Some(BindAction::Back),
+        "global.main_menu" => Some(BindAction::MainMenu),
         "menu.up" => Some(BindAction::MenuUp),
         "menu.down" => Some(BindAction::MenuDown),
         "menu.select" => Some(BindAction::MenuSelect),
@@ -161,6 +158,7 @@ fn parse_action_key(key: &str) -> Option<BindAction> {
         "table.pon" => Some(BindAction::Pon),
         "table.chi" => Some(BindAction::Chi),
         "table.open_kan" => Some(BindAction::OpenKan),
+        "table.kakan" => Some(BindAction::Kakan),
         "table.closed_kan" => Some(BindAction::ClosedKan),
         "table.tsumo" => Some(BindAction::Tsumo),
         "table.riichi" => Some(BindAction::Riichi),
@@ -171,6 +169,8 @@ fn parse_action_key(key: &str) -> Option<BindAction> {
         "table.confirm" => Some(BindAction::Confirm),
         "overlay.continue" => Some(BindAction::Continue),
         "overlay.rules" => Some(BindAction::RulesReference),
+        "overlay.scores" => Some(BindAction::Scores),
+        "overlay.recommendations" => Some(BindAction::Recommendations),
         _ => None,
     }
 }
@@ -180,6 +180,7 @@ fn default_entries() -> &'static [(BindAction, &'static str)] {
         (BindAction::Quit, "q"),
         (BindAction::Help, "h"),
         (BindAction::Back, "esc"),
+        (BindAction::MainMenu, "m"),
         (BindAction::MenuUp, "up"),
         (BindAction::MenuDown, "down"),
         (BindAction::MenuSelect, "enter"),
@@ -190,6 +191,7 @@ fn default_entries() -> &'static [(BindAction, &'static str)] {
         (BindAction::Pon, "o"),
         (BindAction::Chi, "c"),
         (BindAction::OpenKan, "k"),
+        (BindAction::Kakan, "u"),
         (BindAction::ClosedKan, "g"),
         (BindAction::Tsumo, "t"),
         (BindAction::Riichi, "i"),
@@ -200,6 +202,8 @@ fn default_entries() -> &'static [(BindAction, &'static str)] {
         (BindAction::Confirm, "enter"),
         (BindAction::Continue, "enter"),
         (BindAction::RulesReference, "?"),
+        (BindAction::Scores, "s"),
+        (BindAction::Recommendations, "e"),
     ]
 }
 
@@ -217,6 +221,7 @@ pub fn action_label(action: BindAction) -> &'static str {
         BindAction::Quit => "Quit",
         BindAction::Help => "Keybind help",
         BindAction::Back => "Back / cancel",
+        BindAction::MainMenu => "Return to main menu (table)",
         BindAction::MenuUp => "Menu up",
         BindAction::MenuDown => "Menu down",
         BindAction::MenuSelect => "Select",
@@ -227,6 +232,7 @@ pub fn action_label(action: BindAction) -> &'static str {
         BindAction::Pon => "Pon",
         BindAction::Chi => "Chi",
         BindAction::OpenKan => "Open kan",
+        BindAction::Kakan => "Added kan (kakan)",
         BindAction::ClosedKan => "Closed kan",
         BindAction::Tsumo => "Tsumo",
         BindAction::Riichi => "Riichi",
@@ -237,6 +243,8 @@ pub fn action_label(action: BindAction) -> &'static str {
         BindAction::Confirm => "Confirm",
         BindAction::Continue => "Continue",
         BindAction::RulesReference => "Rules / yaku reference",
+        BindAction::Scores => "Scores",
+        BindAction::Recommendations => "Win path recommendations",
     }
 }
 

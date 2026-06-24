@@ -1,5 +1,6 @@
 use crate::game::{AbortiveDrawKind, RoundWind};
 use crate::hand::MeldKind;
+use crate::scoring::ScoringResult;
 use crate::tile::Tile;
 
 /// A state change that has been applied to the hand.
@@ -25,8 +26,14 @@ pub enum Event {
     DoraRevealed { tile: Tile },
     /// A rinshan draw after a kan.
     RinshanDrawn { seat: usize, tile: Tile },
-    /// A seat won the hand.
-    Won { seat: usize, han: u8, fu: u8 },
+    /// A seat upgraded an open pon; tile is exposed for chankan until the reaction resolves.
+    KakanDeclared {
+        seat: usize,
+        meld_index: usize,
+        tile: Tile,
+    },
+    /// A seat won the hand with full scoring breakdown.
+    Won { seat: usize, scoring: ScoringResult },
     /// Score transfers applied to all seats.
     ScoresAdjusted { deltas: [i32; 4] },
     /// Live wall exhausted without a win.
@@ -40,6 +47,7 @@ pub enum Event {
     },
     /// Hand ended in an abortive draw.
     AbortiveDraw { kind: AbortiveDrawKind },
-    /// Match completed.
-    MatchEnded { scores: [i32; 4] },
+    /// Game session completed.
+    #[cfg_attr(feature = "serde", serde(alias = "MatchEnded"))]
+    GameEnded { scores: [i32; 4] },
 }

@@ -1,0 +1,327 @@
+{
+  "format_version": 3,
+  "title": "Four kongs abortive",
+  "description": "Fourth kan declaration ends the hand in an abortive draw.",
+  "tags": [
+    "abortive",
+    "draw",
+    "kan"
+  ],
+  "rules_profile": "Standard",
+  "rules_config": {
+    "profile": "Standard",
+    "starting_points": 25000,
+    "aka_dora": true,
+    "kiriage": false,
+    "match_length": "Hanchan",
+    "target_score": null,
+    "abortive_nine_terminals": true,
+    "abortive_four_winds": true,
+    "abortive_four_kongs": true,
+    "abortive_four_riichis": true,
+    "double_ron": true,
+    "triple_ron": false
+  },
+  "seed": 2157,
+  "players": [
+    {
+      "slot": "Human"
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2157
+      }
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2157
+      }
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2157
+      }
+    }
+  ],
+  "human_seat": 0,
+  "cpu_step_delay_ms": 300,
+  "turn_timer_ms": 30000,
+  "response_timer_ms": 5000,
+  "match_status": "in_progress",
+  "dealer": 0,
+  "round_wind": "East",
+  "kyoku": 1,
+  "honba": 0,
+  "scores": [
+    25000,
+    25000,
+    25000,
+    25000
+  ],
+  "table_riichi_sticks": 0,
+  "hand_index": 0,
+  "match_phase": "InHand",
+  "hand": {
+    "dealer": 0,
+    "current_actor": 0,
+    "phase": "Ended",
+    "hands": [
+      {
+        "concealed": {
+          "tiles": [
+            "2m",
+            "3m",
+            "4m",
+            "7m",
+            "7m",
+            "4p",
+            "5p",
+            "7p",
+            "2s",
+            "8s",
+            "wd",
+            "wd",
+            "rd",
+            "rd"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "2m",
+            "3m",
+            "5m",
+            "9m",
+            "3p",
+            "8p",
+            "8p",
+            "9p",
+            "1s",
+            "5s",
+            "E",
+            "gd",
+            "gd"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "1m",
+            "6m",
+            "7m",
+            "8m",
+            "4p",
+            "5p",
+            "5pr",
+            "2s",
+            "4s",
+            "5sr",
+            "6s",
+            "7s",
+            "S"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "3p",
+            "6p",
+            "8p",
+            "3s",
+            "3s",
+            "6s",
+            "7s",
+            "E",
+            "S",
+            "W",
+            "N",
+            "wd",
+            "wd"
+          ]
+        },
+        "melds": []
+      }
+    ],
+    "discards": [
+      [],
+      [],
+      [],
+      []
+    ],
+    "wall": {
+      "live": [
+        "3p",
+        "9p",
+        "2p",
+        "5mr",
+        "6m",
+        "2m",
+        "9s",
+        "9p",
+        "E",
+        "gd",
+        "8p",
+        "1s",
+        "7p",
+        "9s",
+        "E",
+        "S",
+        "5s",
+        "5m",
+        "1m",
+        "1p",
+        "W",
+        "7p",
+        "6s",
+        "2m",
+        "9m",
+        "3m",
+        "rd",
+        "5p",
+        "2s",
+        "1m",
+        "S",
+        "W",
+        "9s",
+        "7m",
+        "9s",
+        "6s",
+        "8s",
+        "6p",
+        "4m",
+        "4s",
+        "6p",
+        "3p",
+        "9m",
+        "6m",
+        "3m",
+        "4s",
+        "3s",
+        "8s",
+        "1s",
+        "N",
+        "9m",
+        "4m",
+        "N",
+        "4p",
+        "1p",
+        "6p",
+        "1s",
+        "8m",
+        "8m",
+        "4p",
+        "rd",
+        "gd",
+        "4s",
+        "5m",
+        "2p",
+        "8s",
+        "3s",
+        "1p",
+        "7s"
+      ],
+      "dead": [
+        "1p",
+        "2p",
+        "4m",
+        "7s",
+        "W",
+        "7p",
+        "8m",
+        "N",
+        "2s",
+        "9p",
+        "2p",
+        "5s",
+        "1m",
+        "6m"
+      ],
+      "kan_count": 4,
+      "rinshan_taken": 4
+    },
+    "scores": [
+      25000,
+      25000,
+      25000,
+      25000
+    ],
+    "riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "table_riichi_sticks": 0,
+    "honba": 0,
+    "first_discards": [
+      null,
+      null,
+      null,
+      null
+    ],
+    "is_dealer_first_turn": true,
+    "temporary_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "riichi_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "ippatsu_live": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "double_riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "calls_made": false,
+    "is_rinshan_draw": false,
+    "live_draws": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "end_reason": {
+      "AbortiveDraw": "FourKongs"
+    }
+  },
+  "events": [
+    {
+      "Dealt": {
+        "dealer": 0
+      }
+    },
+    {
+      "HandStarted": {
+        "dealer": 0,
+        "round_wind": "East",
+        "kyoku": 1,
+        "honba": 0
+      }
+    }
+  ],
+  "event_index": 1
+}

@@ -11,12 +11,13 @@ keywords = ["mahjong", "riichi", "game"]
 [features]
 default = []
 ai = []
-serde = ["dep:serde"]
+serde = ["dep:serde", "dep:serde_json", "ai"]
 test-util = []
 
 [dependencies]
 rand = "0.10"
 serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
 thiserror = "2"
 tracing = "0.1"
 

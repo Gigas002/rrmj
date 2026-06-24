@@ -1,10 +1,70 @@
-use crate::game::{Match, MatchPhase, RoundWind};
+use crate::game::{Game, GamePhase, RoundWind};
 use crate::state::HandPhase;
 
-/// Comparable match state for replay verification.
+#[cfg(feature = "serde")]
+use crate::Error;
+#[cfg(feature = "serde")]
+use crate::hand::Hand;
+#[cfg(feature = "serde")]
+use crate::rules::RulesConfig;
+#[cfg(feature = "serde")]
+use crate::state::{HandEndReason, ReactionState};
+#[cfg(feature = "serde")]
+use crate::tile::Tile;
+#[cfg(feature = "serde")]
+use crate::wall::WallSnapshot;
+
+/// Full in-hand tile and flow state at a save point.
+#[cfg(feature = "serde")]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct HandSnapshot {
+    pub dealer: usize,
+    pub current_actor: usize,
+    pub phase: HandPhase,
+    pub hands: [Hand; 4],
+    pub discards: [Vec<Tile>; 4],
+    pub wall: WallSnapshot,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reaction: Option<ReactionState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_discard: Option<(usize, Tile)>,
+    pub scores: [i32; 4],
+    pub riichi: [bool; 4],
+    pub table_riichi_sticks: u8,
+    pub honba: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_draw: Option<Tile>,
+    pub first_discards: [Option<Tile>; 4],
+    pub is_dealer_first_turn: bool,
+    #[serde(default)]
+    pub temporary_furiten: [bool; 4],
+    #[serde(default)]
+    pub riichi_furiten: [bool; 4],
+    #[serde(default)]
+    pub ippatsu_live: [bool; 4],
+    #[serde(default)]
+    pub double_riichi: [bool; 4],
+    #[serde(default)]
+    pub calls_made: bool,
+    #[serde(default)]
+    pub is_rinshan_draw: bool,
+    #[serde(default)]
+    pub live_draws: [u8; 4],
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub end_reason: Option<HandEndReason>,
+}
+
+#[cfg(feature = "serde")]
+impl HandSnapshot {
+    pub fn restore(&self, config: RulesConfig) -> Result<crate::state::HandState, Error> {
+        crate::state::HandState::from_snapshot(self.clone(), config)
+    }
+}
+
+/// Comparable game state for replay verification.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MatchSnapshot {
-    pub match_phase: MatchPhase,
+pub struct GameSnapshot {
+    pub game_phase: GamePhase,
     pub scores: [i32; 4],
     pub dealer: usize,
     pub round_wind: RoundWind,
@@ -17,11 +77,11 @@ pub struct MatchSnapshot {
     pub meld_counts: [usize; 4],
 }
 
-impl Match {
-    pub fn snapshot(&self) -> MatchSnapshot {
+impl Game {
+    pub fn snapshot(&self) -> GameSnapshot {
         let hand = self.hand();
-        MatchSnapshot {
-            match_phase: self.phase(),
+        GameSnapshot {
+            game_phase: self.phase(),
             scores: *self.scores(),
             dealer: self.dealer(),
             round_wind: self.round_wind(),

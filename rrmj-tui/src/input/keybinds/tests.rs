@@ -14,6 +14,10 @@ fn default_map_is_complete() {
         KeyChord::new(KeyCode::Char('h'), KeyModifiers::empty())
     );
     assert!(binds.entries().len() >= 20);
+    assert_eq!(
+        binds.chord(BindAction::MainMenu),
+        KeyChord::new(KeyCode::Char('m'), KeyModifiers::empty())
+    );
 }
 
 #[test]

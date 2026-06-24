@@ -14,8 +14,6 @@ pub struct AiConfig {
     pub difficulty: Difficulty,
     /// Per-seat RNG seed; defaults to the match seed when unset at build time.
     pub personality_seed: Option<u64>,
-    /// UI hint only; the engine ignores this.
-    pub think_time_hint_ms: Option<u32>,
 }
 
 impl AiConfig {
@@ -23,7 +21,6 @@ impl AiConfig {
         Self {
             difficulty,
             personality_seed: Some(personality_seed),
-            think_time_hint_ms: None,
         }
     }
 

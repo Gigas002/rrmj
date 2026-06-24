@@ -1,0 +1,342 @@
+{
+  "format_version": 3,
+  "title": "Pon call available",
+  "description": "South can pon 2m from East's discard.",
+  "tags": [
+    "calls",
+    "pon",
+    "reaction"
+  ],
+  "rules_profile": "Standard",
+  "rules_config": {
+    "profile": "Standard",
+    "starting_points": 25000,
+    "aka_dora": true,
+    "kiriage": false,
+    "match_length": "Hanchan",
+    "target_score": null,
+    "abortive_nine_terminals": true,
+    "abortive_four_winds": true,
+    "abortive_four_kongs": true,
+    "abortive_four_riichis": true,
+    "double_ron": true,
+    "triple_ron": false
+  },
+  "seed": 2010,
+  "players": [
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2010
+      }
+    },
+    {
+      "slot": "Human"
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2010
+      }
+    },
+    {
+      "slot": "Cpu",
+      "ai": {
+        "difficulty": "Medium",
+        "personality_seed": 2010
+      }
+    }
+  ],
+  "human_seat": 1,
+  "cpu_step_delay_ms": 300,
+  "turn_timer_ms": 30000,
+  "response_timer_ms": 5000,
+  "match_status": "in_progress",
+  "dealer": 0,
+  "round_wind": "East",
+  "kyoku": 1,
+  "honba": 0,
+  "scores": [
+    25000,
+    25000,
+    25000,
+    25000
+  ],
+  "table_riichi_sticks": 0,
+  "hand_index": 0,
+  "match_phase": "InHand",
+  "hand": {
+    "dealer": 0,
+    "current_actor": 1,
+    "phase": "Reaction",
+    "hands": [
+      {
+        "concealed": {
+          "tiles": [
+            "1m",
+            "3m",
+            "4m",
+            "5m",
+            "6m",
+            "7m",
+            "8m",
+            "9m",
+            "1p",
+            "2p",
+            "3p",
+            "4p"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "2m",
+            "2m",
+            "3m",
+            "4m",
+            "5m",
+            "6m",
+            "7m",
+            "8m",
+            "9m",
+            "1p",
+            "2p",
+            "3p",
+            "9p"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "3m",
+            "4m",
+            "5m",
+            "6m",
+            "7m",
+            "8m",
+            "9m",
+            "1p",
+            "2p",
+            "3p",
+            "1s",
+            "2s",
+            "3s"
+          ]
+        },
+        "melds": []
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "4m",
+            "5m",
+            "6m",
+            "7m",
+            "8m",
+            "9m",
+            "1p",
+            "2p",
+            "3p",
+            "4p",
+            "4s",
+            "5s",
+            "6s"
+          ]
+        },
+        "melds": []
+      }
+    ],
+    "discards": [
+      [
+        "2m"
+      ],
+      [],
+      [],
+      []
+    ],
+    "wall": {
+      "live": [
+        "W",
+        "4s",
+        "5m",
+        "8p",
+        "9m",
+        "4s",
+        "7p",
+        "1s",
+        "5s",
+        "7m",
+        "3p",
+        "1s",
+        "5p",
+        "N",
+        "4p",
+        "W",
+        "2p",
+        "wd",
+        "9m",
+        "9m",
+        "3s",
+        "8m",
+        "9p",
+        "9s",
+        "5p",
+        "8s",
+        "9p",
+        "E",
+        "8s",
+        "gd",
+        "6s",
+        "1m",
+        "rd",
+        "6m",
+        "2m",
+        "2p",
+        "8s",
+        "2s",
+        "4p",
+        "6p",
+        "9s",
+        "4m",
+        "E",
+        "1p",
+        "1m",
+        "6s",
+        "S",
+        "6s",
+        "3p",
+        "7m",
+        "N",
+        "2m",
+        "4m",
+        "9s",
+        "3s",
+        "3m",
+        "8s",
+        "1p",
+        "8m",
+        "6m",
+        "7m",
+        "7s",
+        "8p",
+        "W",
+        "9m",
+        "wd",
+        "4m",
+        "8p",
+        "5sr",
+        "1m"
+      ],
+      "dead": [
+        "2m",
+        "5s",
+        "1s",
+        "gd",
+        "3m",
+        "E",
+        "6s",
+        "9p",
+        "4m",
+        "6p",
+        "3m",
+        "2m",
+        "wd",
+        "6p"
+      ],
+      "kan_count": 0,
+      "rinshan_taken": 0
+    },
+    "reaction": {
+      "discarder": 0,
+      "tile": "2m",
+      "kind": "Discard",
+      "responses": [
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    "scores": [
+      25000,
+      25000,
+      25000,
+      25000
+    ],
+    "riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "table_riichi_sticks": 0,
+    "honba": 0,
+    "first_discards": [
+      "2m",
+      null,
+      null,
+      null
+    ],
+    "is_dealer_first_turn": false,
+    "temporary_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "riichi_furiten": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "ippatsu_live": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "double_riichi": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "calls_made": false,
+    "is_rinshan_draw": false,
+    "live_draws": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "events": [
+    {
+      "Dealt": {
+        "dealer": 0
+      }
+    },
+    {
+      "HandStarted": {
+        "dealer": 0,
+        "round_wind": "East",
+        "kyoku": 1,
+        "honba": 0
+      }
+    }
+  ],
+  "event_index": 1,
+  "assertions": {
+    "expected_legal_actions": [
+      "Pon",
+      "Pass"
+    ]
+  }
+}

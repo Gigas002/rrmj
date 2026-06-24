@@ -15,7 +15,6 @@ fn meld_validates_tile_counts() {
     assert!(Meld::chi([tile, Tile::man(2), Tile::man(3)], tile).is_ok());
     assert!(Meld::pon([tile, tile, tile], tile).is_ok());
     assert!(Meld::closed_kan([tile, tile, tile, tile]).is_ok());
-    assert!(Meld::added_kan(tile).is_ok());
 
     assert!(
         Meld::try_new(

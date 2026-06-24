@@ -3,7 +3,10 @@ mod config;
 mod error;
 mod input;
 mod logger;
+mod save;
+mod scenarios;
 mod theme;
+mod timers;
 mod ui;
 
 use std::path::PathBuf;
@@ -49,7 +52,7 @@ fn main() -> ExitCode {
         }
     };
 
-    tracing::debug!(rules = ?librrmj::RulesConfig::standard(), "initialized");
+    tracing::debug!(rules = ?config.rules_config(), "initialized");
 
     let mut app = App::new(keybinds, cli.keybinds, config, config_path);
     match app.run() {

@@ -1,5 +1,5 @@
 use librrmj::agent::PlayerSlot;
-use librrmj::ai::{AiConfig, Difficulty, MatchSetup};
+use librrmj::ai::{AiConfig, Difficulty, GameSetup};
 
 const SEAT_NAMES: [&str; 4] = ["East", "South", "West", "North"];
 
@@ -8,6 +8,9 @@ pub enum SetupField {
     SeatType(usize),
     SeatDifficulty(usize),
     HumanSeat,
+    CpuStepDelay,
+    TurnTimer,
+    ResponseTimer,
     Confirm,
 }
 
@@ -17,24 +20,36 @@ pub struct NewGameSetup {
     pub slots: [PlayerSlot; 4],
     pub difficulties: [Difficulty; 4],
     pub human_seat: usize,
+    pub cpu_step_delay_ms: u64,
+    pub turn_timer_ms: u64,
+    pub response_timer_ms: u64,
     pub default_difficulty: Difficulty,
     pub selected: SetupField,
 }
 
 impl NewGameSetup {
-    pub fn new(default_difficulty: Difficulty, human_seat: usize) -> Self {
+    pub fn new(
+        default_difficulty: Difficulty,
+        human_seat: usize,
+        cpu_step_delay_ms: u64,
+        turn_timer_ms: u64,
+        response_timer_ms: u64,
+    ) -> Self {
         let mut slots = [PlayerSlot::Cpu; 4];
         slots[human_seat] = PlayerSlot::Human;
         Self {
             slots,
             difficulties: [default_difficulty; 4],
             human_seat,
+            cpu_step_delay_ms: crate::timers::normalize_cpu(cpu_step_delay_ms),
+            turn_timer_ms: crate::timers::normalize_turn(turn_timer_ms),
+            response_timer_ms: crate::timers::normalize_response(response_timer_ms),
             default_difficulty,
             selected: SetupField::SeatType(0),
         }
     }
 
-    pub fn fields() -> [SetupField; 10] {
+    pub fn fields() -> [SetupField; 13] {
         [
             SetupField::SeatType(0),
             SetupField::SeatType(1),
@@ -45,6 +60,9 @@ impl NewGameSetup {
             SetupField::SeatDifficulty(2),
             SetupField::SeatDifficulty(3),
             SetupField::HumanSeat,
+            SetupField::CpuStepDelay,
+            SetupField::TurnTimer,
+            SetupField::ResponseTimer,
             SetupField::Confirm,
         ]
     }
@@ -78,6 +96,15 @@ impl NewGameSetup {
                 self.human_seat = (self.human_seat + 1) % 4;
                 self.ensure_one_human();
             }
+            SetupField::CpuStepDelay => {
+                self.cpu_step_delay_ms = crate::timers::cycle_cpu(self.cpu_step_delay_ms);
+            }
+            SetupField::TurnTimer => {
+                self.turn_timer_ms = crate::timers::cycle_turn(self.turn_timer_ms);
+            }
+            SetupField::ResponseTimer => {
+                self.response_timer_ms = crate::timers::cycle_response(self.response_timer_ms);
+            }
             SetupField::Confirm => {}
         }
     }
@@ -90,6 +117,15 @@ impl NewGameSetup {
             SetupField::HumanSeat => {
                 self.human_seat = (self.human_seat + 1) % 4;
                 self.ensure_one_human();
+            }
+            SetupField::CpuStepDelay => {
+                self.cpu_step_delay_ms = crate::timers::cycle_cpu(self.cpu_step_delay_ms);
+            }
+            SetupField::TurnTimer => {
+                self.turn_timer_ms = crate::timers::cycle_turn(self.turn_timer_ms);
+            }
+            SetupField::ResponseTimer => {
+                self.response_timer_ms = crate::timers::cycle_response(self.response_timer_ms);
             }
             _ => self.toggle_selected(),
         }
@@ -120,7 +156,7 @@ impl NewGameSetup {
         }
     }
 
-    pub fn to_match_setup(&self, seed: u64) -> MatchSetup {
+    pub fn to_game_setup(&self, seed: u64) -> GameSetup {
         let default_ai = ai_config(self.default_difficulty, seed);
         let seat_ai = std::array::from_fn(|seat| {
             if self.slots[seat] == PlayerSlot::Cpu {
@@ -132,7 +168,7 @@ impl NewGameSetup {
                 None
             }
         });
-        MatchSetup {
+        GameSetup {
             slots: self.slots,
             default_ai,
             seat_ai,

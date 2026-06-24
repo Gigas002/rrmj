@@ -1,7 +1,7 @@
-use super::MediumAgent;
 use crate::action::Action;
 use crate::agent::Agent;
 use crate::agent::PlayerView;
+use crate::ai::MediumAgent;
 use crate::ai::shanten;
 use crate::game::RoundWind;
 use crate::hand::{Concealed, Hand};
@@ -27,7 +27,7 @@ fn empty_view(concealed: Vec<Tile>, phase: HandPhase) -> PlayerView {
         }),
         dora_indicators: Vec::new(),
         table_riichi_sticks: 0,
-        pending_call: None,
+        turn: crate::agent::TurnContext::idle(),
     }
 }
 
@@ -95,7 +95,7 @@ fn passes_when_pon_reduces_waiting_potential() {
     );
 
     let mut view = empty_view(concealed, HandPhase::Reaction);
-    view.pending_call = Some(crate::agent::PendingCall {
+    view.turn = crate::agent::TurnContext::reaction(crate::agent::PendingCall {
         discarder: 1,
         tile: called,
     });

@@ -1,9 +1,9 @@
-use crate::game::{HandOutcome, MatchLength, RoundWind};
+use crate::game::{GameLength, HandOutcome, RoundWind};
 use crate::rules::RulesConfig;
 
-/// Match-level progression policy for a rules profile.
-pub trait MatchFlowPolicy: Send + Sync {
-    fn is_match_over(
+/// Game-session progression policy for a rules profile.
+pub trait GameFlowPolicy: Send + Sync {
+    fn is_game_over(
         &self,
         round_wind: RoundWind,
         kyoku: u8,
@@ -12,10 +12,10 @@ pub trait MatchFlowPolicy: Send + Sync {
     ) -> bool;
 }
 
-pub struct StandardMatchFlow;
+pub struct StandardGameFlow;
 
-impl MatchFlowPolicy for StandardMatchFlow {
-    fn is_match_over(
+impl GameFlowPolicy for StandardGameFlow {
+    fn is_game_over(
         &self,
         round_wind: RoundWind,
         kyoku: u8,
@@ -28,9 +28,9 @@ impl MatchFlowPolicy for StandardMatchFlow {
             return true;
         }
 
-        let final_round = match config.match_length {
-            MatchLength::EastOnly => RoundWind::East,
-            MatchLength::Hanchan => RoundWind::South,
+        let final_round = match config.game_length {
+            GameLength::EastOnly => RoundWind::East,
+            GameLength::Hanchan => RoundWind::South,
         };
 
         round_wind == final_round && kyoku == 4
@@ -56,7 +56,7 @@ pub fn advance_after_hand(
     }
 
     let renchan = match outcome {
-        HandOutcome::Win { winner } => winner == dealer,
+        HandOutcome::Win { winners } => winners.contains(&dealer),
         HandOutcome::ExhaustiveDraw => dealer_tenpai,
         HandOutcome::AbortiveDraw(AbortiveDrawKind::FourKongs | AbortiveDrawKind::FourRiichis) => {
             dealer_tenpai

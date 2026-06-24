@@ -98,8 +98,17 @@ pub enum Error {
     Furiten,
 
     #[error("match has ended")]
-    MatchEnded,
+    GameEnded,
 
     #[error("replay does not match engine state: {detail}")]
     ReplayMismatch { detail: &'static str },
+
+    #[error("unsupported recording format version: {0}")]
+    UnsupportedFormatVersion(u32),
+
+    #[error("recording validation failed: {detail}")]
+    InvalidRecording { detail: String },
+
+    #[error("recording I/O error: {0}")]
+    RecordingIo(#[from] std::io::Error),
 }

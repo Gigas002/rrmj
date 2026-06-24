@@ -7,7 +7,7 @@ mod tests;
 
 pub use step::StepResult;
 pub use trigger::AbortiveTrigger;
-pub use types::{AbortiveDrawKind, HandOutcome, MatchLength, MatchPhase, RoundWind};
+pub use types::{AbortiveDrawKind, GameLength, GamePhase, HandOutcome, RoundWind};
 
 use rand::SeedableRng;
 use rand::rngs::StdRng;
@@ -20,9 +20,9 @@ use crate::rules::{RulesConfig, RulesRegistry};
 use crate::state::{HandEndReason, HandState};
 use crate::wall::Wall;
 
-/// Multi-hand match with round progression, honba, and renchan.
+/// Multi-hand game session with round progression, honba, and renchan.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Match {
+pub struct Game {
     config: RulesConfig,
     seed: u64,
     dealer: usize,
@@ -32,12 +32,12 @@ pub struct Match {
     scores: [i32; 4],
     table_riichi_sticks: u8,
     hand: HandState,
-    phase: MatchPhase,
+    phase: GamePhase,
     hand_index: u32,
     events: Vec<Event>,
 }
 
-impl Match {
+impl Game {
     pub fn new(config: RulesConfig, seed: u64) -> Result<Self, Error> {
         let scores = [config.starting_points; 4];
         let mut wall = Wall::new(&config, hand_rng(seed, 0));
@@ -54,7 +54,7 @@ impl Match {
             scores,
             table_riichi_sticks: 0,
             hand,
-            phase: MatchPhase::InHand,
+            phase: GamePhase::InHand,
             hand_index: 0,
             events: Vec::new(),
         };
@@ -90,7 +90,7 @@ impl Match {
         &self.scores
     }
 
-    pub const fn phase(&self) -> MatchPhase {
+    pub const fn phase(&self) -> GamePhase {
         self.phase
     }
 
@@ -98,12 +98,46 @@ impl Match {
         &self.hand
     }
 
+    pub fn recommendations(&self, seat: usize, limit: usize) -> Vec<crate::rules::Recommendation> {
+        crate::rules::recommendations(self.hand(), seat, self.config(), limit)
+    }
+
     pub fn events(&self) -> &[Event] {
         &self.events
     }
 
+    pub const fn table_riichi_sticks(&self) -> u8 {
+        self.table_riichi_sticks
+    }
+
+    pub const fn hand_index(&self) -> u32 {
+        self.hand_index
+    }
+
     pub fn is_ended(&self) -> bool {
-        self.phase == MatchPhase::Ended
+        self.phase == GamePhase::Ended
+    }
+
+    /// Reconstruct a game from a validated recording hand snapshot.
+    #[cfg(feature = "serde")]
+    pub(crate) fn restore_from_hand(
+        recording: &crate::replay::GameRecording,
+        hand: HandState,
+    ) -> Self {
+        Self {
+            config: recording.rules_config.clone(),
+            seed: recording.seed,
+            dealer: recording.dealer,
+            round_wind: recording.round_wind,
+            kyoku: recording.kyoku,
+            honba: recording.honba,
+            scores: recording.scores,
+            table_riichi_sticks: recording.table_riichi_sticks,
+            hand,
+            phase: recording.game_phase,
+            hand_index: recording.hand_index,
+            events: recording.events.clone(),
+        }
     }
 
     /// Events emitted when the first hand is dealt (for callers that need the log).
@@ -122,8 +156,8 @@ impl Match {
     }
 
     pub fn apply_action(&mut self, seat: usize, action: Action) -> Result<Vec<Event>, Error> {
-        if self.phase == MatchPhase::Ended {
-            return Err(Error::MatchEnded);
+        if self.phase == GamePhase::Ended {
+            return Err(Error::GameEnded);
         }
 
         let mut events = self.hand.apply(seat, action)?;
@@ -175,13 +209,13 @@ impl Match {
         self.hand_index += 1;
         let (hand, _) = self.deal_hand()?;
         self.hand = hand;
-        self.phase = MatchPhase::InHand;
+        self.phase = GamePhase::InHand;
         Ok(())
     }
 
     pub(crate) fn end_with_scores(&mut self, scores: [i32; 4]) {
         self.scores = scores;
-        self.phase = MatchPhase::Ended;
+        self.phase = GamePhase::Ended;
     }
 
     fn record_events(&mut self, events: Vec<Event>) {
@@ -194,15 +228,13 @@ impl Match {
         let profile = RulesRegistry::get(self.config.profile)?;
         let dealer_tenpai = profile.is_tenpai(self.hand.hand(self.dealer), &self.config);
 
-        if profile.match_flow().is_match_over(
-            self.round_wind,
-            self.kyoku,
-            &self.scores,
-            &self.config,
-        ) {
+        if profile
+            .game_flow()
+            .is_game_over(self.round_wind, self.kyoku, &self.scores, &self.config)
+        {
             self.table_riichi_sticks = 0;
-            self.phase = MatchPhase::Ended;
-            return Ok(vec![Event::MatchEnded {
+            self.phase = GamePhase::Ended;
+            return Ok(vec![Event::GameEnded {
                 scores: self.scores,
             }]);
         }
@@ -230,15 +262,8 @@ impl Match {
 
         let (hand, start_events) = self.deal_hand()?;
         self.hand = hand;
-        self.phase = MatchPhase::InHand;
+        self.phase = GamePhase::InHand;
         Ok(start_events)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn finish_hand_for_test(&mut self) -> Result<Vec<Event>, Error> {
-        let events = self.finish_hand()?;
-        self.record_events(events.clone());
-        Ok(events)
     }
 
     fn deal_hand(&self) -> Result<(HandState, Vec<Event>), Error> {
@@ -273,7 +298,9 @@ fn hand_rng(seed: u64, hand_index: u32) -> StdRng {
 
 fn hand_outcome(reason: Option<HandEndReason>) -> HandOutcome {
     match reason {
-        Some(HandEndReason::Win { winner }) => HandOutcome::Win { winner },
+        Some(HandEndReason::Win { winners }) => HandOutcome::Win {
+            winners: winners.clone(),
+        },
         Some(HandEndReason::ExhaustiveDraw) => HandOutcome::ExhaustiveDraw,
         Some(HandEndReason::AbortiveDraw(kind)) => HandOutcome::AbortiveDraw(kind),
         None => HandOutcome::ExhaustiveDraw,

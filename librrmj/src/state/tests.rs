@@ -3,12 +3,43 @@ use rand::rngs::StdRng;
 
 use super::{HandPhase, HandState};
 use crate::Error;
-use crate::action::Action;
+use crate::action::{Action, KanIntent};
 use crate::event::Event;
-use crate::hand::MeldKind;
-use crate::rules::RulesConfig;
+use crate::hand::{Hand, KanForm, Meld, MeldKind};
+use crate::rules::{RulesConfig, RulesProfileId, RulesRegistry};
 use crate::tile::{Suit, Tile};
 use crate::wall::Wall;
+
+fn winning_tanyao_tiles() -> Vec<Tile> {
+    vec![
+        Tile::man(2),
+        Tile::man(3),
+        Tile::man(4),
+        Tile::pin(3),
+        Tile::pin(4),
+        Tile::pin(5),
+        Tile::sou(6),
+        Tile::sou(7),
+        Tile::sou(8),
+        Tile::sou(9),
+        Tile::sou(9),
+        Tile::sou(9),
+        Tile::pin(2),
+        Tile::pin(2),
+    ]
+}
+
+fn tenpai_waiting_on_p2() -> Vec<Tile> {
+    let mut hand = winning_tanyao_tiles();
+    hand.pop();
+    hand
+}
+
+fn tenpai_after_draw_p2() -> Vec<Tile> {
+    let mut hand = tenpai_waiting_on_p2();
+    hand.push(Tile::pin(2));
+    hand
+}
 
 // --- turn flow ---
 
@@ -244,7 +275,7 @@ fn open_kan_reveals_dora_and_draws_rinshan() {
         ],
     );
 
-    state.apply(1, Action::OpenKan).unwrap();
+    state.apply(1, Action::Kan(KanIntent::Open)).unwrap();
     state.apply(2, Action::Pass).unwrap();
     let events = state.apply(3, Action::Pass).unwrap();
 
@@ -258,7 +289,10 @@ fn open_kan_reveals_dora_and_draws_rinshan() {
             .iter()
             .any(|event| matches!(event, Event::RinshanDrawn { seat: 1, .. }))
     );
-    assert_eq!(state.hand(1).melds()[0].kind(), MeldKind::OpenKan);
+    assert_eq!(
+        state.hand(1).melds()[0].kind(),
+        MeldKind::Kan(KanForm::Open)
+    );
     assert_eq!(state.hand(1).total_tiles(), 15);
     assert_eq!(state.wall().kan_count(), 1);
 }
@@ -339,7 +373,7 @@ fn closed_kan_on_own_turn_stays_on_discard() {
     );
 
     let events = state
-        .apply(0, Action::ClosedKan { tile: Tile::pin(3) })
+        .apply(0, Action::Kan(KanIntent::Closed { tile: Tile::pin(3) }))
         .unwrap();
     assert!(
         events
@@ -348,35 +382,13 @@ fn closed_kan_on_own_turn_stays_on_discard() {
     );
     assert_eq!(state.phase(), HandPhase::Discard);
     assert_eq!(state.current_actor(), 0);
-    assert_eq!(state.hand(0).melds()[0].kind(), MeldKind::ClosedKan);
+    assert_eq!(
+        state.hand(0).melds()[0].kind(),
+        MeldKind::Kan(KanForm::Closed)
+    );
 }
 
 // --- wins ---
-
-fn winning_tanyao_tiles() -> Vec<Tile> {
-    vec![
-        Tile::man(2),
-        Tile::man(3),
-        Tile::man(4),
-        Tile::pin(3),
-        Tile::pin(4),
-        Tile::pin(5),
-        Tile::sou(6),
-        Tile::sou(7),
-        Tile::sou(8),
-        Tile::sou(9),
-        Tile::sou(9),
-        Tile::sou(9),
-        Tile::pin(2),
-        Tile::pin(2),
-    ]
-}
-
-fn tenpai_waiting_on_p2() -> Vec<Tile> {
-    let mut hand = winning_tanyao_tiles();
-    hand.pop();
-    hand
-}
 
 #[test]
 fn tsumo_ends_hand_and_adjusts_scores() {
@@ -416,7 +428,9 @@ fn ron_on_discard_wins_immediately() {
 
     let discard = Tile::pin(2);
     state.apply(0, Action::Discard(discard)).unwrap();
-    let events = state.apply(1, Action::Ron).unwrap();
+    state.apply(1, Action::Ron).unwrap();
+    state.apply(2, Action::Pass).unwrap();
+    let events = state.apply(3, Action::Pass).unwrap();
 
     assert!(state.is_ended());
     assert!(
@@ -429,13 +443,66 @@ fn ron_on_discard_wins_immediately() {
 }
 
 #[test]
+fn riichi_legal_actions_only_include_tenpai_preserving_discards() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(11));
+    let deal = wall.deal(2).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+
+    state.set_concealed(2, tenpai_after_draw_p2());
+    state.last_draw = Some(Tile::pin(2));
+
+    let profile = RulesRegistry::get(RulesProfileId::Standard).unwrap();
+    let config = state.config();
+    assert!(profile.is_tenpai(state.hand(2), config));
+    assert!(profile.is_riichi_discard(state.hand(2), Tile::pin(2), config));
+    assert!(!profile.is_riichi_discard(state.hand(2), Tile::man(9), config));
+
+    let riichi_discards: Vec<Tile> = state
+        .legal_actions_for(2)
+        .into_iter()
+        .filter_map(|a| match a {
+            Action::Riichi { discard } => Some(discard),
+            _ => None,
+        })
+        .collect();
+
+    assert!(riichi_discards.contains(&Tile::pin(2)));
+    assert!(!riichi_discards.is_empty());
+    for discard in &riichi_discards {
+        assert!(profile.is_riichi_discard(state.hand(2), *discard, config));
+    }
+}
+
+#[test]
+fn riichi_rejects_discard_that_breaks_tenpai() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(11));
+    let deal = wall.deal(2).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+
+    state.set_concealed(2, tenpai_after_draw_p2());
+    state.last_draw = Some(Tile::pin(2));
+
+    let err = state
+        .apply(
+            2,
+            Action::Riichi {
+                discard: Tile::man(9),
+            },
+        )
+        .unwrap_err();
+    assert!(matches!(err, Error::IllegalAction { .. }));
+}
+
+#[test]
 fn riichi_declaration_costs_stick_and_ends_in_reaction() {
     let config = RulesConfig::standard();
     let mut wall = Wall::new(&config, StdRng::seed_from_u64(11));
     let deal = wall.deal(2).unwrap();
     let mut state = HandState::from_deal(wall, deal, config);
 
-    state.set_concealed(2, tenpai_waiting_on_p2());
+    state.set_concealed(2, tenpai_after_draw_p2());
     state.last_draw = Some(Tile::pin(2));
 
     let discard = Tile::pin(2);
@@ -450,6 +517,81 @@ fn riichi_declaration_costs_stick_and_ends_in_reaction() {
             .iter()
             .any(|e| matches!(e, Event::RiichiDeclared { .. }))
     );
+    assert!(state.ippatsu_live(2));
+}
+
+#[test]
+fn double_riichi_on_first_discard_before_any_call() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(21));
+    let deal = wall.deal(2).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+
+    state.set_concealed(2, tenpai_after_draw_p2());
+    state.last_draw = Some(Tile::pin(2));
+
+    state
+        .apply(
+            2,
+            Action::Riichi {
+                discard: Tile::pin(2),
+            },
+        )
+        .unwrap();
+
+    assert!(state.is_double_riichi(2));
+}
+
+#[test]
+fn call_after_riichi_voids_ippatsu() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(22));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+
+    state.set_concealed(0, tenpai_after_draw_p2());
+    state.last_draw = Some(Tile::pin(2));
+    state
+        .apply(
+            0,
+            Action::Riichi {
+                discard: Tile::pin(2),
+            },
+        )
+        .unwrap();
+    assert!(state.ippatsu_live(0));
+
+    state.set_concealed(
+        1,
+        vec![
+            Tile::pin(1),
+            Tile::pin(3),
+            Tile::man(1),
+            Tile::man(2),
+            Tile::man(3),
+            Tile::man(4),
+            Tile::man(5),
+            Tile::man(6),
+            Tile::man(7),
+            Tile::man(8),
+            Tile::man(9),
+            Tile::sou(1),
+            Tile::sou(2),
+        ],
+    );
+    state
+        .apply(
+            1,
+            Action::Chi {
+                tiles: [Tile::pin(1), Tile::pin(2), Tile::pin(3)],
+            },
+        )
+        .unwrap();
+    for seat in 0..4 {
+        let _ = state.apply(seat, Action::Pass);
+    }
+
+    assert!(!state.ippatsu_live(0));
 }
 
 #[test]
@@ -471,4 +613,218 @@ fn furiten_blocks_ron() {
         state.apply(1, Action::Ron),
         Err(crate::Error::Furiten)
     ));
+}
+
+#[test]
+fn kakan_upgrades_pon_and_reveals_dora() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(20));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+
+    let pon = Meld::pon([Tile::sou(5), Tile::sou(5), Tile::sou(5)], Tile::sou(5)).unwrap();
+    let hand = Hand::new(
+        crate::hand::Concealed::from_tiles(vec![
+            Tile::sou(5),
+            Tile::man(2),
+            Tile::man(3),
+            Tile::man(4),
+            Tile::man(6),
+            Tile::man(7),
+            Tile::man(8),
+            Tile::pin(2),
+            Tile::pin(3),
+            Tile::pin(4),
+            Tile::pin(6),
+            Tile::pin(7),
+            Tile::pin(8),
+        ]),
+        vec![pon],
+    )
+    .unwrap();
+    state.set_hand(0, hand);
+
+    let events = state
+        .apply(0, Action::Kan(KanIntent::Added { meld_index: 0 }))
+        .unwrap();
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::KakanDeclared { .. }))
+    );
+
+    state.apply(1, Action::Pass).unwrap();
+    state.apply(2, Action::Pass).unwrap();
+    let events = state.apply(3, Action::Pass).unwrap();
+
+    assert_eq!(
+        state.hand(0).melds()[0].kind(),
+        MeldKind::Kan(KanForm::Open)
+    );
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::DoraRevealed { .. }))
+    );
+    assert_eq!(state.phase(), HandPhase::Discard);
+    assert_eq!(state.current_actor(), 0);
+}
+
+#[test]
+fn chankan_ron_on_kakan_tile() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(21));
+    let deal = wall.deal(1).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+
+    let pon = Meld::pon([Tile::sou(5), Tile::sou(5), Tile::sou(5)], Tile::sou(5)).unwrap();
+    state.set_hand(
+        1,
+        Hand::new(
+            crate::hand::Concealed::from_tiles(vec![
+                Tile::sou(5),
+                Tile::man(2),
+                Tile::man(3),
+                Tile::man(4),
+                Tile::man(6),
+                Tile::man(7),
+                Tile::man(8),
+                Tile::pin(2),
+                Tile::pin(3),
+                Tile::pin(4),
+                Tile::pin(6),
+                Tile::pin(7),
+                Tile::pin(8),
+            ]),
+            vec![pon],
+        )
+        .unwrap(),
+    );
+    state.set_concealed(
+        2,
+        vec![
+            Tile::man(2),
+            Tile::man(3),
+            Tile::man(4),
+            Tile::pin(3),
+            Tile::pin(4),
+            Tile::pin(5),
+            Tile::sou(6),
+            Tile::sou(7),
+            Tile::sou(8),
+            Tile::sou(5),
+            Tile::sou(5),
+            Tile::sou(9),
+            Tile::sou(9),
+        ],
+    );
+
+    state
+        .apply(1, Action::Kan(KanIntent::Added { meld_index: 0 }))
+        .unwrap();
+    state.apply(0, Action::Pass).unwrap();
+    state.apply(2, Action::Ron).unwrap();
+    let events = state.apply(3, Action::Pass).unwrap();
+
+    assert!(state.is_ended());
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, Event::Won { seat: 2, .. }))
+    );
+}
+
+#[test]
+fn passing_on_win_sets_temporary_furiten() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(22));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+
+    state.set_concealed(1, tenpai_waiting_on_p2());
+    let mut dealer_hand: Vec<Tile> = state.hand(0).concealed().tiles().to_vec();
+    dealer_hand[0] = Tile::pin(2);
+    state.set_concealed(0, dealer_hand);
+
+    state.apply(0, Action::Discard(Tile::pin(2))).unwrap();
+    assert!(state.can_ron(1));
+    state.apply(1, Action::Pass).unwrap();
+    assert!(!state.can_ron(1));
+}
+
+#[test]
+fn draw_clears_temporary_furiten() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(221));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+
+    state.set_concealed(1, tenpai_waiting_on_p2());
+    let mut dealer_hand: Vec<Tile> = state.hand(0).concealed().tiles().to_vec();
+    dealer_hand[0] = Tile::pin(2);
+    state.set_concealed(0, dealer_hand);
+
+    state.apply(0, Action::Discard(Tile::pin(2))).unwrap();
+    state.apply(1, Action::Pass).unwrap();
+    state.apply(2, Action::Pass).unwrap();
+    state.apply(3, Action::Pass).unwrap();
+
+    assert_eq!(state.current_actor(), 1);
+    state.apply(1, Action::Draw).unwrap();
+    assert!(!state.is_furiten(1, Tile::pin(2)));
+}
+
+#[test]
+fn riichi_furiten_persists_after_pass() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(23));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+
+    state.riichi[1] = true;
+    state.set_concealed(1, tenpai_waiting_on_p2());
+    let mut dealer_hand: Vec<Tile> = state.hand(0).concealed().tiles().to_vec();
+    dealer_hand[0] = Tile::pin(2);
+    state.set_concealed(0, dealer_hand);
+
+    state.apply(0, Action::Discard(Tile::pin(2))).unwrap();
+    assert!(state.can_ron(1));
+    state.apply(1, Action::Pass).unwrap();
+    assert!(!state.can_ron(1));
+
+    state.apply(2, Action::Pass).unwrap();
+    state.apply(3, Action::Pass).unwrap();
+    state.apply(1, Action::Draw).unwrap();
+    assert!(state.is_furiten(1, Tile::pin(2)));
+}
+
+#[test]
+fn double_ron_when_enabled() {
+    let mut config = RulesConfig::standard();
+    config.double_ron = true;
+    let starting = config.starting_points;
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(24));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+
+    state.set_concealed(1, tenpai_waiting_on_p2());
+    state.set_concealed(3, tenpai_waiting_on_p2());
+    let mut dealer_hand: Vec<Tile> = state.hand(0).concealed().tiles().to_vec();
+    dealer_hand[0] = Tile::pin(2);
+    state.set_concealed(0, dealer_hand);
+
+    state.apply(0, Action::Discard(Tile::pin(2))).unwrap();
+    state.apply(1, Action::Ron).unwrap();
+    state.apply(2, Action::Pass).unwrap();
+    state.apply(3, Action::Ron).unwrap();
+
+    assert!(state.is_ended());
+    assert!(matches!(
+        state.end_reason(),
+        Some(crate::state::HandEndReason::Win { winners })
+            if winners == vec![1usize, 3]
+    ));
+    assert!(state.scores()[0] < starting);
+    assert!(state.scores()[1] > starting);
+    assert!(state.scores()[3] > starting);
 }

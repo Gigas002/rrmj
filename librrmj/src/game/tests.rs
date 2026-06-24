@@ -1,9 +1,11 @@
-use super::{Match, MatchLength, RoundWind};
+use super::{Game, GameLength, RoundWind};
 use crate::action::Action;
+use crate::error::Error;
 use crate::event::Event;
 use crate::game::HandOutcome;
 use crate::rules::RulesConfig;
 use crate::rules::flow::advance_after_hand;
+use crate::state::HandPhase;
 use crate::tile::Tile;
 
 fn winning_tanyao_tiles() -> Vec<Tile> {
@@ -31,13 +33,13 @@ fn tenpai_waiting_on_p2() -> Vec<Tile> {
     hand
 }
 
-fn force_tsumo_win(game: &mut Match, seat: usize) {
+fn force_tsumo_win(game: &mut Game, seat: usize) {
     let hand = game.hand_mut();
     hand.set_concealed(seat, winning_tanyao_tiles());
     hand.last_draw = Some(Tile::pin(2));
 }
 
-fn force_ron_win(game: &mut Match, winner: usize) {
+fn force_ron_setup(game: &mut Game, winner: usize) {
     let dealer = game.dealer();
     let hand = game.hand_mut();
     hand.set_concealed(winner, tenpai_waiting_on_p2());
@@ -46,6 +48,33 @@ fn force_ron_win(game: &mut Match, winner: usize) {
     hand.set_concealed(dealer, dealer_hand);
     hand.apply(dealer, Action::Discard(Tile::pin(2)))
         .expect("dealer discard for ron setup");
+}
+
+fn resolve_pending_reactions(game: &mut Game, winner: usize) -> Vec<Event> {
+    let mut events = Vec::new();
+    while game.hand().phase() == HandPhase::Reaction {
+        let seat = game.hand().pending_reaction_seat().expect("reaction seat");
+        let action = if seat == winner {
+            Action::Ron
+        } else {
+            Action::Pass
+        };
+        events.extend(game.apply_action(seat, action).expect("reaction action"));
+    }
+    events
+}
+
+fn force_ron_win(game: &mut Game, winner: usize) -> Vec<Event> {
+    force_ron_setup(game, winner);
+    resolve_pending_reactions(game, winner)
+}
+
+impl Game {
+    fn finish_hand_for_test(&mut self) -> Result<Vec<Event>, Error> {
+        let events = self.finish_hand()?;
+        self.record_events(events.clone());
+        Ok(events)
+    }
 }
 
 // --- flow helpers ---
@@ -57,7 +86,7 @@ fn dealer_renchan_increments_honba() {
         0,
         RoundWind::East,
         1,
-        HandOutcome::Win { winner: 0 },
+        HandOutcome::Win { winners: vec![0] },
         false,
     );
     assert_eq!(dealer, 0);
@@ -73,7 +102,7 @@ fn non_dealer_win_rotates_dealer_and_advances_kyoku() {
         2,
         RoundWind::East,
         1,
-        HandOutcome::Win { winner: 1 },
+        HandOutcome::Win { winners: vec![1] },
         false,
     );
     assert_eq!(dealer, 1);
@@ -89,7 +118,7 @@ fn east_four_to_south_one() {
         0,
         RoundWind::East,
         4,
-        HandOutcome::Win { winner: 1 },
+        HandOutcome::Win { winners: vec![1] },
         false,
     );
     assert_eq!(dealer, 0);
@@ -115,21 +144,20 @@ fn nine_terminals_abortive_keeps_dealer_and_honba() {
     assert_eq!(kyoku, 2);
 }
 
-// --- match integration ---
+// --- game integration ---
 
 #[test]
 fn east_only_match_ends_after_four_kyoku() {
     let mut config = RulesConfig::standard();
-    config.match_length = MatchLength::EastOnly;
+    config.game_length = GameLength::EastOnly;
 
-    let mut game = Match::new(config, 100).unwrap();
+    let mut game = Game::new(config, 100).unwrap();
     assert_eq!(game.round_wind(), RoundWind::East);
     assert_eq!(game.kyoku(), 1);
 
     for expected_kyoku in [2u8, 3, 4] {
         let winner = (game.dealer() + 1) % 4;
-        force_ron_win(&mut game, winner);
-        let events = game.apply_action(winner, Action::Ron).unwrap();
+        let events = force_ron_win(&mut game, winner);
         assert!(
             events
                 .iter()
@@ -140,16 +168,15 @@ fn east_only_match_ends_after_four_kyoku() {
     }
 
     let winner = (game.dealer() + 1) % 4;
-    force_ron_win(&mut game, winner);
-    let events = game.apply_action(winner, Action::Ron).unwrap();
+    let events = force_ron_win(&mut game, winner);
     assert!(game.is_ended());
-    assert!(events.iter().any(|e| matches!(e, Event::MatchEnded { .. })));
+    assert!(events.iter().any(|e| matches!(e, Event::GameEnded { .. })));
 }
 
 #[test]
 fn honba_carries_into_next_hand() {
     let config = RulesConfig::standard();
-    let mut game = Match::new(config, 200).unwrap();
+    let mut game = Game::new(config, 200).unwrap();
 
     let dealer = game.dealer();
     force_tsumo_win(&mut game, dealer);
@@ -162,7 +189,7 @@ fn honba_carries_into_next_hand() {
 #[test]
 fn scores_carry_between_hands() {
     let config = RulesConfig::standard();
-    let mut game = Match::new(config, 300).unwrap();
+    let mut game = Game::new(config, 300).unwrap();
     let starting = game.config().starting_points;
 
     let dealer = game.dealer();
@@ -176,31 +203,30 @@ fn scores_carry_between_hands() {
 #[test]
 fn target_score_ends_match_early() {
     let mut config = RulesConfig::standard();
-    config.match_length = MatchLength::EastOnly;
+    config.game_length = GameLength::EastOnly;
     config.target_score = Some(26_000);
 
-    let mut game = Match::new(config, 400).unwrap();
+    let mut game = Game::new(config, 400).unwrap();
     let dealer = game.dealer();
     force_tsumo_win(&mut game, dealer);
     let events = game.apply_action(dealer, Action::Tsumo).unwrap();
 
     assert!(game.is_ended());
-    assert!(events.iter().any(|e| matches!(e, Event::MatchEnded { .. })));
+    assert!(events.iter().any(|e| matches!(e, Event::GameEnded { .. })));
     assert!(game.scores().iter().any(|&s| s >= 26_000));
 }
 
 #[test]
 fn hanchan_runs_eight_kyoku() {
     let mut config = RulesConfig::standard();
-    config.match_length = MatchLength::Hanchan;
+    config.game_length = GameLength::Hanchan;
 
-    let mut game = Match::new(config, 600).unwrap();
+    let mut game = Game::new(config, 600).unwrap();
     let mut hands_played = 0u8;
 
     while !game.is_ended() && hands_played < 16 {
         let winner = (game.dealer() + 1) % 4;
         force_ron_win(&mut game, winner);
-        game.apply_action(winner, Action::Ron).unwrap();
         hands_played += 1;
     }
 
@@ -211,9 +237,9 @@ fn hanchan_runs_eight_kyoku() {
 #[test]
 fn exhaustive_draw_advances_match() {
     let mut config = RulesConfig::standard();
-    config.match_length = MatchLength::EastOnly;
+    config.game_length = GameLength::EastOnly;
 
-    let mut game = Match::new(config, 500).unwrap();
+    let mut game = Game::new(config, 500).unwrap();
     let kyoku_before = game.kyoku();
 
     game.hand_mut()

@@ -8,8 +8,18 @@ fn standard_profile_defaults() {
     assert!(config.aka_dora);
     assert!(!config.kiriage);
     assert!(config.abortive_nine_terminals);
-    assert_eq!(config.match_length, crate::game::MatchLength::Hanchan);
+    assert_eq!(config.game_length, crate::game::GameLength::Hanchan);
     assert!(config.target_score.is_none());
+}
+
+#[test]
+fn profile_id_parse_and_cycle() {
+    assert_eq!(
+        RulesProfileId::parse("standard").unwrap(),
+        RulesProfileId::Standard
+    );
+    assert_eq!(RulesProfileId::Standard.next(), RulesProfileId::Standard);
+    assert!(RulesProfileId::parse("mcr").is_err());
 }
 
 #[test]

@@ -4,6 +4,5 @@
 pub enum PlayerSlot {
     Human,
     Cpu,
-    /// Reserved for future network play.
     Remote,
 }
