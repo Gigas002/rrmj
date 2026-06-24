@@ -1,7 +1,7 @@
 {
   "format_version": 3,
   "title": "Pon vs chi priority",
-  "description": "West can pon while South can chi — pon wins over chi.",
+  "description": "West can pon while South can chi \u2014 pon wins over chi.",
   "tags": [
     "calls",
     "reaction"
@@ -229,7 +229,8 @@
         "1m",
         "7s",
         "6s",
-        "7m"
+        "7m",
+        "1s"
       ],
       "dead": [
         "3s",

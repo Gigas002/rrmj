@@ -1,7 +1,7 @@
 {
   "format_version": 3,
   "title": "Open tanyao ron",
-  "description": "South rons with open pon — tanyao only.",
+  "description": "South rons with open pon \u2014 tanyao only.",
   "tags": [
     "ron",
     "scoring",
@@ -238,7 +238,8 @@
         "9s",
         "E",
         "2s",
-        "9s"
+        "9s",
+        "1s"
       ],
       "dead": [
         "1s",
