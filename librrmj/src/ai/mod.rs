@@ -7,6 +7,7 @@ mod hard;
 mod medium;
 mod setup;
 mod shanten;
+mod strategy;
 
 #[cfg(test)]
 mod tests;

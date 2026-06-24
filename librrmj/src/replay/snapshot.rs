@@ -1,14 +1,22 @@
-use crate::Error;
 use crate::game::{Game, GamePhase, RoundWind};
+use crate::state::HandPhase;
+
+#[cfg(feature = "serde")]
+use crate::Error;
+#[cfg(feature = "serde")]
 use crate::hand::Hand;
+#[cfg(feature = "serde")]
 use crate::rules::RulesConfig;
-use crate::state::{HandEndReason, HandPhase, ReactionState};
+#[cfg(feature = "serde")]
+use crate::state::{HandEndReason, ReactionState};
+#[cfg(feature = "serde")]
 use crate::tile::Tile;
+#[cfg(feature = "serde")]
 use crate::wall::WallSnapshot;
 
 /// Full in-hand tile and flow state at a save point.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg(feature = "serde")]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct HandSnapshot {
     pub dealer: usize,
     pub current_actor: usize,
@@ -46,6 +54,7 @@ pub struct HandSnapshot {
     pub end_reason: Option<HandEndReason>,
 }
 
+#[cfg(feature = "serde")]
 impl HandSnapshot {
     pub fn restore(&self, config: RulesConfig) -> Result<crate::state::HandState, Error> {
         crate::state::HandState::from_snapshot(self.clone(), config)

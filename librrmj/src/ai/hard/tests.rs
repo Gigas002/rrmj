@@ -2,6 +2,7 @@ use crate::action::Action;
 use crate::agent::{Agent, PlayerView, SeatView};
 use crate::ai::HardAgent;
 use crate::ai::defense::{SAFETY_MAX, tile_safety};
+use crate::ai::shanten::shanten_to_tenpai;
 use crate::game::RoundWind;
 use crate::hand::{Concealed, Hand};
 use crate::state::HandPhase;
@@ -127,9 +128,64 @@ fn declares_riichi_when_tenpai_and_safe_to_do_so() {
     let mut agent = HardAgent::new(8);
     let choice = agent.decide(&view, &legal);
     assert!(
-        matches!(choice, Action::Riichi { .. }) || matches!(choice, Action::Discard(_)),
-        "expected riichi or efficient discard, got {choice:?}"
+        matches!(choice, Action::Riichi { .. }),
+        "expected riichi at tenpai, got {choice:?}"
     );
+}
+
+#[test]
+fn accepts_pon_when_shanten_improves() {
+    let concealed = vec![
+        Tile::man(1),
+        Tile::man(2),
+        Tile::man(3),
+        Tile::pin(4),
+        Tile::pin(5),
+        Tile::pin(6),
+        Tile::sou(7),
+        Tile::sou(8),
+        Tile::sou(9),
+        Tile::wind(crate::tile::Wind::East),
+        Tile::wind(crate::tile::Wind::East),
+        Tile::wind(crate::tile::Wind::South),
+        Tile::wind(crate::tile::Wind::South),
+    ];
+    let hand = Hand::new(Concealed::from_tiles(concealed.clone()), vec![]).unwrap();
+    let called = Tile::wind(crate::tile::Wind::East);
+    let after = crate::ai::common::simulate_call(&hand, Action::Pon, called).unwrap();
+    assert!(
+        shanten_to_tenpai(&after) < shanten_to_tenpai(&hand),
+        "pon fixture should improve shanten"
+    );
+
+    let mut view = PlayerView {
+        seat: 0,
+        dealer: 0,
+        phase: HandPhase::Reaction,
+        current_actor: 1,
+        round_wind: RoundWind::East,
+        kyoku: 1,
+        honba: 0,
+        scores: [25_000; 4],
+        own_concealed: concealed,
+        seats: std::array::from_fn(|_| SeatView {
+            melds: Vec::new(),
+            discards: Vec::new(),
+            riichi: false,
+            concealed_count: 0,
+        }),
+        dora_indicators: Vec::new(),
+        table_riichi_sticks: 0,
+        turn: crate::agent::TurnContext::reaction(crate::agent::PendingCall {
+            discarder: 1,
+            tile: called,
+        }),
+    };
+    view.seats[0].concealed_count = view.own_concealed.len();
+
+    let legal = [Action::Pass, Action::Pon];
+    let mut agent = HardAgent::new(11);
+    assert_eq!(agent.decide(&view, &legal), Action::Pon);
 }
 
 #[test]

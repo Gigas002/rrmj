@@ -10,7 +10,9 @@ mod player;
 #[cfg(test)]
 mod tests;
 
-pub use snapshot::{GameSnapshot, HandSnapshot};
+pub use snapshot::GameSnapshot;
+#[cfg(feature = "serde")]
+pub use snapshot::HandSnapshot;
 
 #[cfg(feature = "serde")]
 pub use player::RecordingPlayer;

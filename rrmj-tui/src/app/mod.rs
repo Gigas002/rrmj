@@ -368,6 +368,18 @@ impl App {
             self.apply_action_for_seat(seat, action)?;
         } else {
             self.cpu_step_wait_until = None;
+            if let Some(agents) = self.agents.as_mut() {
+                let step = self
+                    .active_game
+                    .as_mut()
+                    .expect("match present")
+                    .step(agents)?;
+                if let Some(result) = step {
+                    self.on_game_events(&result.events);
+                    self.action_timer.reset();
+                    return Ok(());
+                }
+            }
             self.apply_action_for_seat(seat, action)?;
         }
         Ok(())
