@@ -193,9 +193,7 @@ fn choose_kan(
     legal: &[Action],
     policy: DiscardPolicy,
 ) -> Option<Action> {
-    let Some(hand) = hand_from_view(view) else {
-        return None;
-    };
+    let hand = hand_from_view(view)?;
     let baseline = evaluate_hand(&hand, Some(view));
     let accept_equal_ukeire = policy.call_policy == CallPolicy::Aggressive;
 

@@ -291,15 +291,15 @@ impl GameRecording {
             }
         }
 
-        if object.get("game_status").is_none() {
-            if let Some(status) = object.remove("match_status") {
-                object.insert("game_status".into(), status);
-            }
+        if object.get("game_status").is_none()
+            && let Some(status) = object.remove("match_status")
+        {
+            object.insert("game_status".into(), status);
         }
-        if object.get("game_phase").is_none() {
-            if let Some(phase) = object.remove("match_phase") {
-                object.insert("game_phase".into(), phase);
-            }
+        if object.get("game_phase").is_none()
+            && let Some(phase) = object.remove("match_phase")
+        {
+            object.insert("game_phase".into(), phase);
         }
 
         if let Some(rules) = object
