@@ -1,6 +1,6 @@
 # rrmj
 
-Rust riichi mahjong rules engine (`librrmj`) and terminal client (`rrmj-tui`).
+Rust riichi mahjong rules engine (`librrmj`) and terminal client (`rrmj`).
 
 **v0.1** ships standard 4-player Japanese riichi: play a full hanchan locally against three CPU opponents at easy, medium, or hard difficulty.
 
@@ -15,14 +15,14 @@ From the repository root:
 
 ```bash
 cargo build --release
-cargo run -p rrmj-tui --release
+cargo run -p rrmj --release
 ```
 
 Install the TUI binary:
 
 ```bash
-cargo install --path rrmj-tui
-rrmj-tui
+cargo install --path rrmj
+rrmj
 ```
 
 Library only (no TUI):
@@ -49,7 +49,7 @@ Config files live under `$XDG_CONFIG_HOME/rrmj` (usually `~/.config/rrmj`). Miss
 Override paths on the command line:
 
 ```bash
-rrmj-tui --config /path/to/config.toml --keybinds /path/to/keybinds.toml
+rrmj --config /path/to/config.toml --keybinds /path/to/keybinds.toml
 ```
 
 Annotated examples with every option explained: [examples/config.toml](examples/config.toml), [examples/keybinds.toml](examples/keybinds.toml), and [examples/theme.toml](examples/theme.toml) (palette token reference).
@@ -92,7 +92,7 @@ The engine implements the **standard** profile documented in [docs/RULES.md](doc
 | Crate | Role |
 |-------|------|
 | `librrmj` | Tiles, state machine, scoring, AI, replay API |
-| `rrmj-tui` | ratatui client — presentation and input only |
+| `rrmj` | ratatui client — presentation and input only |
 
 ## Development
 

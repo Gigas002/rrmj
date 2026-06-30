@@ -473,7 +473,7 @@ impl App {
         let mut meta = self.active_recording_meta.clone().unwrap_or_default();
         meta.recording_id = Some(id);
         meta.updated_at = Some(unix_timestamp_string());
-        meta.client_version = Some(format!("rrmj-tui {}", librrmj::VERSION));
+        meta.client_version = Some(format!("rrmj {}", librrmj::VERSION));
         if meta.created_at.is_none() {
             meta.created_at = Some(unix_timestamp_string());
         }

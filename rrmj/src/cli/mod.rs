@@ -7,7 +7,7 @@ mod tests;
 
 /// Raw CLI invocation — parsed only in `main`.
 #[derive(Debug, Parser)]
-#[command(name = "rrmj-tui", about = "Terminal client for rrmj", version = librrmj::VERSION)]
+#[command(name = "rrmj", about = "Terminal client for rrmj", version = librrmj::VERSION)]
 pub struct Cli {
     /// Path to config.toml (default: $XDG_CONFIG_HOME/rrmj/config.toml).
     #[arg(long)]

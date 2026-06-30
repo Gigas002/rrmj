@@ -42,7 +42,7 @@ log_level = "debug"
 "#
     )
     .unwrap();
-    let cli = Cli::try_parse_from(["rrmj-tui", "--config", file.path().to_str().unwrap()]).unwrap();
+    let cli = Cli::try_parse_from(["rrmj", "--config", file.path().to_str().unwrap()]).unwrap();
     let settings = Settings::resolve(&cli).unwrap();
     assert_eq!(settings.theme, "high-contrast");
     assert_eq!(settings.rules_profile, RulesProfileId::Standard);
@@ -58,7 +58,7 @@ log_level = "debug"
 fn resolve_without_config_uses_defaults() {
     let dir = tempfile::tempdir().unwrap();
     let missing = dir.path().join("missing.toml");
-    let cli = Cli::try_parse_from(["rrmj-tui", "--config", missing.to_str().unwrap()]).unwrap();
+    let cli = Cli::try_parse_from(["rrmj", "--config", missing.to_str().unwrap()]).unwrap();
     let settings = Settings::resolve(&cli).unwrap();
     assert_eq!(settings.theme, "default");
     assert_eq!(settings.default_difficulty, Difficulty::Medium);

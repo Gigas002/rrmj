@@ -27,7 +27,7 @@ Wire format: `docs/REPLAY.md` (`format_version` 3).
 
 | | **Scenarios** menu (14.6) | **Debug** menu (14.7) |
 | --- | --- | --- |
-| Build | Default `rrmj-tui` | `--features debug-menu` only |
+| Build | Default `rrmj` | `--features debug-menu` only |
 | Directory | `scenarios_dir` in config (user packs) | `examples/scenarios/` (repo) |
 | Assertions in UI | Ignored | Ignored |
 | CI | No | Yes (`librrmj/tests/scenarios.rs`) |
@@ -107,11 +107,11 @@ Tests deliberately cover **win types** (yaku combinations), not meld layout vari
 
 ## TUI debug menu (dev builds)
 
-Compile-time feature **`debug-menu`** — **not** enabled in default release builds (`rrmj-tui` default features: `ai` only):
+Compile-time feature **`debug-menu`** — **not** enabled in default release builds (`rrmj` default features: `ai` only):
 
 ```bash
-cargo run -p rrmj-tui                              # no Debug menu
-cargo run -p rrmj-tui --features debug-menu      # Main menu → Debug
+cargo run -p rrmj                              # no Debug menu
+cargo run -p rrmj --features debug-menu      # Main menu → Debug
 ```
 
 - Lists **`examples/scenarios/*.json`** (repo fixtures; does not use `scenarios_dir`)

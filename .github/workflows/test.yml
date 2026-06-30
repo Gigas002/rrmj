@@ -35,9 +35,9 @@ jobs:
       - name: Generate coverage report (librrmj)
         run: |
           cargo llvm-cov --all-features -p librrmj --lcov --output-path lcov-librrmj.info
-      - name: Generate coverage report (rrmj-tui)
+      - name: Generate coverage report (rrmj)
         run: |
-          cargo llvm-cov --all-features -p rrmj-tui --lcov --output-path lcov-rrmj-tui.info
+          cargo llvm-cov --all-features -p rrmj --lcov --output-path lcov-rrmj.info
       - name: Upload librrmj coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
@@ -48,12 +48,12 @@ jobs:
           verbose: true
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      - name: Upload rrmj-tui coverage to Codecov
+      - name: Upload rrmj coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
-          files: ./lcov-rrmj-tui.info
-          flags: rrmj-tui
-          name: rrmj-tui
+          files: ./lcov-rrmj.info
+          flags: rrmj
+          name: rrmj
           fail_ci_if_error: false
           verbose: true
         env:

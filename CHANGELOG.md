@@ -13,7 +13,7 @@ First release.
 - CPU opponents: easy, medium, and hard (`ai` feature).
 - Deterministic wall and AI via seeded RNG.
 
-### rrmj-tui
+### rrmj
 
 - Main menu, new-game setup (human/CPU per seat), and full table play.
 - Legal-action-only hotkeys with customizable `keybinds.toml`.
