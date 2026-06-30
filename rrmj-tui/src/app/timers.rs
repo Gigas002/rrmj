@@ -4,7 +4,7 @@ use librrmj::action::Action;
 use librrmj::state::HandPhase;
 
 use crate::app::ActionMenu;
-use crate::timers::{SeatTimer, TimerKind};
+use crate::utils::{SeatTimer, TimerKind};
 
 /// Tracks the action deadline for whoever must act (`pending_seat`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

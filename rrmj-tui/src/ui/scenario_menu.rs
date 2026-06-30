@@ -11,7 +11,7 @@ pub fn draw_scenario_lines(app: &App, theme: &Theme) -> Vec<Line<'static>> {
         .map(|t| format!("[{t}] "))
         .unwrap_or_default();
     if entries.is_empty() {
-        let dir = app.config().resolved_scenarios_dir();
+        let dir = app.settings().resolved_scenarios_dir();
         return vec![
             Line::from("No scenarios found."),
             Line::from(Span::styled(

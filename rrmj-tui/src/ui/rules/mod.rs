@@ -8,6 +8,9 @@ use crate::app::App;
 use crate::theme::Theme;
 use crate::ui::popup;
 
+#[cfg(test)]
+mod tests;
+
 pub fn draw_rules_popup(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &Theme) {
     let popup = popup::open_popup(frame, area, 98, 96);
 
@@ -62,14 +65,4 @@ fn style_line(line: &str, theme: &Theme) -> Line<'static> {
 
 pub fn rules_line_count() -> usize {
     rules_content::line_count()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn cheatsheet_has_substantial_content() {
-        assert!(rules_line_count() > 80);
-    }
 }

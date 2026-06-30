@@ -1,6 +1,9 @@
 use librrmj::action::{Action, KanIntent};
 use librrmj::tile::Tile;
 
+#[cfg(test)]
+mod tests;
+
 /// Legal actions grouped for menu presentation.
 #[derive(Debug, Clone, Default)]
 pub struct ActionMenu {
@@ -51,22 +54,5 @@ impl ActionMenu {
     /// Reaction window where the only legal choice is to pass.
     pub fn is_pass_only(&self) -> bool {
         self.can_pass && !self.can_ron && !self.can_pon && !self.can_open_kan && self.chi.is_empty()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use librrmj::action::{Action, KanIntent};
-
-    use super::ActionMenu;
-
-    #[test]
-    fn from_legal_includes_kakan_meld_indices() {
-        let menu = ActionMenu::from_legal(&[
-            Action::Discard(librrmj::tile::Tile::man(1)),
-            Action::Kan(KanIntent::Added { meld_index: 0 }),
-            Action::Kan(KanIntent::Added { meld_index: 2 }),
-        ]);
-        assert_eq!(menu.kakan, vec![0, 2]);
     }
 }

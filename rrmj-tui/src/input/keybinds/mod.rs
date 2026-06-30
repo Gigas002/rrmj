@@ -15,13 +15,6 @@ mod tests;
 pub struct Keybinds {
     bindings: HashMap<BindAction, KeyChord>,
     reverse: HashMap<KeyChord, BindAction>,
-    source: KeybindsSource,
-}
-
-#[derive(Debug, Clone)]
-pub enum KeybindsSource {
-    Default,
-    File(PathBuf),
 }
 
 impl Keybinds {
@@ -43,7 +36,7 @@ impl Keybinds {
             let chord = parse_key_spec(spec).expect("built-in key spec is valid");
             bindings.insert(*action, chord);
         }
-        Self::from_bindings(bindings, KeybindsSource::Default)
+        Self::from_bindings(bindings)
     }
 
     pub fn from_file(path: &Path) -> Result<Self, AppError> {
@@ -84,23 +77,12 @@ impl Keybinds {
                 .or_insert_with(|| parse_key_spec(spec).expect("built-in key spec is valid"));
         }
 
-        Ok(Self::from_bindings(
-            bindings,
-            KeybindsSource::File(path.to_path_buf()),
-        ))
+        Ok(Self::from_bindings(bindings))
     }
 
-    fn from_bindings(bindings: HashMap<BindAction, KeyChord>, source: KeybindsSource) -> Self {
+    fn from_bindings(bindings: HashMap<BindAction, KeyChord>) -> Self {
         let reverse = bindings.iter().map(|(a, c)| (*c, *a)).collect();
-        Self {
-            bindings,
-            reverse,
-            source,
-        }
-    }
-
-    pub const fn source(&self) -> &KeybindsSource {
-        &self.source
+        Self { bindings, reverse }
     }
 
     pub fn chord(&self, action: BindAction) -> KeyChord {

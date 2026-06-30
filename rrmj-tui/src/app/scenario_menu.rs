@@ -29,7 +29,7 @@ impl App {
     }
 
     pub(super) fn open_scenarios_menu(&mut self) -> Result<(), AppError> {
-        let dir = self.config.resolved_scenarios_dir();
+        let dir = self.settings.resolved_scenarios_dir();
         self.scenario_entries = scenarios::list_scenarios(&dir)?;
         self.scenario_filter_tag = None;
         self.main_menu_mode = MainMenuMode::Scenarios;
@@ -63,7 +63,7 @@ impl App {
 
     fn default_import_scenario_path(&self, target: ImportScenarioTarget) -> std::path::PathBuf {
         let dir = match target {
-            ImportScenarioTarget::Player => self.config.resolved_scenarios_dir(),
+            ImportScenarioTarget::Player => self.settings.resolved_scenarios_dir(),
             #[cfg(feature = "debug-menu")]
             ImportScenarioTarget::Debug => scenarios::bundled_debug_scenarios_dir(),
         };
@@ -82,7 +82,7 @@ impl App {
 
     pub(super) fn handle_import_scenario_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
         let is_activate = self.is_activate(&key);
-        let is_back = self.keybinds.is_bound(&key, BindAction::Back);
+        let is_back = self.keybinds().is_bound(&key, BindAction::Back);
         let dialog = self.import_scenario.as_mut().expect("import dialog open");
         match dialog.handle_key(key, is_activate, is_back) {
             PathInputAction::Continue => {}
@@ -97,10 +97,10 @@ impl App {
                         let setup = LoadGameSetup::from_scenario(
                             entry,
                             recording,
-                            self.config.human_seat,
-                            self.config.cpu_step_delay_ms,
-                            self.config.turn_timer_ms,
-                            self.config.response_timer_ms,
+                            self.settings.human_seat,
+                            self.settings.cpu_step_delay_ms,
+                            self.settings.turn_timer_ms,
+                            self.settings.response_timer_ms,
                         );
                         match self.import_scenario_target {
                             ImportScenarioTarget::Player => {
@@ -119,7 +119,7 @@ impl App {
                                 self.debug_setup = Some(super::DebugScenarioSetup::new(
                                     entry,
                                     setup.recording,
-                                    self.config.human_seat,
+                                    self.settings.human_seat,
                                 ));
                                 self.main_menu_mode = MainMenuMode::Root;
                             }
@@ -146,7 +146,7 @@ impl App {
         if key.code == KeyCode::Char('f') {
             return self.cycle_scenario_filter();
         }
-        if self.keybinds.is_bound(key, BindAction::Back) {
+        if self.keybinds().is_bound(key, BindAction::Back) {
             self.main_menu_mode = MainMenuMode::Root;
             self.menu_index = SCENARIOS_MENU_INDEX;
             self.scenario_filter_tag = None;
@@ -154,7 +154,7 @@ impl App {
         }
         let filtered = self.filtered_scenario_entries();
         if filtered.is_empty() {
-            if self.is_activate(key) || self.keybinds.is_bound(key, BindAction::Back) {
+            if self.is_activate(key) || self.keybinds().is_bound(key, BindAction::Back) {
                 self.main_menu_mode = MainMenuMode::Root;
                 self.menu_index = SCENARIOS_MENU_INDEX;
             }
@@ -185,7 +185,7 @@ impl App {
                 .nth(index)
                 .cloned()
                 .ok_or_else(|| AppError::Config {
-                    path: self.config_path.clone(),
+                    path: self.settings.config_path.clone(),
                     detail: "no scenario selected".into(),
                 })?;
         let recording = scenarios::read_scenario(&entry.path)?;
@@ -193,18 +193,18 @@ impl App {
         self.scenario_setup = Some(LoadGameSetup::from_scenario(
             entry,
             recording,
-            self.config.human_seat,
-            self.config.cpu_step_delay_ms,
-            self.config.turn_timer_ms,
-            self.config.response_timer_ms,
+            self.settings.human_seat,
+            self.settings.cpu_step_delay_ms,
+            self.settings.turn_timer_ms,
+            self.settings.response_timer_ms,
         ));
         self.main_menu_mode = MainMenuMode::Root;
         Ok(())
     }
 
     fn handle_scenario_setup_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
-        let action = self.keybinds.action_for(&key);
-        if self.keybinds.is_bound(&key, BindAction::Back) {
+        let action = self.keybinds().action_for(&key);
+        if self.keybinds().is_bound(&key, BindAction::Back) {
             self.scenario_setup = None;
             self.main_menu_mode = MainMenuMode::Scenarios;
             return Ok(());

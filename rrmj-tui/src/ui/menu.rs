@@ -178,7 +178,7 @@ pub fn draw_settings_popup(frame: &mut ratatui::Frame, area: Rect, app: &App, th
 }
 
 fn draw_settings_content(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &Theme) {
-    let cfg = app.config();
+    let cfg = app.settings();
     let field = app.settings_field();
     let theme_label = Theme::resolve(&cfg.theme).label;
 
@@ -213,17 +213,17 @@ fn draw_settings_content(frame: &mut ratatui::Frame, area: Rect, app: &App, them
         ),
         row(
             "CPU decision delay",
-            &crate::timers::label_cpu(cfg.cpu_step_delay_ms),
+            &crate::utils::label_cpu(cfg.cpu_step_delay_ms),
             field == SettingsField::CpuStepDelay,
         ),
         row(
             "Turn timer",
-            &crate::timers::label_turn(cfg.turn_timer_ms),
+            &crate::utils::label_turn(cfg.turn_timer_ms),
             field == SettingsField::TurnTimer,
         ),
         row(
             "Call response timer",
-            &crate::timers::label_response(cfg.response_timer_ms),
+            &crate::utils::label_response(cfg.response_timer_ms),
             field == SettingsField::ResponseTimer,
         ),
         Line::from(""),
@@ -232,15 +232,7 @@ fn draw_settings_content(frame: &mut ratatui::Frame, area: Rect, app: &App, them
             crate::config::config_dir().display()
         )),
         Line::from(format!("Config file: {}", app.config_path().display())),
-        Line::from(format!(
-            "Keybinds: {}",
-            app.keybinds_path()
-                .map(|p| p.display().to_string())
-                .unwrap_or_else(|| match app.keybinds().source() {
-                    crate::input::KeybindsSource::Default => "built-in defaults".into(),
-                    crate::input::KeybindsSource::File(p) => p.display().to_string(),
-                })
-        )),
+        Line::from(format!("Keybinds: {}", app.keybinds_path().display())),
         Line::from(format!("Built-in themes: {}", theme_names().join(", "))),
         Line::from(""),
         Line::from(Span::styled(

@@ -44,18 +44,19 @@ use librrmj::state::HandPhase;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
-use crate::config::{AppConfig, cycle_theme};
+use crate::config::cycle_theme;
 use crate::error::AppError;
 use crate::input::{BindAction, Keybinds, normalize_key_event};
 use crate::save::{
     RecordingEntry, SavePaths, list_finished, list_in_progress, read_recording,
     unix_timestamp_string, write_recording_async,
 };
+use crate::settings::Settings;
 
 use self::path_input::PathInputAction;
 use crate::theme::Theme;
-use crate::timers::{TimerKind, format_decision_timer};
 use crate::ui;
+use crate::utils::{TimerKind, format_decision_timer};
 use librrmj::game::GamePhase;
 use librrmj::replay::{GameRecording, GameStatus, RecordingMeta, RecordingPlayer};
 
@@ -94,10 +95,7 @@ pub enum TableMode {
 /// Top-level application state.
 pub struct App {
     screen: Screen,
-    keybinds: Keybinds,
-    keybinds_path: Option<PathBuf>,
-    config: AppConfig,
-    config_path: PathBuf,
+    settings: Settings,
     settings_field: SettingsField,
     menu_index: usize,
     main_menu_mode: MainMenuMode,
@@ -150,21 +148,13 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(
-        keybinds: Keybinds,
-        keybinds_path: Option<PathBuf>,
-        config: AppConfig,
-        config_path: PathBuf,
-    ) -> Self {
-        let cpu_step_delay_ms = config.cpu_step_delay_ms;
-        let turn_timer_ms = config.turn_timer_ms;
-        let response_timer_ms = config.response_timer_ms;
+    pub fn new(settings: Settings) -> Self {
+        let cpu_step_delay_ms = settings.cpu_step_delay_ms;
+        let turn_timer_ms = settings.turn_timer_ms;
+        let response_timer_ms = settings.response_timer_ms;
         Self {
             screen: Screen::MainMenu,
-            keybinds,
-            keybinds_path,
-            config,
-            config_path,
+            settings,
             settings_field: SettingsField::Theme,
             menu_index: 0,
             main_menu_mode: MainMenuMode::Root,
@@ -512,7 +502,7 @@ impl App {
             return Ok(());
         };
         let is_activate = self.is_activate(&key);
-        let is_back = self.keybinds.is_bound(&key, BindAction::Back);
+        let is_back = self.settings.keybinds.is_bound(&key, BindAction::Back);
         let dialog = self.export_save.as_mut().expect("export dialog open");
         match dialog.handle_key(key, is_activate, is_back) {
             PathInputAction::Continue => {}
@@ -547,11 +537,11 @@ impl App {
         if self.export_save.is_some() {
             return self.handle_export_save_key(key);
         }
-        let action = self.keybinds.action_for(&key);
+        let action = self.settings.keybinds.action_for(&key);
         if self.try_exit_table_to_main_menu(action) {
             return Ok(());
         }
-        if self.keybinds.is_bound(&key, BindAction::Back) {
+        if self.settings.keybinds.is_bound(&key, BindAction::Back) {
             self.close_pause_menu();
             return Ok(());
         }
@@ -590,7 +580,7 @@ impl App {
 
     fn save_paths(&self) -> SavePaths {
         SavePaths {
-            recordings_dir: self.config.resolved_recordings_dir(),
+            recordings_dir: self.settings.resolved_recordings_dir(),
         }
     }
 
@@ -661,7 +651,7 @@ impl App {
         #[cfg(feature = "debug-menu")]
         self.handle_debug_setup_key_if_open(key)?;
 
-        let action = self.keybinds.action_for(&key);
+        let action = self.settings.keybinds.action_for(&key);
         if matches!(action, Some(BindAction::Help)) {
             self.help_open = true;
             return Ok(());
@@ -701,7 +691,7 @@ impl App {
     }
 
     fn is_activate(&self, key: &KeyEvent) -> bool {
-        self.keybinds.is_any_bound(
+        self.settings.keybinds.is_any_bound(
             key,
             &[
                 BindAction::MenuSelect,
@@ -712,7 +702,7 @@ impl App {
     }
 
     fn handle_scores_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
-        let action = self.keybinds.action_for(&key);
+        let action = self.settings.keybinds.action_for(&key);
         if matches!(action, Some(BindAction::Quit)) {
             self.quit = true;
         }
@@ -734,7 +724,7 @@ impl App {
     }
 
     fn handle_recommendations_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
-        let action = self.keybinds.action_for(&key);
+        let action = self.settings.keybinds.action_for(&key);
         if matches!(action, Some(BindAction::Quit)) {
             self.quit = true;
         }
@@ -767,7 +757,7 @@ impl App {
     }
 
     fn handle_help_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
-        let action = self.keybinds.action_for(&key);
+        let action = self.settings.keybinds.action_for(&key);
         if matches!(
             action,
             Some(BindAction::Help) | Some(BindAction::Back) | Some(BindAction::Quit)
@@ -778,7 +768,7 @@ impl App {
     }
 
     fn handle_rules_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
-        let action = self.keybinds.action_for(&key);
+        let action = self.settings.keybinds.action_for(&key);
         let close = matches!(
             action,
             Some(BindAction::RulesReference) | Some(BindAction::Back) | Some(BindAction::Quit)
@@ -834,11 +824,11 @@ impl App {
                 return match self.menu_index {
                     0 => {
                         self.setup = Some(NewGameSetup::new(
-                            self.config.default_difficulty,
-                            self.config.human_seat,
-                            self.config.cpu_step_delay_ms,
-                            self.config.turn_timer_ms,
-                            self.config.response_timer_ms,
+                            self.settings.default_difficulty,
+                            self.settings.human_seat,
+                            self.settings.cpu_step_delay_ms,
+                            self.settings.turn_timer_ms,
+                            self.settings.response_timer_ms,
                         ));
                         Ok(())
                     }
@@ -901,13 +891,13 @@ impl App {
         key: &KeyEvent,
         action: Option<BindAction>,
     ) -> Result<(), AppError> {
-        if self.keybinds.is_bound(key, BindAction::Back) {
+        if self.settings.keybinds.is_bound(key, BindAction::Back) {
             self.main_menu_mode = MainMenuMode::Root;
             self.menu_index = 1;
             return Ok(());
         }
         if self.load_entries.is_empty() {
-            if self.is_activate(key) || self.keybinds.is_bound(key, BindAction::Back) {
+            if self.is_activate(key) || self.settings.keybinds.is_bound(key, BindAction::Back) {
                 self.main_menu_mode = MainMenuMode::Root;
                 self.menu_index = 1;
             }
@@ -935,13 +925,13 @@ impl App {
         key: &KeyEvent,
         action: Option<BindAction>,
     ) -> Result<(), AppError> {
-        if self.keybinds.is_bound(key, BindAction::Back) {
+        if self.settings.keybinds.is_bound(key, BindAction::Back) {
             self.main_menu_mode = MainMenuMode::Root;
             self.menu_index = REPLAYS_MENU_INDEX;
             return Ok(());
         }
         if self.replay_entries.is_empty() {
-            if self.is_activate(key) || self.keybinds.is_bound(key, BindAction::Back) {
+            if self.is_activate(key) || self.settings.keybinds.is_bound(key, BindAction::Back) {
                 self.main_menu_mode = MainMenuMode::Root;
                 self.menu_index = REPLAYS_MENU_INDEX;
             }
@@ -970,7 +960,7 @@ impl App {
             .get(self.menu_index)
             .cloned()
             .ok_or_else(|| AppError::Config {
-                path: self.config_path.clone(),
+                path: self.settings.config_path.clone(),
                 detail: "no replay selected".into(),
             })?;
         let recording = read_recording(&entry.path)?;
@@ -981,8 +971,8 @@ impl App {
             .unwrap_or_else(|| entry.label.clone());
         let step_delay_ms = recording
             .cpu_step_delay_ms
-            .map(crate::timers::normalize_cpu)
-            .unwrap_or_else(|| crate::timers::normalize_cpu(self.config.cpu_step_delay_ms));
+            .map(crate::utils::normalize_cpu)
+            .unwrap_or_else(|| crate::utils::normalize_cpu(self.settings.cpu_step_delay_ms));
         let player = RecordingPlayer::new(recording).map_err(AppError::Engine)?;
         self.replay_review = Some(ReplayReview::new(entry, player, step_delay_ms));
         self.screen = Screen::ReplayReview;
@@ -1020,7 +1010,7 @@ impl App {
         key: &KeyEvent,
         action: Option<BindAction>,
     ) -> Result<(), AppError> {
-        if self.keybinds.is_bound(key, BindAction::Back) {
+        if self.settings.keybinds.is_bound(key, BindAction::Back) {
             self.close_replay_review();
             return Ok(());
         }
@@ -1076,7 +1066,7 @@ impl App {
             .get(self.menu_index)
             .cloned()
             .ok_or_else(|| AppError::Config {
-                path: self.config_path.clone(),
+                path: self.settings.config_path.clone(),
                 detail: "no save selected".into(),
             })?;
         let recording = read_recording(&entry.path)?;
@@ -1091,18 +1081,18 @@ impl App {
         self.load_setup = Some(LoadGameSetup::new(
             entry,
             recording,
-            self.config.human_seat,
-            self.config.cpu_step_delay_ms,
-            self.config.turn_timer_ms,
-            self.config.response_timer_ms,
+            self.settings.human_seat,
+            self.settings.cpu_step_delay_ms,
+            self.settings.turn_timer_ms,
+            self.settings.response_timer_ms,
         ));
         self.main_menu_mode = MainMenuMode::Root;
         Ok(())
     }
 
     fn handle_load_setup_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
-        let action = self.keybinds.action_for(&key);
-        if self.keybinds.is_bound(&key, BindAction::Back) {
+        let action = self.settings.keybinds.action_for(&key);
+        if self.settings.keybinds.is_bound(&key, BindAction::Back) {
             self.load_setup = None;
             self.main_menu_mode = MainMenuMode::LoadGame;
             return Ok(());
@@ -1193,8 +1183,8 @@ impl App {
     }
 
     fn handle_settings_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
-        let action = self.keybinds.action_for(&key);
-        if self.keybinds.is_bound(&key, BindAction::Back) {
+        let action = self.settings.keybinds.action_for(&key);
+        if self.settings.keybinds.is_bound(&key, BindAction::Back) {
             self.save_config()?;
             self.settings_open = false;
             return Ok(());
@@ -1221,39 +1211,39 @@ impl App {
     fn apply_settings_change(&mut self) {
         match self.settings_field {
             SettingsField::Theme => {
-                self.config.theme = cycle_theme(&self.config.theme);
+                self.settings.theme = cycle_theme(&self.settings.theme);
             }
             SettingsField::RulesProfile => {
-                self.config.rules_profile = self.config.rules_profile.next();
+                self.settings.rules_profile = self.settings.rules_profile.next();
             }
             SettingsField::DefaultDifficulty => {
-                self.config.default_difficulty =
-                    setup::cycle_difficulty(self.config.default_difficulty);
+                self.settings.default_difficulty =
+                    setup::cycle_difficulty(self.settings.default_difficulty);
             }
             SettingsField::HumanSeat => {
-                self.config.human_seat = (self.config.human_seat + 1) % 4;
+                self.settings.human_seat = (self.settings.human_seat + 1) % 4;
             }
             SettingsField::CpuStepDelay => {
-                self.config.cpu_step_delay_ms =
-                    crate::timers::cycle_cpu(self.config.cpu_step_delay_ms);
+                self.settings.cpu_step_delay_ms =
+                    crate::utils::cycle_cpu(self.settings.cpu_step_delay_ms);
             }
             SettingsField::TurnTimer => {
-                self.config.turn_timer_ms = crate::timers::cycle_turn(self.config.turn_timer_ms);
+                self.settings.turn_timer_ms = crate::utils::cycle_turn(self.settings.turn_timer_ms);
             }
             SettingsField::ResponseTimer => {
-                self.config.response_timer_ms =
-                    crate::timers::cycle_response(self.config.response_timer_ms);
+                self.settings.response_timer_ms =
+                    crate::utils::cycle_response(self.settings.response_timer_ms);
             }
         }
     }
 
     fn save_config(&mut self) -> Result<(), AppError> {
-        self.config.save(&self.config_path)
+        self.settings.save_config()
     }
 
     fn handle_setup_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
-        let action = self.keybinds.action_for(&key);
-        if self.keybinds.is_bound(&key, BindAction::Back) {
+        let action = self.settings.keybinds.action_for(&key);
+        if self.settings.keybinds.is_bound(&key, BindAction::Back) {
             self.setup = None;
             return Ok(());
         }
@@ -1292,7 +1282,7 @@ impl App {
             .unwrap_or(1);
         let game_setup = setup.to_game_setup(seed);
         let agents = game_setup.build_agents(seed);
-        let game = Game::new(self.config.rules_config(), seed)?;
+        let game = Game::new(self.settings.rules_config(), seed)?;
         self.human_seat_active = setup.human_seat;
         self.cpu_step_delay_ms = setup.cpu_step_delay_ms;
         self.turn_timer_ms = setup.turn_timer_ms;
@@ -1341,7 +1331,7 @@ impl App {
         if self.try_exit_table_to_main_menu(action) {
             return Ok(());
         }
-        if self.is_activate(key) || self.keybinds.is_bound(key, BindAction::Back) {
+        if self.is_activate(key) || self.settings.keybinds.is_bound(key, BindAction::Back) {
             self.return_to_main_menu();
             return Ok(());
         }
@@ -1574,19 +1564,19 @@ impl App {
     }
 
     pub fn keybinds(&self) -> &Keybinds {
-        &self.keybinds
+        &self.settings.keybinds
     }
 
-    pub fn keybinds_path(&self) -> Option<&PathBuf> {
-        self.keybinds_path.as_ref()
+    pub fn keybinds_path(&self) -> &PathBuf {
+        &self.settings.keybinds_path
     }
 
-    pub fn config(&self) -> &AppConfig {
-        &self.config
+    pub fn settings(&self) -> &Settings {
+        &self.settings
     }
 
     pub fn config_path(&self) -> &PathBuf {
-        &self.config_path
+        &self.settings.config_path
     }
 
     pub const fn settings_field(&self) -> SettingsField {
@@ -1594,7 +1584,7 @@ impl App {
     }
 
     pub fn theme(&self) -> Theme {
-        Theme::resolve(&self.config.theme)
+        Theme::resolve(&self.settings.theme)
     }
 
     pub const fn menu_index(&self) -> usize {

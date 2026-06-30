@@ -64,7 +64,7 @@ fn draw_load_setup_content(
     };
     lines.push(Line::from(vec![
         Span::raw("CPU decision delay: "),
-        Span::styled(crate::timers::label_cpu(load.cpu_step_delay_ms), cpu_style),
+        Span::styled(crate::utils::label_cpu(load.cpu_step_delay_ms), cpu_style),
     ]));
 
     let turn_style = if load.selected == LoadSetupField::TurnTimer {
@@ -74,7 +74,7 @@ fn draw_load_setup_content(
     };
     lines.push(Line::from(vec![
         Span::raw("Turn timer: "),
-        Span::styled(crate::timers::label_turn(load.turn_timer_ms), turn_style),
+        Span::styled(crate::utils::label_turn(load.turn_timer_ms), turn_style),
     ]));
 
     let response_style = if load.selected == LoadSetupField::ResponseTimer {
@@ -85,7 +85,7 @@ fn draw_load_setup_content(
     lines.push(Line::from(vec![
         Span::raw("Call response timer: "),
         Span::styled(
-            crate::timers::label_response(load.response_timer_ms),
+            crate::utils::label_response(load.response_timer_ms),
             response_style,
         ),
     ]));

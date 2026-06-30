@@ -4,6 +4,9 @@ use librrmj::replay::GameRecording;
 use crate::save::RecordingEntry;
 use crate::scenarios::ScenarioEntry;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResumeSetupKind {
     SavedGame,
@@ -69,16 +72,16 @@ impl LoadGameSetup {
         let saved_human_seat = recording.human_seat.unwrap_or(fallback_human_seat);
         let cpu_step_delay_ms = recording
             .cpu_step_delay_ms
-            .map(crate::timers::normalize_cpu)
-            .unwrap_or_else(|| crate::timers::normalize_cpu(fallback_cpu_delay_ms));
+            .map(crate::utils::normalize_cpu)
+            .unwrap_or_else(|| crate::utils::normalize_cpu(fallback_cpu_delay_ms));
         let turn_timer_ms = recording
             .turn_timer_ms
-            .map(crate::timers::normalize_turn)
-            .unwrap_or_else(|| crate::timers::normalize_turn(fallback_turn_timer_ms));
+            .map(crate::utils::normalize_turn)
+            .unwrap_or_else(|| crate::utils::normalize_turn(fallback_turn_timer_ms));
         let response_timer_ms = recording
             .response_timer_ms
-            .map(crate::timers::normalize_response)
-            .unwrap_or_else(|| crate::timers::normalize_response(fallback_response_timer_ms));
+            .map(crate::utils::normalize_response)
+            .unwrap_or_else(|| crate::utils::normalize_response(fallback_response_timer_ms));
         Self {
             entry,
             recording,
@@ -124,55 +127,20 @@ impl LoadGameSetup {
     }
 
     pub fn cycle_cpu_delay(&mut self) {
-        self.cpu_step_delay_ms = crate::timers::cycle_cpu(self.cpu_step_delay_ms);
+        self.cpu_step_delay_ms = crate::utils::cycle_cpu(self.cpu_step_delay_ms);
     }
 
     pub fn cycle_turn_timer(&mut self) {
-        self.turn_timer_ms = crate::timers::cycle_turn(self.turn_timer_ms);
+        self.turn_timer_ms = crate::utils::cycle_turn(self.turn_timer_ms);
     }
 
     pub fn cycle_response_timer(&mut self) {
-        self.response_timer_ms = crate::timers::cycle_response(self.response_timer_ms);
+        self.response_timer_ms = crate::utils::cycle_response(self.response_timer_ms);
     }
 
     pub fn game_setup_for_load(&self) -> GameSetup {
         self.recording
             .game_setup()
             .with_human_seat(self.selected_seat)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use librrmj::agent::PlayerSlot;
-
-    use super::*;
-
-    #[test]
-    fn rejects_finished_recording_for_load() {
-        let text = include_str!("../../../examples/scenarios/match_finished.json");
-        let recording = GameRecording::from_json(text).unwrap();
-        assert_ne!(
-            recording.game_status,
-            librrmj::replay::GameStatus::InProgress
-        );
-    }
-
-    #[test]
-    fn remaps_agents_when_study_seat_chosen() {
-        let text = include_str!("../../../examples/scenarios/dealer_tsumo.json");
-        let recording = GameRecording::from_json(text).unwrap();
-        let entry = RecordingEntry {
-            path: "test.json".into(),
-            recording_id: "test".into(),
-            label: "test".into(),
-            detail: String::new(),
-        };
-        let mut load = LoadGameSetup::new(entry, recording, 0, 300, 30_000, 5_000);
-        load.selected_seat = 1;
-
-        let setup = load.game_setup_for_load();
-        assert_eq!(setup.slots[1], PlayerSlot::Human);
-        assert_eq!(setup.slots[0], PlayerSlot::Cpu);
     }
 }

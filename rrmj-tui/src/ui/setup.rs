@@ -70,7 +70,7 @@ fn draw_setup_content(frame: &mut ratatui::Frame, area: Rect, setup: &NewGameSet
     };
     lines.push(Line::from(vec![
         Span::raw("CPU decision delay: "),
-        Span::styled(crate::timers::label_cpu(setup.cpu_step_delay_ms), cpu_style),
+        Span::styled(crate::utils::label_cpu(setup.cpu_step_delay_ms), cpu_style),
     ]));
 
     let turn_style = if setup.selected == SetupField::TurnTimer {
@@ -80,7 +80,7 @@ fn draw_setup_content(frame: &mut ratatui::Frame, area: Rect, setup: &NewGameSet
     };
     lines.push(Line::from(vec![
         Span::raw("Turn timer: "),
-        Span::styled(crate::timers::label_turn(setup.turn_timer_ms), turn_style),
+        Span::styled(crate::utils::label_turn(setup.turn_timer_ms), turn_style),
     ]));
 
     let response_style = if setup.selected == SetupField::ResponseTimer {
@@ -91,7 +91,7 @@ fn draw_setup_content(frame: &mut ratatui::Frame, area: Rect, setup: &NewGameSet
     lines.push(Line::from(vec![
         Span::raw("Call response timer: "),
         Span::styled(
-            crate::timers::label_response(setup.response_timer_ms),
+            crate::utils::label_response(setup.response_timer_ms),
             response_style,
         ),
     ]));

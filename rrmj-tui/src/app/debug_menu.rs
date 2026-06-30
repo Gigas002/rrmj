@@ -37,11 +37,11 @@ impl App {
             return match self.menu_index {
                 0 => {
                     self.setup = Some(super::NewGameSetup::new(
-                        self.config.default_difficulty,
-                        self.config.human_seat,
-                        self.config.cpu_step_delay_ms,
-                        self.config.turn_timer_ms,
-                        self.config.response_timer_ms,
+                        self.settings.default_difficulty,
+                        self.settings.human_seat,
+                        self.settings.cpu_step_delay_ms,
+                        self.settings.turn_timer_ms,
+                        self.settings.response_timer_ms,
                     ));
                     Ok(())
                 }
@@ -124,7 +124,7 @@ impl App {
             self.open_import_scenario(ImportScenarioTarget::Debug);
             return Ok(());
         }
-        if self.keybinds.is_bound(key, BindAction::Back) {
+        if self.keybinds().is_bound(key, BindAction::Back) {
             self.main_menu_mode = MainMenuMode::Root;
             self.menu_index = DEBUG_MENU_INDEX;
             self.debug_filter_tag = None;
@@ -132,7 +132,7 @@ impl App {
         }
         let filtered = self.filtered_debug_entries();
         if filtered.is_empty() {
-            if self.is_activate(key) || self.keybinds.is_bound(key, BindAction::Back) {
+            if self.is_activate(key) || self.keybinds().is_bound(key, BindAction::Back) {
                 self.main_menu_mode = MainMenuMode::Root;
                 self.menu_index = DEBUG_MENU_INDEX;
             }
@@ -162,7 +162,7 @@ impl App {
             .nth(index)
             .cloned()
             .ok_or_else(|| AppError::Config {
-                path: self.config_path.clone(),
+                path: self.settings.config_path.clone(),
                 detail: "no scenario selected".into(),
             })?;
         let recording = scenarios::read_scenario(&entry.path)?;
@@ -170,15 +170,15 @@ impl App {
         self.debug_setup = Some(DebugScenarioSetup::new(
             entry,
             recording,
-            self.config.human_seat,
+            self.settings.human_seat,
         ));
         self.main_menu_mode = MainMenuMode::Root;
         Ok(())
     }
 
     fn handle_debug_setup_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
-        let action = self.keybinds.action_for(&key);
-        if self.keybinds.is_bound(&key, BindAction::Back) {
+        let action = self.keybinds().action_for(&key);
+        if self.keybinds().is_bound(&key, BindAction::Back) {
             self.debug_setup = None;
             self.main_menu_mode = MainMenuMode::Debug;
             return Ok(());
@@ -227,9 +227,9 @@ impl App {
         self.agents = Some(agents);
         self.active_game = Some(game);
         self.human_seat_active = human;
-        self.cpu_step_delay_ms = self.config.cpu_step_delay_ms;
-        self.turn_timer_ms = self.config.turn_timer_ms;
-        self.response_timer_ms = self.config.response_timer_ms;
+        self.cpu_step_delay_ms = self.settings.cpu_step_delay_ms;
+        self.turn_timer_ms = self.settings.turn_timer_ms;
+        self.response_timer_ms = self.settings.response_timer_ms;
         self.cpu_step_wait_until = None;
         self.action_timer.reset();
         self.active_recording_id = None;

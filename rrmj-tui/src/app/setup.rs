@@ -41,9 +41,9 @@ impl NewGameSetup {
             slots,
             difficulties: [default_difficulty; 4],
             human_seat,
-            cpu_step_delay_ms: crate::timers::normalize_cpu(cpu_step_delay_ms),
-            turn_timer_ms: crate::timers::normalize_turn(turn_timer_ms),
-            response_timer_ms: crate::timers::normalize_response(response_timer_ms),
+            cpu_step_delay_ms: crate::utils::normalize_cpu(cpu_step_delay_ms),
+            turn_timer_ms: crate::utils::normalize_turn(turn_timer_ms),
+            response_timer_ms: crate::utils::normalize_response(response_timer_ms),
             default_difficulty,
             selected: SetupField::SeatType(0),
         }
@@ -97,13 +97,13 @@ impl NewGameSetup {
                 self.ensure_one_human();
             }
             SetupField::CpuStepDelay => {
-                self.cpu_step_delay_ms = crate::timers::cycle_cpu(self.cpu_step_delay_ms);
+                self.cpu_step_delay_ms = crate::utils::cycle_cpu(self.cpu_step_delay_ms);
             }
             SetupField::TurnTimer => {
-                self.turn_timer_ms = crate::timers::cycle_turn(self.turn_timer_ms);
+                self.turn_timer_ms = crate::utils::cycle_turn(self.turn_timer_ms);
             }
             SetupField::ResponseTimer => {
-                self.response_timer_ms = crate::timers::cycle_response(self.response_timer_ms);
+                self.response_timer_ms = crate::utils::cycle_response(self.response_timer_ms);
             }
             SetupField::Confirm => {}
         }
@@ -119,13 +119,13 @@ impl NewGameSetup {
                 self.ensure_one_human();
             }
             SetupField::CpuStepDelay => {
-                self.cpu_step_delay_ms = crate::timers::cycle_cpu(self.cpu_step_delay_ms);
+                self.cpu_step_delay_ms = crate::utils::cycle_cpu(self.cpu_step_delay_ms);
             }
             SetupField::TurnTimer => {
-                self.turn_timer_ms = crate::timers::cycle_turn(self.turn_timer_ms);
+                self.turn_timer_ms = crate::utils::cycle_turn(self.turn_timer_ms);
             }
             SetupField::ResponseTimer => {
-                self.response_timer_ms = crate::timers::cycle_response(self.response_timer_ms);
+                self.response_timer_ms = crate::utils::cycle_response(self.response_timer_ms);
             }
             _ => self.toggle_selected(),
         }
