@@ -6,6 +6,14 @@ use ratatui::text::{Line, Span};
 use crate::theme::Theme;
 use crate::ui::render::{meld_kind_label, tile_label};
 
+#[cfg(test)]
+mod tests;
+
+/// Whether `candidate` should receive match emphasis for `reference` (aka ↔ normal five).
+pub(crate) fn tile_matches_highlight(reference: Tile, candidate: Tile) -> bool {
+    reference.matches_identity(candidate)
+}
+
 pub fn tile_span(
     tile: Tile,
     theme: &Theme,
@@ -38,7 +46,7 @@ pub fn tiles_line(
                     theme,
                     selected == Some(i),
                     drawn == Some(i),
-                    match_tile == Some(*t),
+                    match_tile.is_some_and(|m| tile_matches_highlight(m, *t)),
                     recent_index == Some(i),
                 )
             })

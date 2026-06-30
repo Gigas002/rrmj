@@ -132,7 +132,7 @@ fn draw_seat_panel(
             ctx.theme,
             ctx.selected_hand,
             ctx.drawn_hand,
-            None,
+            ctx.highlight_tile,
             None,
         ));
     } else if seat_view.concealed_count > 0 {
