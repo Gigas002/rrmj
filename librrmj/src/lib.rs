@@ -36,8 +36,8 @@ pub use replay::{
 };
 pub use replay::{GameSnapshot, Replay};
 pub use rules::{
-    Recommendation, RulesConfig, RulesProfile, RulesProfileId, RulesRegistry, WinContext,
-    WinTimingFlags, recommendations, sort_recommendations,
+    PathDecomposition, Recommendation, RulesConfig, RulesProfile, RulesProfileId, RulesRegistry,
+    WinContext, WinTimingFlags, dora_tile, is_hand_dora, recommendations, sort_recommendations,
 };
 pub use scoring::{ScoringResult, WinType, Yaku};
 pub use state::{HandPhase, HandState, SEAT_COUNT};

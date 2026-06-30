@@ -10,7 +10,7 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 use crate::app::{phase_label, seat_label};
 use crate::theme::Theme;
 use crate::ui::board::wall::wall_lines;
-use crate::ui::widgets::{meld_line, riichi_badge, tiles_line};
+use crate::ui::widgets::{TilesLineContext, meld_line, riichi_badge, tiles_line};
 
 pub struct PlayfieldContext<'a> {
     pub view: &'a PlayerView,
@@ -26,6 +26,7 @@ pub struct PlayfieldContext<'a> {
     /// Opponent's latest discard in their river: `(seat, index)`.
     pub recent_discard: Option<(usize, usize)>,
     pub sorted_hand: &'a [Tile],
+    pub aka_dora: bool,
 }
 
 pub fn draw_playfield(frame: &mut ratatui::Frame, area: Rect, ctx: &PlayfieldContext<'_>) {
@@ -102,7 +103,12 @@ fn draw_seat_panel(
     lines.push(Line::from(""));
 
     for meld in &seat_view.melds {
-        lines.push(meld_line(meld, ctx.theme));
+        lines.push(meld_line(
+            meld,
+            ctx.theme,
+            &ctx.view.dora_indicators,
+            ctx.aka_dora,
+        ));
     }
     if !seat_view.melds.is_empty() {
         lines.push(Line::from(""));
@@ -117,10 +123,13 @@ fn draw_seat_panel(
         lines.push(tiles_line(
             &seat_view.discards,
             ctx.theme,
-            None,
-            None,
-            ctx.highlight_tile,
-            recent_index,
+            TilesLineContext {
+                match_tile: ctx.highlight_tile,
+                recent_index,
+                dora_indicators: &ctx.view.dora_indicators,
+                aka_dora: ctx.aka_dora,
+                ..TilesLineContext::empty()
+            },
         ));
         lines.push(Line::from(""));
     }
@@ -130,10 +139,14 @@ fn draw_seat_panel(
         lines.push(tiles_line(
             ctx.sorted_hand,
             ctx.theme,
-            ctx.selected_hand,
-            ctx.drawn_hand,
-            ctx.highlight_tile,
-            None,
+            TilesLineContext {
+                selected: ctx.selected_hand,
+                drawn: ctx.drawn_hand,
+                match_tile: ctx.highlight_tile,
+                dora_indicators: &ctx.view.dora_indicators,
+                aka_dora: ctx.aka_dora,
+                ..TilesLineContext::empty()
+            },
         ));
     } else if seat_view.concealed_count > 0 {
         lines.push(Line::from(Span::styled(

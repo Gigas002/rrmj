@@ -36,12 +36,16 @@ impl Theme {
         drawn: bool,
         matched: bool,
         recent_discard: bool,
+        is_dora: bool,
     ) -> Style {
         let mut style = if red {
             Style::default().fg(self.red_tile)
         } else {
             Style::default().fg(self.primary)
         };
+        if is_dora && !selected && !drawn && !matched && !recent_discard {
+            style = self.dora_style().add_modifier(Modifier::BOLD);
+        }
         if recent_discard {
             style = style
                 .fg(self.actor)

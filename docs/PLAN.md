@@ -2,9 +2,9 @@
 
 Library-first Rust riichi mahjong: **`librrmj`** (rules engine) + **`rrmj`** (terminal client).
 
-**#1 priority:** **Phase 15** — hand-planning UI (recommendations decomposition, rules examples, dora highlight).
+**#1 priority:** **Phase 16** — TUI polish (display modes, layout, animations, theming).
 
-Phases 11 + 12 (full standard rules) and **Phase 14** (recordings, saves, replays, scenarios) are **complete**.
+Phases 11 + 12 (full standard rules) and **Phase 14** (recordings, saves, replays, scenarios) are **complete**. **Phase 15** (hand planning & rules reference) is **complete**.
 
 §9 archives Phases 0–10 (engine *plumbing* shipped; **rules are not complete**). §10 is the active backlog. Check boxes in §10 only.
 
@@ -507,7 +507,7 @@ Removed per-step `persist_match` / async autosaves.
 
 ---
 
-### Phase 15 — Hand planning & rules reference **(active)**
+### Phase 15 — Hand planning & rules reference ✅
 
 > **Goal:** Make recommendations and the `?` overlay teach hand shape — not just yaku names and wait counts. All decomposition logic stays in `librrmj`; TUI renders tiles only.
 
@@ -517,24 +517,24 @@ Today the overlay shows shanten, yaku list, han/fu/points, and at most one `Wait
 
 **Engine (`librrmj`)**
 
-- [ ] Extend `WinPathCandidate` (or companion struct) with a **concrete decomposition** for the path: melds / pair / headless tiles from the current visible hand, plus **missing tile(s)** for tenpai or complete.
-- [ ] For 1-shanten rows, include the **suggested discard** that reaches tenpai (already simulated in `recommendations.rs`; surface it in the API).
-- [ ] Stable, deterministic formatting helper (tile labels / grouped spans) — no scoring logic in TUI.
+- [x] Extend `WinPathCandidate` (or companion struct) with a **concrete decomposition** for the path: melds / pair / headless tiles from the current visible hand, plus **missing tile(s)** for tenpai or complete.
+- [x] For 1-shanten rows, include the **suggested discard** that reaches tenpai (already simulated in `recommendations.rs`; surface it in the API).
+- [x] Stable, deterministic formatting helper (tile labels / grouped spans) — no scoring logic in TUI.
 
 **TUI (`rrmj`)**
 
-- [ ] Recommendations overlay: each row shows the **exact combination** (hand tiles grouped + missing tiles marked), then yaku / han / fu / points — not name + wait count alone.
-- [ ] Scroll line count updated for multi-line paths.
+- [x] Recommendations overlay: each row shows the **exact combination** (hand tiles grouped + missing tiles marked), then yaku / han / fu / points — not name + wait count alone.
+- [x] Scroll line count updated for multi-line paths.
 
 **Verify:** fixture hands in `win_combinations` — top candidate decomposition matches `score_win` yaku for that path; overlay renders without calling yaku/fu tables in `rrmj`.
 
 #### Phase 15.2 — Rules overlay (`?`): combination examples
 
-Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no illustrated standard shapes.
+> **Already shipped** — `rules_content/yaku.rs` includes `ex:` combination lines per yaku row; tests in `rules_content/tests.rs`.
 
-- [ ] Add a **Combinations** section (or tab) with worked examples: e.g. pinfu (ryanmen wait), tanyao, toitoi, chiitoitsu, honitsu/chinitsu skeleton, yakuhai — using the same tile glyphs as the table.
-- [ ] Examples are static reference content (mirror `RULES.md` / `cheatsheet.rs` names); optional cross-links to yaku rows.
-- [ ] Scroll / section navigation still works with existing `?` overlay.
+- [x] Add a **Combinations** section (or tab) with worked examples: e.g. pinfu (ryanmen wait), tanyao, toitoi, chiitoitsu, honitsu/chinitsu skeleton, yakuhai — using the same tile glyphs as the table.
+- [x] Examples are static reference content (mirror `RULES.md` / `cheatsheet.rs` names); optional cross-links to yaku rows.
+- [x] Scroll / section navigation still works with existing `?` overlay.
 
 **Verify:** every baseline + pattern yaku in `cheatsheet.rs` has at least one example line or points to a shared shape; §8 gates green.
 
@@ -542,9 +542,9 @@ Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no i
 
 **Not implemented today** — dora indicators render on the wall (`board/wall.rs`); hand/meld tiles use selection/drawn/match styling only. Red fives use aka styling via `tile.is_red()`, not indicator matching.
 
-- [ ] Highlight tiles in **concealed hand and open melds** that count as dora against current indicators (`view.dora_indicators`; aka when `RulesConfig` aka dora on).
-- [ ] Reuse `theme.dora_style()` (or a distinct aka-dora variant if needed); must not clash with picker selection / drawn-tile emphasis.
-- [ ] Rivers: optional subtle highlight when a discard matches dora (lower priority than 15.3 hand melds).
+- [x] Highlight tiles in **concealed hand and open melds** that count as dora against current indicators (`view.dora_indicators`; aka when `RulesConfig` aka dora on).
+- [x] Reuse `theme.dora_style()` (or a distinct aka-dora variant if needed); must not clash with picker selection / drawn-tile emphasis.
+- [x] Rivers: optional subtle highlight when a discard matches dora (lower priority than 15.3 hand melds).
 
 **Verify:** manual check on `aka_dora_on` / dora scenario fixtures; dora tiles visually distinct at table with multiple indicators.
 
@@ -552,7 +552,7 @@ Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no i
 
 ---
 
-### Phase 16 — TUI polish (deferred)
+### Phase 16 — TUI polish (deferred) **(active)**
 
 > **Blocked on Phase 14 complete.**
 

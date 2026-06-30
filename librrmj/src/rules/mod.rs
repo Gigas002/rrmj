@@ -1,4 +1,5 @@
 mod config;
+pub mod dora;
 pub mod flow;
 mod profile;
 mod recommendations;
@@ -11,8 +12,9 @@ mod tests;
 use crate::state::HandState;
 
 pub use config::RulesConfig;
+pub use dora::{dora_tile, is_aka_dora, is_hand_dora, matches_indicator_dora};
 pub use profile::{RulesProfile, RulesProfileId, WinContext, WinTimingFlags};
-pub use recommendations::{Recommendation, sort_recommendations};
+pub use recommendations::{PathDecomposition, PathGroup, Recommendation, sort_recommendations};
 pub use registry::RulesRegistry;
 
 /// Scored win paths for the active rules profile (planning UI).

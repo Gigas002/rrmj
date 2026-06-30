@@ -1,5 +1,5 @@
 mod abortive;
-mod dora;
+pub mod dora;
 mod fu;
 mod patterns;
 mod recommendations;

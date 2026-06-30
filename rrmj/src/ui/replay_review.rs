@@ -49,6 +49,7 @@ fn draw_board(frame: &mut ratatui::Frame, area: Rect, review: &ReplayReview, the
         highlight_tile: None,
         recent_discard,
         sorted_hand: &sorted_hand,
+        aka_dora: review.player.recording().rules_config.aka_dora,
     };
     let block = Block::default()
         .borders(Borders::ALL)

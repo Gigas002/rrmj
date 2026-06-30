@@ -38,6 +38,7 @@ pub fn draw_table(frame: &mut ratatui::Frame, area: Rect, app: &App, theme: &The
         highlight_tile: highlighted_hand_tile(&sorted_hand, selected_hand, drawn_hand),
         recent_discard: recent_opponent_discard(&view, human),
         sorted_hand: &sorted_hand,
+        aka_dora: app.settings().rules_config().aka_dora,
     };
     draw_playfield(frame, root[0], &ctx);
 
@@ -166,10 +167,13 @@ fn action_help(app: &App, theme: &Theme) -> Vec<Line<'static>> {
                     Span::raw(if sel { "  > " } else { "    " }),
                     Span::raw(format!("chi {}: ", i + 1)),
                 ];
-                spans.extend(
-                    chi.iter()
-                        .map(|t| tile_span(*t, theme, false, false, false, false)),
-                );
+                spans.extend(chi.iter().map(|t| {
+                    tile_span(
+                        *t,
+                        theme,
+                        crate::ui::widgets::TileHighlight::default(),
+                    )
+                }));
                 lines.push(Line::from(spans));
             }
             if app.table_mode() == TableMode::PickChi {

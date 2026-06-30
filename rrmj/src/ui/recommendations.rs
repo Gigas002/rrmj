@@ -41,10 +41,10 @@ pub fn draw_recommendations_popup(
                 ),
                 theme.status_style(),
             )));
-            lines.push(Line::from(path.summary_line()));
-            if let Some(tile) = path.win_tile {
-                lines.push(Line::from(format!("   Wait: {tile}")));
+            for shape_line in path.decomposition.format_lines() {
+                lines.push(Line::from(format!("   {shape_line}")));
             }
+            lines.push(Line::from(format!("   {}", path.summary_line())));
             let mut dora = Vec::new();
             if path.dora > 0 {
                 dora.push(format!("dora {}", path.dora));
@@ -92,10 +92,9 @@ pub fn recommendation_line_count(app: &App) -> usize {
         count += 1;
     } else {
         for path in candidates {
-            count += 2;
-            if path.win_tile.is_some() {
-                count += 1;
-            }
+            count += 1;
+            count += path.decomposition.format_lines().len();
+            count += 1;
             if path.dora > 0 || path.ura_dora > 0 || path.aka_dora > 0 {
                 count += 1;
             }

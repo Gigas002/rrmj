@@ -40,7 +40,7 @@ impl MeldComponent {
         self.triplet.is_some()
     }
 
-    fn tiles(self) -> Vec<Tile> {
+    pub(crate) fn tiles(self) -> Vec<Tile> {
         match (self.sequence, self.triplet) {
             (Some((suit, rank)), None) => [
                 Tile::numbered(suit, rank),
