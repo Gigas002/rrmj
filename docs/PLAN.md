@@ -1,10 +1,10 @@
 # rrmj — plan
 
-Library-first Rust riichi mahjong: **`librrmj`** (rules engine) + **`rrmj-tui`** (terminal client).
+Library-first Rust riichi mahjong: **`librrmj`** (rules engine) + **`rrmj`** (terminal client).
 
-**#1 priority:** **Phase 15** — hand-planning UI (recommendations decomposition, rules examples, dora highlight).
+**#1 priority:** **Phase 16** — TUI polish (display modes, layout, animations, theming).
 
-Phases 11 + 12 (full standard rules) and **Phase 14** (recordings, saves, replays, scenarios) are **complete**.
+Phases 11 + 12 (full standard rules) and **Phase 14** (recordings, saves, replays, scenarios) are **complete**. **Phase 15** (hand planning & rules reference) is **complete**.
 
 §9 archives Phases 0–10 (engine *plumbing* shipped; **rules are not complete**). §10 is the active backlog. Check boxes in §10 only.
 
@@ -15,7 +15,7 @@ Phases 11 + 12 (full standard rules) and **Phase 14** (recordings, saves, replay
 ### 1.1 Goals
 
 - **Correct riichi rules engine** in `librrmj` — wall, turns, calls, riichi, dora, wins, scoring, match flow.
-- **Play vs CPU**: `rrmj-tui` drives a local 4-player match against 3 AI opponents.
+- **Play vs CPU**: `rrmj` drives a local 4-player match against 3 AI opponents.
 - **Online-ready core**: event-sourced, deterministic (`seed` + `Action`/`Event` log); no transport in v0.
 - **Thin clients**: all legality and scoring in `librrmj`.
 - **Extensible rulesets**: `RulesProfile` boundary; v0 ships **`standard`** only.
@@ -49,13 +49,13 @@ rrmj/
     tile/  wall/  hand/  action/  event/  state/
     rules/standard/     # yaku, fu, score, cheatsheet.rs, win_combinations/
     scoring/  game/  agent/  replay/  ai/  rng/
-  rrmj-tui/src/
+  rrmj/src/
     app/  ui/  input/  config/  theme/  cli/
   docs/   PLAN.md  RULES.md  REPLAY.md  DEBUG_SCENARIOS.md
   examples/scenarios/*.json
 ```
 
-**Crate rules:** `rrmj-tui` builds `Game` from config and calls `apply_action` — never duplicates rule checks.
+**Crate rules:** `rrmj` builds `Game` from config and calls `apply_action` — never duplicates rule checks.
 
 ---
 
@@ -143,7 +143,7 @@ cargo doc --workspace --no-deps
 
 ### Phase 0 — Workspace skeleton ✅
 
-- [x] Workspace `librrmj` + `rrmj-tui`; CI, `deny.toml`, tracing in TUI.
+- [x] Workspace `librrmj` + `rrmj`; CI, `deny.toml`, tracing in TUI.
 
 ### Phase 1 — Tiles, hand, wall ✅
 
@@ -346,7 +346,7 @@ Validate: `cargo test -p librrmj --features serde --test scenarios`
 
 #### Phase 12.3 — TUI rules overlay content
 
-- [x] `rrmj-tui/src/ui/rules_content.rs` mirrors `RULES.md` (presentation only)
+- [x] `rrmj/src/ui/rules_content.rs` mirrors `RULES.md` (presentation only)
 
 **Verify (Phase 12 complete):** RULES.md authoritative; scenarios cover §12.1 table; overlay synced.
 
@@ -391,12 +391,12 @@ Validate: `cargo test -p librrmj --features serde --test scenarios`
 - [x] Sort API: primary key **expected score** (profile `score_win` estimate at current honba / dealer context); secondary key **closeness** (lower shanten, fewer unique waits).
 - [x] Win event surface: attach or emit full `ScoringResult` (yaku names, dora/ura/aka han, fu, per-seat payments, deltas) — not only `Event::Won { han, fu }` totals.
 
-**TUI (`rrmj-tui`)**
+**TUI (`rrmj`)**
 
 - [x] **Recommendations overlay** — open during a match (human seat) on your turn; list top N candidate combinations from the engine hook, scrollable. Default hotkey **`e`** (`overlay.recommendations` in `keybinds.toml`) — **`r` stays Ron** in reaction phase.
 - [x] **Full hand result popup** — after a win, show complete report: winner, win type (tsumo/ron), yaku list with han, dora breakdown, fu, limit band, payment table, score deltas (replaces BUG-101 stub).
 
-**Verify:** recommendations match engine yaku detection on fixture hands; win popup matches `score_win` for every `win_combinations` `WinCase` row used in CI; no yaku/fu tables in `rrmj-tui`.
+**Verify:** recommendations match engine yaku detection on fixture hands; win popup matches `score_win` for every `win_combinations` `WinCase` row used in CI; no yaku/fu tables in `rrmj`.
 
 **Verify (Phase 13):** TUI still drives `legal_actions()` only; no duplicated rule logic.
 
@@ -507,7 +507,7 @@ Removed per-step `persist_match` / async autosaves.
 
 ---
 
-### Phase 15 — Hand planning & rules reference **(active)**
+### Phase 15 — Hand planning & rules reference ✅
 
 > **Goal:** Make recommendations and the `?` overlay teach hand shape — not just yaku names and wait counts. All decomposition logic stays in `librrmj`; TUI renders tiles only.
 
@@ -517,24 +517,24 @@ Today the overlay shows shanten, yaku list, han/fu/points, and at most one `Wait
 
 **Engine (`librrmj`)**
 
-- [ ] Extend `WinPathCandidate` (or companion struct) with a **concrete decomposition** for the path: melds / pair / headless tiles from the current visible hand, plus **missing tile(s)** for tenpai or complete.
-- [ ] For 1-shanten rows, include the **suggested discard** that reaches tenpai (already simulated in `recommendations.rs`; surface it in the API).
-- [ ] Stable, deterministic formatting helper (tile labels / grouped spans) — no scoring logic in TUI.
+- [x] Extend `WinPathCandidate` (or companion struct) with a **concrete decomposition** for the path: melds / pair / headless tiles from the current visible hand, plus **missing tile(s)** for tenpai or complete.
+- [x] For 1-shanten rows, include the **suggested discard** that reaches tenpai (already simulated in `recommendations.rs`; surface it in the API).
+- [x] Stable, deterministic formatting helper (tile labels / grouped spans) — no scoring logic in TUI.
 
-**TUI (`rrmj-tui`)**
+**TUI (`rrmj`)**
 
-- [ ] Recommendations overlay: each row shows the **exact combination** (hand tiles grouped + missing tiles marked), then yaku / han / fu / points — not name + wait count alone.
-- [ ] Scroll line count updated for multi-line paths.
+- [x] Recommendations overlay: each row shows the **exact combination** (hand tiles grouped + missing tiles marked), then yaku / han / fu / points — not name + wait count alone.
+- [x] Scroll line count updated for multi-line paths.
 
-**Verify:** fixture hands in `win_combinations` — top candidate decomposition matches `score_win` yaku for that path; overlay renders without calling yaku/fu tables in `rrmj-tui`.
+**Verify:** fixture hands in `win_combinations` — top candidate decomposition matches `score_win` yaku for that path; overlay renders without calling yaku/fu tables in `rrmj`.
 
 #### Phase 15.2 — Rules overlay (`?`): combination examples
 
-Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no illustrated standard shapes.
+> **Already shipped** — `rules_content/yaku.rs` includes `ex:` combination lines per yaku row; tests in `rules_content/tests.rs`.
 
-- [ ] Add a **Combinations** section (or tab) with worked examples: e.g. pinfu (ryanmen wait), tanyao, toitoi, chiitoitsu, honitsu/chinitsu skeleton, yakuhai — using the same tile glyphs as the table.
-- [ ] Examples are static reference content (mirror `RULES.md` / `cheatsheet.rs` names); optional cross-links to yaku rows.
-- [ ] Scroll / section navigation still works with existing `?` overlay.
+- [x] Add a **Combinations** section (or tab) with worked examples: e.g. pinfu (ryanmen wait), tanyao, toitoi, chiitoitsu, honitsu/chinitsu skeleton, yakuhai — using the same tile glyphs as the table.
+- [x] Examples are static reference content (mirror `RULES.md` / `cheatsheet.rs` names); optional cross-links to yaku rows.
+- [x] Scroll / section navigation still works with existing `?` overlay.
 
 **Verify:** every baseline + pattern yaku in `cheatsheet.rs` has at least one example line or points to a shared shape; §8 gates green.
 
@@ -542,17 +542,17 @@ Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no i
 
 **Not implemented today** — dora indicators render on the wall (`board/wall.rs`); hand/meld tiles use selection/drawn/match styling only. Red fives use aka styling via `tile.is_red()`, not indicator matching.
 
-- [ ] Highlight tiles in **concealed hand and open melds** that count as dora against current indicators (`view.dora_indicators`; aka when `RulesConfig` aka dora on).
-- [ ] Reuse `theme.dora_style()` (or a distinct aka-dora variant if needed); must not clash with picker selection / drawn-tile emphasis.
-- [ ] Rivers: optional subtle highlight when a discard matches dora (lower priority than 15.3 hand melds).
+- [x] Highlight tiles in **concealed hand and open melds** that count as dora against current indicators (`view.dora_indicators`; aka when `RulesConfig` aka dora on).
+- [x] Reuse `theme.dora_style()` (or a distinct aka-dora variant if needed); must not clash with picker selection / drawn-tile emphasis.
+- [x] Rivers: optional subtle highlight when a discard matches dora (lower priority than 15.3 hand melds).
 
 **Verify:** manual check on `aka_dora_on` / dora scenario fixtures; dora tiles visually distinct at table with multiple indicators.
 
-**Verify (Phase 15):** TUI still presentation-only; no duplicated rule logic in `rrmj-tui`.
+**Verify (Phase 15):** TUI still presentation-only; no duplicated rule logic in `rrmj`.
 
 ---
 
-### Phase 16 — TUI polish (deferred)
+### Phase 16 — TUI polish (deferred) **(active)**
 
 > **Blocked on Phase 14 complete.**
 
@@ -608,7 +608,7 @@ Today `rules_content.rs` is prose only (yaku table, fu steps, payments) — no i
 
 - Edition 2024; lockfile committed.
 - `librrmj`: `thiserror`, `tracing`, `rand`/`rand_chacha`; optional `serde`, `ai`, `proptest`.
-- `rrmj-tui`: `ratatui`, `crossterm`, `clap`, `toml`, `tracing-subscriber`.
+- `rrmj`: `ratatui`, `crossterm`, `clap`, `toml`, `tracing-subscriber`.
 - Banned in `librrmj`: ratatui, crossterm, bevy, tokio, network stacks.
 
 ---

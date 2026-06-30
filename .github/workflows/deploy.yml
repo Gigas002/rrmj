@@ -28,16 +28,16 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build release binary
-        run: cargo build -p rrmj-tui --release
+        run: cargo build -p rrmj --release
 
       - name: Strip binary
-        run: strip target/release/rrmj-tui
+        run: strip target/release/rrmj
 
       - name: Package archive
         run: |
           VERSION="${GITHUB_REF_NAME:-dev}"
-          ARCHIVE="rrmj-tui-${VERSION}-x86_64-linux.tar.gz"
-          tar -czf "$ARCHIVE" -C target/release rrmj-tui
+          ARCHIVE="rrmj-${VERSION}-x86_64-linux.tar.gz"
+          tar -czf "$ARCHIVE" -C target/release rrmj
           echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
 
       # Only runs on real tag pushes; skipped for workflow_dispatch.

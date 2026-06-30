@@ -5,7 +5,7 @@
 #   ~/.config/rrmj/config.toml
 #
 # Override path at launch:
-#   rrmj-tui --config /path/to/config.toml
+#   rrmj --config /path/to/config.toml
 #
 # Settings changed in the in-game Settings screen are written back to this file
 # when you press Esc.

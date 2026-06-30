@@ -1,8 +1,12 @@
 #[cfg(test)]
 mod tests;
 
+mod decomposition;
+
 use crate::scoring::{WinType, Yaku};
 use crate::tile::Tile;
+
+pub use decomposition::{PathDecomposition, PathGroup};
 
 /// One scored path toward a winning hand for planning UI.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -21,6 +25,8 @@ pub struct Recommendation {
     pub aka_dora: u8,
     pub expected_points: i32,
     pub win_type: WinType,
+    /// Grouped hand shape, missing tiles, and optional 1-shanten discard.
+    pub decomposition: PathDecomposition,
 }
 
 impl Recommendation {

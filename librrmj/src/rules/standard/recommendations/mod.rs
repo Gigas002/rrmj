@@ -1,3 +1,5 @@
+mod decomposition;
+
 use crate::hand::{Concealed, Hand};
 use crate::rules::profile::{RulesProfile, WinContext, WinTimingFlags};
 use crate::rules::recommendations::Recommendation;
@@ -14,6 +16,7 @@ struct Collector<'a> {
     seat: usize,
     config: &'a RulesConfig,
     profile: &'a dyn RulesProfile,
+    suggested_discard: Option<Tile>,
 }
 
 impl Collector<'_> {
@@ -24,11 +27,14 @@ impl Collector<'_> {
             return;
         }
         let result = self.profile.score_win(&ctx, self.config);
+        let path_decomposition =
+            decomposition::build_from_context(&ctx, shanten, self.suggested_discard);
         self.paths.push(from_scoring_result(
             result,
             shanten,
             wait_count,
             Some(win_tile),
+            path_decomposition,
         ));
     }
 }
@@ -45,6 +51,7 @@ pub(crate) fn collect(state: &HandState, seat: usize, config: &RulesConfig) -> V
         seat,
         config,
         profile,
+        suggested_discard: None,
     };
 
     if is_winning_hand(hand, None) {
@@ -85,6 +92,7 @@ pub(crate) fn collect(state: &HandState, seat: usize, config: &RulesConfig) -> V
                 seat,
                 config,
                 profile,
+                suggested_discard: Some(discard),
             };
             for tile in waits {
                 after_collector.push(WinType::Tsumo, tile, 1, wait_count);
@@ -101,6 +109,7 @@ fn from_scoring_result(
     shanten: i8,
     wait_count: usize,
     win_tile: Option<Tile>,
+    decomposition: crate::rules::recommendations::PathDecomposition,
 ) -> Recommendation {
     Recommendation {
         shanten,
@@ -114,6 +123,7 @@ fn from_scoring_result(
         aka_dora: result.aka_dora,
         expected_points: result.deltas[result.winner],
         win_type: result.win_type,
+        decomposition,
     }
 }
 

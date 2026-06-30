@@ -2,7 +2,7 @@
 
 Version **3** — one parse-only wire document for replays, saved games, scenarios, and debug scenarios.
 
-**Filesystem paths are client-owned** (`rrmj-tui` chooses `recordings_dir` and `scenarios_dir`). `librrmj` only serializes to/from readers and writers; it does not synthesize scenario state in code.
+**Filesystem paths are client-owned** (`rrmj` chooses `recordings_dir` and `scenarios_dir`). `librrmj` only serializes to/from readers and writers; it does not synthesize scenario state in code.
 
 ## Usage modes (one schema, four clients)
 
@@ -56,7 +56,7 @@ To add or change a debug scenario: edit the JSON under `examples/scenarios/`, ru
 | `format_version` | `u32` | yes | Must be `3` (see [Migration](#migration)) |
 | `recording_id` | string | no | Client-generated stable id |
 | `created_at` / `updated_at` | string (ISO-8601) | no | Client metadata |
-| `client_version` | string | no | e.g. `rrmj-tui 0.1.0` |
+| `client_version` | string | no | e.g. `rrmj 0.1.0` |
 | `title` / `description` | string | no | UI labels |
 | `tags` | `[string]` | no | e.g. `chi`, `tsumo`, `match-flow` |
 | `rules_profile` | string | yes | e.g. `standard` |
@@ -158,7 +158,7 @@ player.seek_hand(1)?;           // jump to second hand
 
 `from_json` normalizes legacy v1/v2 files (top-level assertion fields, older `format_version`) before deserialize.
 
-## Client conventions (`rrmj-tui`)
+## Client conventions (`rrmj`)
 
 | Directory | Filter | Mode |
 | --------- | ------ | ---- |
@@ -167,7 +167,7 @@ player.seek_hand(1)?;           // jump to second hand
 
 One directory holds both in-progress saves and finished replays; menus filter by `match_status`. Config key: `recordings_dir` (legacy alias when reading: `saves_dir`). Community scenario packs use a separate `scenarios_dir`; repo CI fixtures live in `examples/scenarios/` (debug menu / `librrmj` tests only).
 
-**Persistence policy (`rrmj-tui`):**
+**Persistence policy (`rrmj`):**
 
 - **In progress:** manual save only — pause menu → **Save game** writes `match_status = in_progress` to a user-chosen or default path under `recordings_dir`.
 - **Match end:** one automatic write with `match_status = finished` (same file as the last manual save when set, otherwise `recordings_dir/match-{seed}.rrmj.json`) → appears in **Replays**.

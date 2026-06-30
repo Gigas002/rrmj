@@ -1,4 +1,4 @@
-use crate::rules::recommendations::{Recommendation, sort_recommendations};
+use crate::rules::recommendations::{PathDecomposition, Recommendation, sort_recommendations};
 use crate::scoring::{WinType, Yaku};
 
 #[test]
@@ -16,6 +16,7 @@ fn sort_prefers_higher_expected_points() {
             aka_dora: 0,
             expected_points: 1_000,
             win_type: WinType::Ron { from: 0 },
+            decomposition: PathDecomposition::empty(),
         },
         Recommendation {
             shanten: 0,
@@ -29,6 +30,7 @@ fn sort_prefers_higher_expected_points() {
             aka_dora: 0,
             expected_points: 2_000,
             win_type: WinType::Tsumo,
+            decomposition: PathDecomposition::empty(),
         },
     ];
     sort_recommendations(&mut paths);

@@ -5,7 +5,7 @@
 #   ~/.config/rrmj/keybinds.toml
 #
 # Override path at launch:
-#   rrmj-tui --keybinds /path/to/keybinds.toml
+#   rrmj --keybinds /path/to/keybinds.toml
 #
 # If this file is missing, built-in defaults are used. Any action omitted here
 # is filled in from those defaults, so you can override only what you need.
