@@ -81,8 +81,10 @@ fn one_shanten_includes_suggested_discard() {
     );
     let decomp = build_from_context(&ctx, 1, Some(Tile::sou(9)));
     assert_eq!(decomp.suggested_discard, Some(Tile::sou(9)));
-    assert!(decomp
-        .format_lines()
-        .first()
-        .is_some_and(|line| line.starts_with("Discard 9s")));
+    assert!(
+        decomp
+            .format_lines()
+            .first()
+            .is_some_and(|line| line.starts_with("Discard 9s"))
+    );
 }

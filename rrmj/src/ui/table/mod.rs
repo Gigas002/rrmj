@@ -167,13 +167,11 @@ fn action_help(app: &App, theme: &Theme) -> Vec<Line<'static>> {
                     Span::raw(if sel { "  > " } else { "    " }),
                     Span::raw(format!("chi {}: ", i + 1)),
                 ];
-                spans.extend(chi.iter().map(|t| {
-                    tile_span(
-                        *t,
-                        theme,
-                        crate::ui::widgets::TileHighlight::default(),
-                    )
-                }));
+                spans.extend(
+                    chi.iter().map(|t| {
+                        tile_span(*t, theme, crate::ui::widgets::TileHighlight::default())
+                    }),
+                );
                 lines.push(Line::from(spans));
             }
             if app.table_mode() == TableMode::PickChi {

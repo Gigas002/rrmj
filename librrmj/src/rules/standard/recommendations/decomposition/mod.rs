@@ -4,9 +4,7 @@ mod tests;
 use crate::rules::profile::WinContext;
 use crate::rules::recommendations::{PathDecomposition, PathGroup};
 use crate::rules::standard::patterns::{self, Decomposition, MeldComponent};
-use crate::rules::standard::win::{
-    all_tiles_in_hand, is_chiitoitsu_hand, tiles_with_win_tile,
-};
+use crate::rules::standard::win::{all_tiles_in_hand, is_chiitoitsu_hand, tiles_with_win_tile};
 use crate::tile::Tile;
 
 pub(crate) fn build_from_context(
@@ -107,9 +105,5 @@ fn meld_component_label(meld: MeldComponent) -> String {
     let mut tiles = meld.tiles();
     tiles.sort_by(|a, b| a.cmp_sort(*b));
     let body: String = tiles.iter().map(|t| t.to_string()).collect();
-    if meld.open {
-        format!("[{body}]")
-    } else {
-        body
-    }
+    if meld.open { format!("[{body}]") } else { body }
 }

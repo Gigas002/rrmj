@@ -36,7 +36,13 @@ impl PathDecomposition {
             lines.push(format!("Discard {discard} →"));
         }
         if !self.groups.is_empty() {
-            lines.push(self.groups.iter().map(format_group).collect::<Vec<_>>().join(" "));
+            lines.push(
+                self.groups
+                    .iter()
+                    .map(format_group)
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            );
         }
         if !self.missing.is_empty() {
             let waits: String = self
