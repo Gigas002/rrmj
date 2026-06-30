@@ -129,3 +129,7 @@ cargo deny check
 ## License
 
 GPL-3.0-only — see [LICENSE](LICENSE).
+
+## 3rd-party contents
+
+Cheatsheet designs are based on [Riichi Cheat Sheet](https://drive.google.com/drive/folders/18hxO5DMVAqxSNV9VvpjAg6YjyPVAMzyS)
