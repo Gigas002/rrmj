@@ -1,91 +1,106 @@
 # rrmj
 
-Rust riichi mahjong rules engine (`librrmj`) and terminal client (`rrmj`).
+Rust riichi mahjong: **`librrmj`** (rules engine) and **`rrmj`** (terminal client).
 
-**v0.1** ships standard 4-player Japanese riichi: play a full hanchan locally against three CPU opponents at easy, medium, or hard difficulty.
+The project is under active development. Workspace crates are version `0.1.0` in source, but **nothing has been published or tagged as a release yet**.
+
+## What works today
+
+**Engine (`librrmj`)**
+
+- Event-sourced match flow: wall, turns, calls, riichi, dora, wins, honba, match end.
+- **Standard** rules profile (`rules/standard/`) behind a `RulesProfile` boundary.
+- Deterministic play from a seed plus an append-only `Action` / `Event` log.
+- CPU opponents (easy / medium / hard) behind the `ai` feature.
+- JSON recordings (`*.rrmj.json`) for saves, replays, and scenarios — see [docs/REPLAY.md](docs/REPLAY.md).
+
+Rule coverage is broad and heavily tested, but the standard profile is **not** considered finished until every cheatsheet row is implemented, fu/limit-hand scoring is complete, and [docs/RULES.md](docs/RULES.md) matches the engine. See [docs/PLAN.md](docs/PLAN.md) for the backlog.
+
+**Terminal client (`rrmj`)**
+
+- Main menu: new game, load in-progress save, replays, scenarios, settings.
+- Full table play vs three CPUs; hotkeys map only to **legal** actions from the engine.
+- Pause menu: resume, export save, return to main menu, quit.
+- Overlays: keybind help (`h`), rules reference (`?`), scores (`s`), win-path recommendations (`e`).
+- Replay viewer for finished recordings.
+- Themes: `default` and `high-contrast` (colored text tile labels such as `2m`, `7p`, `5pr`).
+- Config and keybind files under `$XDG_CONFIG_HOME/rrmj` (see below).
+
+The TUI does not implement rules on its own — it builds `Game` from `librrmj` and calls `apply_action`.
 
 ## Requirements
 
 - Rust toolchain (edition 2024; stable recommended)
-- A terminal with Unicode support (plain-text tile labels such as `2m`, `7p`)
+- A Unicode-capable terminal
 
 ## Build and run
 
 From the repository root:
 
 ```bash
-cargo build --release
 cargo run -p rrmj --release
 ```
 
-Install the TUI binary:
+Install the binary locally:
 
 ```bash
 cargo install --path rrmj
 rrmj
 ```
 
-Library only (no TUI):
+Library only (no TUI, no AI):
 
 ```bash
 cargo build -p librrmj --no-default-features
 ```
 
-With all optional features (AI, serde, etc.):
+With all optional features:
 
 ```bash
 cargo build --workspace --all-features
 ```
 
+Debug scenarios menu (not in default release builds):
+
+```bash
+cargo run -p rrmj --features debug-menu
+```
+
 ## Configuration
 
-Config files live under `$XDG_CONFIG_HOME/rrmj` (usually `~/.config/rrmj`). Missing files fall back to built-in defaults.
-
-| File | Purpose |
-|------|---------|
-| `config.toml` | Theme, default CPU difficulty, preferred seat |
-| `keybinds.toml` | Hotkey map (`global`, `menu`, `table`, `overlay` sections) |
-
-Override paths on the command line:
+Defaults live in `$XDG_CONFIG_HOME/rrmj` (usually `~/.config/rrmj`). Override paths at launch:
 
 ```bash
 rrmj --config /path/to/config.toml --keybinds /path/to/keybinds.toml
 ```
 
-Annotated examples with every option explained: [examples/config.toml](examples/config.toml), [examples/keybinds.toml](examples/keybinds.toml), and [examples/theme.toml](examples/theme.toml) (palette token reference).
+| File | Purpose |
+|------|---------|
+| `config.toml` | Theme, rules profile, CPU difficulty, seat, timers, optional data directories |
+| `keybinds.toml` | Hotkey map (`global`, `menu`, `table`, `overlay` sections) |
 
-### Example `config.toml`
+Annotated examples: [examples/config.toml](examples/config.toml), [examples/keybinds.toml](examples/keybinds.toml). [examples/theme.toml](examples/theme.toml) documents palette tokens for the built-in themes; custom theme files are not loaded yet.
 
-```toml
-theme = "default"              # or "high-contrast"
-default_difficulty = "medium"  # easy | medium | hard
-human_seat = 0                 # 0=East … 3=North
-```
+In-game **Settings** writes changes back to `config.toml` when you press Esc.
 
-Settings changed in the in-game **Settings** screen are written to `config.toml` when you press Esc.
+**Data directories** (defaults under `$XDG_DATA_HOME/rrmj/`):
 
-Tiles are shown as plain text labels (`2m`, `7p`, `Es`, …) with theme colors.
+| Directory | Purpose |
+|-----------|---------|
+| `recordings/` | In-progress saves and finished replays (`match_status` filters which menu lists them) |
+| `scenarios/` | User scenario packs (import from the Scenarios menu or copy JSON here) |
 
-### CPU difficulty
+Repo fixtures for CI and debug builds: [examples/scenarios/](examples/scenarios/).
 
-| Tier | Behavior |
-|------|----------|
-| **Easy** | Random legal moves; takes obvious wins |
-| **Medium** | Shanten-based discards; basic calls and defense |
-| **Hard** | Better tile efficiency and defensive play vs riichi |
+## Documentation
 
-Per-seat difficulty is chosen in the new-game setup screen.
-
-## In-game overlays
-
-| Key | Overlay |
-|-----|---------|
-| `h` | Full keybind list |
-| `?` or `y` | Rules and yaku reference (aligned with [docs/RULES.md](docs/RULES.md)) |
-
-## Rules
-
-The engine implements the **standard** profile documented in [docs/RULES.md](docs/RULES.md). Scoring and yaku logic live in `librrmj` behind the `RulesProfile` trait — the TUI does not duplicate rules.
+| Doc | Contents |
+|-----|----------|
+| [docs/PLAN.md](docs/PLAN.md) | Roadmap and phase status |
+| [docs/RULES.md](docs/RULES.md) | Standard rules reference |
+| [docs/REPLAY.md](docs/REPLAY.md) | Recording file format |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Crate layout, settings flow, quality gates |
+| [docs/DEBUG_SCENARIOS.md](docs/DEBUG_SCENARIOS.md) | Debug-menu scenarios (`debug-menu` feature) |
 
 ## Crates
 
@@ -96,11 +111,15 @@ The engine implements the **standard** profile documented in [docs/RULES.md](doc
 
 ## Development
 
-Quality gates (see [docs/PLAN.md](docs/PLAN.md)):
+Quality gates before commit (full list in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §8):
 
 ```bash
-cargo fmt --check
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --no-default-features -- -D warnings
+cargo clippy --workspace --all-targets -- -D warnings
 cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --no-default-features
+cargo test --workspace
 cargo test --workspace --all-features
 cargo doc --workspace --no-deps
 typos
@@ -109,4 +128,4 @@ cargo deny check
 
 ## License
 
-GPL-3.0-only — see `LICENSE` if present in the repository.
+GPL-3.0-only — see [LICENSE](LICENSE).
