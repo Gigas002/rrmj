@@ -1,6 +1,6 @@
 #![cfg(feature = "debug-menu")]
 
-use crossterm::event::{KeyCode, KeyEvent};
+use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 use super::scenario_menu::{ImportScenarioTarget, SCENARIOS_MENU_INDEX, SETTINGS_MENU_INDEX};
 use super::{App, DebugScenarioSetup, DebugSetupField, MainMenuMode, Screen, TableMode};

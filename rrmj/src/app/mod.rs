@@ -29,11 +29,6 @@ use std::io;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use crossterm::ExecutableCommand;
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use crossterm::terminal::{
-    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-};
 use librrmj::action::{Action, KanIntent};
 use librrmj::agent::{PlayerSlot, PlayerView};
 use librrmj::ai::{GameSetup, SeatAgent};
@@ -43,6 +38,11 @@ use librrmj::rules::Recommendation;
 use librrmj::state::HandPhase;
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
+use ratatui::crossterm::ExecutableCommand;
+use ratatui::crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use ratatui::crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
 
 use crate::config::cycle_theme;
 use crate::error::AppError;

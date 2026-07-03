@@ -1,6 +1,6 @@
 use std::io::Write;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use tempfile::NamedTempFile;
 
 use crate::input::key::{BindAction, KeyChord, parse_key_spec};

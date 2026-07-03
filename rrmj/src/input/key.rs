@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Logical binding target used by the TUI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

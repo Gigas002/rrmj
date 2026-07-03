@@ -18,9 +18,8 @@ debug-menu = []
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
-crossterm = "0.29"
 librrmj = { path = "../librrmj", features = ["ai", "serde"] }
-ratatui = "0.30"
+ratatui = { version = "0.30", features = ["crossterm"] }
 thiserror = "2"
 toml = "1"
 tracing = "0.1"

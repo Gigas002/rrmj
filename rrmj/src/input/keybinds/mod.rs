@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crossterm::event::{KeyCode, KeyModifiers};
+use ratatui::crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::error::AppError;
 use crate::input::key::{BindAction, KeyChord, parse_key_spec};
@@ -92,7 +92,7 @@ impl Keybinds {
             .unwrap_or_else(|| fallback_chord(action))
     }
 
-    pub fn action_for(&self, event: &crossterm::event::KeyEvent) -> Option<BindAction> {
+    pub fn action_for(&self, event: &ratatui::crossterm::event::KeyEvent) -> Option<BindAction> {
         let chord = KeyChord::new(event.code, event.modifiers);
         self.reverse.get(&chord).copied()
     }
@@ -101,11 +101,19 @@ impl Keybinds {
     ///
     /// Prefer this over `action_for` when several actions share the same key
     /// (e.g. Enter → select, confirm, and continue).
-    pub fn is_bound(&self, event: &crossterm::event::KeyEvent, action: BindAction) -> bool {
+    pub fn is_bound(
+        &self,
+        event: &ratatui::crossterm::event::KeyEvent,
+        action: BindAction,
+    ) -> bool {
         self.chord(action) == KeyChord::new(event.code, event.modifiers)
     }
 
-    pub fn is_any_bound(&self, event: &crossterm::event::KeyEvent, actions: &[BindAction]) -> bool {
+    pub fn is_any_bound(
+        &self,
+        event: &ratatui::crossterm::event::KeyEvent,
+        actions: &[BindAction],
+    ) -> bool {
         actions.iter().any(|action| self.is_bound(event, *action))
     }
 

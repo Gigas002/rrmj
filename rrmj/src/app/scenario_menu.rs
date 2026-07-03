@@ -1,4 +1,4 @@
-use crossterm::event::{KeyCode, KeyEvent};
+use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
 use super::path_input::{PathInputAction, PathInputDialog};
 use super::{App, LoadGameSetup, LoadSetupField, MainMenuMode, ResumeSetupKind, Screen, TableMode};
