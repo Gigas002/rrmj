@@ -142,7 +142,6 @@ fn draw_seat_panel(
             TilesLineContext {
                 selected: ctx.selected_hand,
                 drawn: ctx.drawn_hand,
-                match_tile: ctx.highlight_tile,
                 dora_indicators: &ctx.view.dora_indicators,
                 aka_dora: ctx.aka_dora,
                 ..TilesLineContext::empty()

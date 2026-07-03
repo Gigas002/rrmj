@@ -46,17 +46,19 @@ impl Theme {
         if is_dora && !selected && !drawn && !matched && !recent_discard {
             style = self.dora_style().add_modifier(Modifier::BOLD);
         }
-        if recent_discard {
+        if selected {
+            style = style
+                .fg(self.selected)
+                .add_modifier(Modifier::REVERSED | Modifier::BOLD | Modifier::UNDERLINED);
+        } else if recent_discard {
             style = style
                 .fg(self.actor)
                 .add_modifier(Modifier::UNDERLINED | Modifier::BOLD);
-        }
-        if drawn {
+        } else if drawn {
             style = style
                 .fg(self.accent)
                 .add_modifier(Modifier::UNDERLINED | Modifier::BOLD);
-        }
-        if matched || selected {
+        } else if matched {
             style = style
                 .fg(self.selected)
                 .add_modifier(Modifier::REVERSED | Modifier::BOLD);
