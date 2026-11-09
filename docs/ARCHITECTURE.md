@@ -269,12 +269,16 @@ Justify every new dependency in the change that introduces it. Prefer std and ex
 | Clippy (no default features) | `cargo clippy --workspace --all-targets --no-default-features -- -D warnings` |
 | Clippy (default features) | `cargo clippy --workspace --all-targets -- -D warnings` |
 | Clippy (all features) | `cargo clippy --workspace --all-targets --all-features -- -D warnings` |
+| Clippy (`librrmj` alone, minimal) | `cargo clippy -p librrmj --all-targets --no-default-features -- -D warnings` |
 | Tests (no default features) | `cargo test --workspace --no-default-features` |
+| Tests (`librrmj` alone, minimal) | `cargo test -p librrmj --no-default-features` |
 | Tests (default features) | `cargo test --workspace` |
 | Tests (all features) | `cargo test --workspace --all-features` |
 | Documentation | `cargo doc --workspace --no-deps` |
 
 CI runs the same gates on push and pull request across the **three-level feature matrix** (§1.4): `--no-default-features`, default, and `--all-features`. A green local run should match a green CI run.
+
+A `--workspace` build unifies a library's features with those its binaries turn on (`rrmj` enables `librrmj`'s `ai` and `serde`), so `--workspace --no-default-features` never builds the minimal library. Each library crate is also checked alone with `-p <crate> --no-default-features`.
 
 ---
 

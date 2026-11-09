@@ -128,8 +128,10 @@ Authoritative server replays same `Event` log; wire `Action` + `Event` only. See
 cargo fmt --check && typos && cargo deny check licenses
 cargo clippy --workspace --all-targets --no-default-features -- -D warnings
 cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo clippy -p librrmj --all-targets --no-default-features -- -D warnings
 cargo test --workspace --no-default-features
 cargo test --workspace --all-features
+cargo test -p librrmj --no-default-features
 cargo doc --workspace --no-deps
 ```
 

@@ -32,6 +32,8 @@ jobs:
         run: cargo test --workspace --all-features --verbose
       - name: Run tests (--no-default-features)
         run: cargo test --workspace --no-default-features --verbose
+      - name: Run tests (librrmj alone, --no-default-features)
+        run: cargo test -p librrmj --no-default-features --verbose
       - name: Generate coverage report (librrmj)
         run: |
           cargo llvm-cov --all-features -p librrmj --lcov --output-path lcov-librrmj.info

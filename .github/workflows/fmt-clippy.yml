@@ -25,9 +25,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        features:
-          - --all-features
-          - --no-default-features
+        args:
+          - --workspace --all-features
+          - --workspace --no-default-features
+          # Workspace builds unify librrmj's features with rrmj's (ai, serde),
+          # so the minimal library is only checked on its own.
+          - -p librrmj --no-default-features
 
     runs-on: ubuntu-latest
 
@@ -40,6 +43,6 @@ jobs:
       - name: Build cache
         uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.features }}
-      - name: Clippy (${{ matrix.features }})
-        run: cargo clippy --workspace --all-targets ${{ matrix.features }} -- -D warnings
+          key: ${{ matrix.args }}
+      - name: Clippy (${{ matrix.args }})
+        run: cargo clippy --all-targets ${{ matrix.args }} -- -D warnings

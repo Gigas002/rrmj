@@ -35,6 +35,7 @@ impl MeldKind {
         }
     }
 
+    #[cfg(feature = "serde")]
     fn parse_str(value: &str) -> Result<Self, String> {
         match value {
             "Chi" => Ok(Self::Chi),

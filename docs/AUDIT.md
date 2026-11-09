@@ -57,25 +57,71 @@ Working rules:
 Get a known-good starting point so later findings aren't confused with an
 already broken build.
 
-- [ ] **1.1** Run every PLAN §8 gate on a clean checkout and record the
+- [x] **1.1** Run every PLAN §8 gate on a clean checkout and record the
   result. Also run plain `cargo test --workspace` (default features), since
   CI runs that too.
-- [ ] **1.2** Build `rrmj` three ways and confirm each starts and reaches
+- [x] **1.2** Build `rrmj` three ways and confirm each starts and reaches
   the main menu: default features, `--no-default-features` (no `ai`: what
   happens when a seat is set to CPU?), and `--features debug-menu`.
-- [ ] **1.3** Record sizes and counts for later comparison: release binary
+- [x] **1.3** Record sizes and counts for later comparison: release binary
   size, number of tests, number of scenarios, `cargo build --release` time.
-- [ ] **1.4** Grep for panics outside tests (`unwrap`, `expect`, `panic!`,
+- [x] **1.4** Grep for panics outside tests (`unwrap`, `expect`, `panic!`,
   `unreachable!`, slice indexing on input-derived indices). Classify each:
   invariant (fine, document why), or reachable from outside data or
   player input (finding for §5/§8). Hotspots seen when writing this:
   `rrmj/src/app/mod.rs` (11), `librrmj/src/ai/strategy.rs` (7),
   `librrmj/src/state/hand_state.rs` (6).
-- [ ] **1.5** Confirm there is no `unsafe` (none found when writing this).
+- [x] **1.5** Confirm there is no `unsafe` (none found when writing this).
+
+Done 2026-11-09 at `64e6323`, rustc 1.99.1, Linux, 32 cores.
+
+**1.1 Gates.** All PLAN §8 gates passed at the start: fmt, typos,
+`deny check licenses`, clippy (workspace, no-default and all features),
+tests (default, no-default, all features), `cargo doc` with
+`RUSTDOCFLAGS="-D warnings"`. But the workspace gates never built the
+minimal `librrmj`: see the first finding.
+
+**1.2 Builds.** Each release build was started in a pseudo-terminal with an
+empty `XDG_CONFIG_HOME`/`XDG_DATA_HOME` and quit with `q`. All three reach
+the main menu, create no files and restore the terminal (alternate screen
+left, cursor shown, exit 0). `debug-menu` adds the Debug item. The
+`--no-default-features` build starts a match with three CPU seats and the
+CPUs play, because the `ai` feature of `rrmj` doesn't remove anything
+(finding below).
+
+**1.3 Baseline numbers.**
+
+| What | Value |
+| ---- | ----- |
+| Clean `cargo build --release -p rrmj` | 4.8 s |
+| `rrmj` release binary | 4.5 MB (3.5 MB stripped); no `[profile.release]` settings |
+| `rrmj --help` | 0.65 ms (median of 5) |
+| Tests, `--all-features` | 189: `librrmj` unit 139, `tests/scenarios.rs` 5, `rrmj` 45, doctests 0 |
+| Tests, `librrmj` alone, no features | 109 |
+| Scenario files | 50 (`examples/scenarios/`) |
+| `librrmj` unit tests, debug build | 73 s, of which `ai::tests::hard_beats_medium_in_short_benchmark` 73 s and `ai_vs_ai_smoke_completes_without_panic` 14 s (run in parallel); the rest are under 0.5 s. The whole `ai::tests` set takes 5.7 s in release. |
+
+**1.4 Panic sites.** 51 outside tests. Invariants (fine): the UI `expect`s
+on state the current screen guarantees (`app/`), built-in key specs
+(`input/keybinds`), the fixed wall layout, `unreachable!` on
+`seat % 4`-style matches, the AI's `min`/`max`/`choose` on lists the
+discard phase guarantees non-empty, `RulesRegistry::get` for the one
+profile. Reachable from a file: the pending-reaction `expect`s in
+`state/hand_state.rs`, which a snapshot sets directly (findings below).
+`ai/setup.rs:115` is safe: `ai_config_for` always returns `Some` for a
+CPU seat.
+
+**1.5** No `unsafe` in either crate.
 
 | Finding | Severity | Status |
 | ------- | -------- | ------ |
-|         |          |        |
+| The minimal `librrmj` didn't compile under clippy `-D warnings`: `MeldKind::parse_str` (used only by the serde impl) and `ReactionState::responses`/`from_responses` (no callers at all) were dead code without `serde`. No gate caught it, because `--workspace --no-default-features` still builds `librrmj` with `ai` and `serde` (Cargo unifies them with `rrmj`'s dependency features). `parse_str` is now gated on `serde`, the two unused methods are removed, and CI (clippy matrix, tests), PLAN §8 and ARCHITECTURE §8 now check `-p librrmj --no-default-features` too. All feature combinations of `librrmj` are clippy-clean. | medium | Fixed |
+| `rrmj`'s `ai` feature does nothing: `rrmj` depends on `librrmj` with `ai` and `serde` always on (and `librrmj`'s `serde` implies `ai`), so `--no-default-features` builds the same game. `librrmj`'s `test-util` feature gates no code. Decide per §9.5: drop them, or make them real. | low | Follow-up (§9.5) |
+| A crafted recording panics the engine: a pending `Kakan` reaction with `kakan_meld_index: null` panics at `state/hand_state.rs:753` once the last seat answers, and an index past the seat's melds panics at `hand_state.rs:606`. `restore` also accepts `discarder: 7`, `current_actor: 9` and `dealer: 5` without error. Shown with a throwaway probe test on `chankan_ron.json`. A shared scenario can crash `rrmj`. | medium | Follow-up (§8.2: validate every snapshot index on restore) |
+| `rrmj`'s logger (`tracing_subscriber::fmt()`, default writer) prints to stdout, the terminal the TUI draws on. At the default `info` level only save failures log, so a failed match-end replay write draws a line over the table and is otherwise never shown; `RUST_LOG=debug` garbles the screen. Log to a file under `$XDG_STATE_HOME/rrmj/` (or nowhere by default) and show save errors in the UI. | medium | Follow-up (§5.7) |
+| The match-end replay is written on a detached thread (`save::write_recording_async`). Quitting right after a match ends can exit before the write is done, losing the replay without a message. | medium | Follow-up (§5) |
+| `q` (and `m`) leave a match in progress at once, with no prompt and no save. Since Phase 14.3 removed autosave, one key loses the whole match. | high | Follow-up (§3.10) |
+| The two AI benchmark tests make every debug `cargo test` take 73 s. Hard's decisions are slow in debug builds; see §6.1. Options: `#[ignore]` them and run them in a release CI job, or set `opt-level` for `librrmj` in `[profile.test]`. | low | Follow-up (§6.1) |
 
 ---
 
@@ -393,7 +439,15 @@ Measure with release builds; record machine, median of five runs.
   written back on `Esc`, survives a restart, and keeps comments or
   unrelated keys in the user's `config.toml` (check what write-back does
   to a hand-edited file).
-- [ ] **7.9** Messages and wording: event text (`app/event_text.rs`),
+- [ ] **7.9** Leads from §1:
+  - The new-game setup always shows `> Start match`, selected or not, and
+    the field list wraps, so it's easy to press Enter on another row.
+  - The hand renders as one run, e.g. `3p5pr7p9p2s3s5srEESN`: the aka
+    marker `r` reads as either the end of one tile or the start of the
+    next. Space the tiles or mark aka another way.
+  - The setup popup is drawn over the main menu box at 100×32, cutting
+    its borders.
+- [ ] **7.10** Messages and wording: event text (`app/event_text.rs`),
   errors, prompts — consistent terms (one name per yaku, romaji spelled as
   in `RULES.md`), no debug formatting (`{:?}`) leaking to the player.
 
@@ -511,6 +565,11 @@ Read each doc as a new user (README, `examples/`) or a new contributor
   - PLAN §11 lists `rand_chacha` and `proptest`; neither is a dependency.
   - PLAN §1.3 says Phases 15+ are out of scope until Phase 14 is
     complete; Phase 14 and 15 are done.
+  - The recording type is `GameRecording`; PLAN and `REPLAY.md` call it
+    `MatchRecording`.
+  - ARCHITECTURE §8 lists `cargo deny check` and default-feature clippy;
+    PLAN §8 lists `cargo deny check licenses` and no default clippy. Make
+    them one list.
 - [ ] **10.6** `examples/`: comments match behavior. Leads:
   - `examples/config.toml` says new rulesets come in "Phase 16.4"; that
     phase is theming, rulesets are 17.4.

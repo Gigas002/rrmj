@@ -57,24 +57,6 @@ impl ReactionState {
         self.responses[seat] = Some(action);
     }
 
-    pub fn responses(&self) -> &[Option<Action>; 4] {
-        &self.responses
-    }
-
-    pub fn from_responses(
-        discarder: usize,
-        tile: crate::tile::Tile,
-        responses: [Option<Action>; 4],
-    ) -> Self {
-        Self {
-            discarder,
-            tile,
-            kind: ReactionKind::Discard,
-            kakan_meld_index: None,
-            responses,
-        }
-    }
-
     pub fn is_complete(&self) -> bool {
         (0..4).all(|seat| seat == self.discarder || self.responses[seat].is_some())
     }
