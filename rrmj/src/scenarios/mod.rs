@@ -38,9 +38,11 @@ pub fn list_scenarios(dir: &Path) -> Result<Vec<ScenarioEntry>, AppError> {
         if path.extension().is_none_or(|ext| ext != "json") {
             continue;
         }
-        let text = fs::read_to_string(&path).map_err(AppError::Terminal)?;
-        let recording = GameRecording::from_json(&text).map_err(AppError::Engine)?;
-        entries.push(scenario_entry(path, &recording));
+        // A broken file is skipped (and logged), not fatal to the whole list.
+        match read_scenario(&path) {
+            Ok(recording) => entries.push(scenario_entry(path, &recording)),
+            Err(err) => tracing::warn!("skipping scenario {}: {err}", path.display()),
+        }
     }
 
     entries.sort_by(|a, b| {
@@ -80,6 +82,44 @@ pub fn load_scenario_from_path(path: &str) -> Result<(ScenarioEntry, GameRecordi
     recording.validate().map_err(AppError::Engine)?;
     let entry = scenario_entry(path, &recording);
     Ok((entry, recording))
+}
+
+/// Copy a validated scenario file into `dir` (the player's scenarios
+/// folder) so it lists there from now on. A file already in `dir` stays put;
+/// a name taken by different content gets a `-2`, `-3`… suffix.
+pub fn import_into(dir: &Path, source: &Path) -> Result<PathBuf, AppError> {
+    if source.parent().is_some_and(|parent| {
+        fs::canonicalize(parent).ok() == fs::canonicalize(dir).ok() && parent.exists()
+    }) {
+        return Ok(source.to_path_buf());
+    }
+    fs::create_dir_all(dir).map_err(AppError::Terminal)?;
+    let bytes = fs::read(source).map_err(AppError::Terminal)?;
+    let name = source
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "scenario.json".into());
+    let (stem, ext) = match name.find('.') {
+        Some(dot) => (&name[..dot], &name[dot..]),
+        None => (name.as_str(), ".json"),
+    };
+    for n in 1.. {
+        let candidate = if n == 1 {
+            dir.join(format!("{stem}{ext}"))
+        } else {
+            dir.join(format!("{stem}-{n}{ext}"))
+        };
+        match fs::read(&candidate) {
+            Ok(existing) if existing == bytes => return Ok(candidate),
+            Ok(_) => continue,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                fs::write(&candidate, &bytes).map_err(AppError::Terminal)?;
+                return Ok(candidate);
+            }
+            Err(err) => return Err(AppError::Terminal(err)),
+        }
+    }
+    unreachable!("an unused file name exists")
 }
 
 fn resolve_scenario_path(path: &str) -> PathBuf {

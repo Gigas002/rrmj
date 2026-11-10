@@ -37,7 +37,12 @@ pub fn apply_one_event(
             }
         }
         Event::Dealt { dealer } => {
-            if *hand_starts > 1 && game.dealer() != *dealer {
+            // `Dealt` precedes its `HandStarted`, which sets the new dealer.
+            let expected = match next {
+                Some(Event::HandStarted { dealer, .. }) => *dealer,
+                _ => game.dealer(),
+            };
+            if expected != *dealer {
                 return Err(Error::ReplayMismatch {
                     detail: "dealt dealer mismatch on new hand",
                 });

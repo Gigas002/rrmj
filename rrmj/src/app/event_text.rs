@@ -44,8 +44,10 @@ pub fn describe_event(event: &Event) -> String {
                 scoring.fu
             )
         }
-        Event::ScoresAdjusted { deltas } => format!("Scores adjusted {deltas:?}"),
-        Event::ExhaustiveDraw { deltas } => format!("Exhaustive draw {deltas:?}"),
+        Event::ScoresAdjusted { deltas } => format!("Scores adjusted: {}", deltas_text(deltas)),
+        Event::ExhaustiveDraw { deltas, .. } => {
+            format!("Exhaustive draw: {}", deltas_text(deltas))
+        }
         Event::HandStarted {
             dealer,
             round_wind,
@@ -81,5 +83,20 @@ fn abortive_label(kind: AbortiveDrawKind) -> &'static str {
         AbortiveDrawKind::FourWinds => "four winds",
         AbortiveDrawKind::FourKongs => "four kongs",
         AbortiveDrawKind::FourRiichis => "four riichis",
+    }
+}
+
+/// `East +1500, South -1500` (seats with no change left out; "no change" if none).
+pub fn deltas_text(deltas: &[i32; 4]) -> String {
+    let parts: Vec<String> = deltas
+        .iter()
+        .enumerate()
+        .filter(|(_, delta)| **delta != 0)
+        .map(|(seat, delta)| format!("{} {delta:+}", seat_name(seat)))
+        .collect();
+    if parts.is_empty() {
+        "no change".into()
+    } else {
+        parts.join(", ")
     }
 }

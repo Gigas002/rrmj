@@ -18,14 +18,17 @@ pub enum ImportScenarioTarget {
 }
 
 impl App {
+    /// Handles the key when the scenario seat picker is open; `true` means
+    /// the key was used and must not reach the screen underneath.
     pub(super) fn handle_scenario_setup_key_if_open(
         &mut self,
         key: KeyEvent,
-    ) -> Result<(), AppError> {
+    ) -> Result<bool, AppError> {
         if self.scenario_setup.is_some() && self.screen == Screen::MainMenu {
-            return self.handle_scenario_setup_key(key);
+            self.handle_scenario_setup_key(key)?;
+            return Ok(true);
         }
-        Ok(())
+        Ok(false)
     }
 
     pub(super) fn open_scenarios_menu(&mut self) -> Result<(), AppError> {
@@ -104,6 +107,18 @@ impl App {
                         );
                         match self.import_scenario_target {
                             ImportScenarioTarget::Player => {
+                                let dir = self.settings.resolved_scenarios_dir();
+                                let mut setup = setup;
+                                match scenarios::import_into(&dir, &setup.entry.path) {
+                                    Ok(copied) => {
+                                        setup.entry.path = copied;
+                                        self.scenario_entries = scenarios::list_scenarios(&dir)?;
+                                    }
+                                    Err(err) => {
+                                        self.status = format!("Import failed: {err}");
+                                        return Ok(());
+                                    }
+                                }
                                 self.scenario_setup = Some(setup);
                                 self.main_menu_mode = MainMenuMode::Root;
                             }
@@ -257,6 +272,7 @@ impl App {
         let game = setup.recording.restore()?;
         self.setup_meta = Some(game_setup);
         self.agents = Some(agents);
+        self.saved_event_count = Some(game.events().len());
         self.active_game = Some(game);
         self.human_seat_active = human;
         self.cpu_step_delay_ms = setup.cpu_step_delay_ms;
@@ -278,7 +294,7 @@ impl App {
         self.game_summary = None;
         self.screen = Screen::Table;
         self.status = format!("Scenario: {title}");
-        Ok(())
+        self.settle_loaded_game()
     }
 
     pub fn scenario_filter_tag(&self) -> Option<&str> {

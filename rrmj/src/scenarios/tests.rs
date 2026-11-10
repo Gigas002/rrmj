@@ -55,3 +55,45 @@ fn scenario_entry_uses_meta_title_and_tags() {
     assert!(entries[0].description.contains("completed"));
     assert_eq!(recording.meta.title.as_deref(), Some("Match finished"));
 }
+
+#[test]
+fn import_copies_into_the_scenarios_dir_without_clobbering() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let outside = tmp.path().join("downloads");
+    let dir = tmp.path().join("scenarios");
+    std::fs::create_dir_all(&outside).unwrap();
+    let a = include_str!("../../../examples/scenarios/dealer_tsumo.json");
+    let b = include_str!("../../../examples/scenarios/pinfu_ron.json");
+
+    let source = outside.join("hand.json");
+    std::fs::write(&source, a).unwrap();
+    let copied = super::import_into(&dir, &source).unwrap();
+    assert_eq!(copied, dir.join("hand.json"));
+    assert_eq!(std::fs::read_to_string(&copied).unwrap(), a);
+
+    // Same content again: no duplicate.
+    assert_eq!(super::import_into(&dir, &source).unwrap(), copied);
+
+    // Same name, different content: a new name, the first file untouched.
+    std::fs::write(&source, b).unwrap();
+    let second = super::import_into(&dir, &source).unwrap();
+    assert_eq!(second, dir.join("hand-2.json"));
+    assert_eq!(std::fs::read_to_string(&copied).unwrap(), a);
+
+    // A file already in the folder is used where it is.
+    assert_eq!(super::import_into(&dir, &copied).unwrap(), copied);
+    assert_eq!(super::list_scenarios(&dir).unwrap().len(), 2);
+}
+
+#[test]
+fn a_broken_scenario_file_does_not_hide_the_others() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let dir = tmp.path();
+    std::fs::write(
+        dir.join("good.json"),
+        include_str!("../../../examples/scenarios/dealer_tsumo.json"),
+    )
+    .unwrap();
+    std::fs::write(dir.join("broken.json"), "{ not json").unwrap();
+    assert_eq!(super::list_scenarios(dir).unwrap().len(), 1);
+}

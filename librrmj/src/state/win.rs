@@ -205,11 +205,12 @@ impl HandState {
     ) -> Result<Vec<Event>, Error> {
         let profile = RulesRegistry::get(self.config.profile)?;
         let deltas = profile.score_exhaustive_draw(self, &self.config);
+        let tenpai = std::array::from_fn(|seat| profile.is_tenpai(self.hand(seat), &self.config));
         self.apply_deltas(&deltas);
         self.phase = HandPhase::Ended;
         self.reaction = None;
         self.end_reason = Some(HandEndReason::ExhaustiveDraw);
-        prior.push(Event::ExhaustiveDraw { deltas });
+        prior.push(Event::ExhaustiveDraw { deltas, tenpai });
         Ok(prior)
     }
 

@@ -56,10 +56,15 @@ fn list_by_status(paths: &SavePaths, status: GameStatus) -> Result<Vec<Recording
     for entry in read_dir {
         let entry = entry.map_err(AppError::Terminal)?;
         let path = entry.path();
-        if path.extension().is_some_and(|ext| ext == "json")
-            && let Some(item) = parse_recording_entry(&path, status)?
-        {
-            entries.push(item);
+        if !path.extension().is_some_and(|ext| ext == "json") {
+            continue;
+        }
+        // One unreadable file (truncated, hand-edited, not a recording) must
+        // not hide the others or break the menu.
+        match parse_recording_entry(&path, status) {
+            Ok(Some(item)) => entries.push(item),
+            Ok(None) => {}
+            Err(err) => tracing::warn!("skipping recording {}: {err}", path.display()),
         }
     }
 
@@ -151,7 +156,17 @@ pub fn write_recording(path: &Path, recording: &GameRecording) -> Result<(), App
         fs::create_dir_all(parent).map_err(AppError::Terminal)?;
     }
     let json = recording.to_json().map_err(AppError::Engine)?;
-    fs::write(path, json).map_err(AppError::Terminal)
+    write_atomic(path, json.as_bytes()).map_err(AppError::Terminal)
+}
+
+/// Write to a sibling temporary file, then rename over `path`, so a crash or
+/// quit mid-write never leaves a truncated save (the old file stays intact).
+fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
+    fs::write(&tmp, bytes)?;
+    fs::rename(&tmp, path)
 }
 
 /// Write a recording without blocking the UI thread (match-end replay promotion).
@@ -171,7 +186,7 @@ pub fn write_recording_async(path: PathBuf, recording: GameRecording) {
             tracing::warn!("create recordings dir {}: {err}", parent.display());
             return;
         }
-        if let Err(err) = fs::write(&path, json) {
+        if let Err(err) = write_atomic(&path, json.as_bytes()) {
             tracing::warn!("write recording {}: {err}", path.display());
         }
     });

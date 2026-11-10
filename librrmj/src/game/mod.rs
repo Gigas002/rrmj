@@ -162,9 +162,25 @@ impl Game {
         }
 
         let mut events = self.hand.apply(seat, action)?;
+        // Keep match scores current within the hand (riichi sticks), as
+        // replay does after every event.
+        self.sync_scores_from_hand();
         if self.hand.is_ended() {
             events.extend(self.finish_hand()?);
         }
+        self.record_events(events.clone());
+        Ok(events)
+    }
+
+    /// For a game restored from a snapshot taken after its hand ended but
+    /// before the match moved on (scenario fixtures): settle that hand as
+    /// live play would, then deal the next hand or end the match. Returns
+    /// the new events; does nothing while the hand is still being played.
+    pub fn finish_restored_hand(&mut self) -> Result<Vec<Event>, Error> {
+        if self.phase != GamePhase::InHand || !self.hand.is_ended() {
+            return Ok(Vec::new());
+        }
+        let events = self.finish_hand()?;
         self.record_events(events.clone());
         Ok(events)
     }

@@ -897,11 +897,10 @@ impl HandState {
         let ron_winners = reaction.ron_winners(max_rons);
         let is_chankan = reaction.kind == ReactionKind::Kakan;
         if !ron_winners.is_empty() {
+            // The ronned tile stays in the discarder's river (replay does the
+            // same), so the ended hand still holds all 136 tiles.
             let from = reaction.discarder;
             let win_tile = reaction.tile;
-            if reaction.kind == ReactionKind::Discard {
-                self.pop_called_discard(from)?;
-            }
             return self.resolve_multi_ron(
                 ron_winners,
                 WinType::Ron { from },
@@ -1051,6 +1050,52 @@ impl HandState {
                 from,
                 meld,
                 tiles,
+            } if from == seat => {
+                // Kans from the seat's own tiles: no discard is taken.
+                match meld {
+                    MeldKind::Kan(KanForm::Closed) => {
+                        let meld = replay_build_meld(*meld, tiles, None)?;
+                        for tile in meld.tiles() {
+                            self.hands[*seat].concealed_mut().remove(*tile)?;
+                        }
+                        self.hands[*seat].melds_mut().push(meld);
+                    }
+                    MeldKind::Kan(KanForm::Open) => {
+                        let declared = self
+                            .reaction
+                            .take()
+                            .filter(|reaction| reaction.kind == ReactionKind::Kakan)
+                            .ok_or(Error::ReplayMismatch {
+                                detail: "kakan completed without a declaration",
+                            })?;
+                        let meld_index =
+                            declared.kakan_meld_index.ok_or(Error::ReplayMismatch {
+                                detail: "kakan declaration without a meld index",
+                            })?;
+                        let pon = self.hands[*seat].melds().get(meld_index).cloned().ok_or(
+                            Error::ReplayMismatch {
+                                detail: "kakan meld index out of range",
+                            },
+                        )?;
+                        self.hands[*seat].melds_mut()[meld_index] =
+                            upgrade_pon_to_open_kan(&pon, declared.tile)?;
+                    }
+                    _ => {
+                        return Err(Error::ReplayMismatch {
+                            detail: "only a kan can be called from the seat's own tiles",
+                        });
+                    }
+                }
+                self.current_actor = *seat;
+                self.phase = HandPhase::Discard;
+                self.reaction = None;
+                self.void_ippatsu();
+            }
+            Event::Called {
+                seat,
+                from,
+                meld,
+                tiles,
             } => {
                 let called = *self.discards[*from].last().ok_or(Error::ReplayMismatch {
                     detail: "no discard to complete call event",
@@ -1062,9 +1107,14 @@ impl HandState {
                     self.last_discard = None;
                 }
                 let meld = replay_build_meld(*meld, tiles, Some(called))?;
-                for tile in meld.tiles() {
-                    if meld.called() != Some(*tile) {
-                        self.hands[*seat].concealed_mut().remove(*tile)?;
+                // Every meld tile came from the hand except one copy of the
+                // called tile (a pon holds three equal tiles).
+                let mut from_river = Some(called);
+                for &tile in meld.tiles() {
+                    if from_river == Some(tile) {
+                        from_river = None;
+                    } else {
+                        self.hands[*seat].concealed_mut().remove(tile)?;
                     }
                 }
                 self.kuikae_forbidden = match meld.kind() {
@@ -1097,12 +1147,13 @@ impl HandState {
             }
             Event::KakanDeclared {
                 seat,
-                meld_index: _,
+                meld_index,
                 tile,
             } => {
                 self.hands[*seat].concealed_mut().remove(*tile)?;
                 self.phase = HandPhase::Reaction;
-                self.reaction = None;
+                // As in live play: the added tile waits in the chankan window.
+                self.reaction = Some(ReactionState::new_kakan(*seat, *tile, *meld_index));
                 self.void_ippatsu();
             }
             Event::Won { seat, .. } => {
@@ -1117,7 +1168,7 @@ impl HandState {
             Event::ScoresAdjusted { deltas } => {
                 self.apply_deltas(deltas);
             }
-            Event::ExhaustiveDraw { deltas } => {
+            Event::ExhaustiveDraw { deltas, .. } => {
                 self.apply_deltas(deltas);
                 self.phase = HandPhase::Ended;
                 self.reaction = None;

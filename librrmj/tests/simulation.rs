@@ -109,10 +109,12 @@ fn play(config: &RulesConfig, mix: [Mix; 4], seed: u64, stats: &mut Stats) -> Ve
             panic!("{}: {action:?} by seat {seat} failed: {err}", ctx(&game))
         });
 
+        // Also after the last action: the final hand is what a finished
+        // recording stores, and replays validate it.
+        game.hand()
+            .validate_tile_conservation()
+            .unwrap_or_else(|err| panic!("{}: after {action:?}: {err}", ctx(&game)));
         if !game.is_ended() {
-            game.hand()
-                .validate_tile_conservation()
-                .unwrap_or_else(|err| panic!("{}: after {action:?}: {err}", ctx(&game)));
             let hand = game.hand();
             let on_table: i32 =
                 hand.scores().iter().sum::<i32>() + i32::from(hand.table_riichi_sticks()) * 1000;
@@ -195,7 +197,7 @@ fn check_event(event: &Event, game: &Game, stats: &mut Stats, ctx: &dyn Fn(&Game
             }
             stats.max_han = stats.max_han.max(scoring.han);
         }
-        Event::ExhaustiveDraw { deltas } => {
+        Event::ExhaustiveDraw { deltas, .. } => {
             assert_eq!(
                 deltas.iter().sum::<i32>(),
                 0,

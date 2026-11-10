@@ -36,8 +36,13 @@ pub enum Event {
     Won { seat: usize, scoring: ScoringResult },
     /// Score transfers applied to all seats.
     ScoresAdjusted { deltas: [i32; 4] },
-    /// Live wall exhausted without a win.
-    ExhaustiveDraw { deltas: [i32; 4] },
+    /// Live wall exhausted without a win; `tenpai` marks the seats that were
+    /// tenpai (absent in older recordings, read as all noten).
+    ExhaustiveDraw {
+        deltas: [i32; 4],
+        #[cfg_attr(feature = "serde", serde(default))]
+        tenpai: [bool; 4],
+    },
     /// A new hand began within the match.
     HandStarted {
         dealer: usize,

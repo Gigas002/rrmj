@@ -111,3 +111,42 @@ fn in_progress_fixture_restores_playable_state() {
     assert!(!game.is_ended());
     assert_eq!(game.events().len(), recording.events.len());
 }
+
+#[test]
+fn unreadable_files_are_skipped_not_fatal() {
+    let tmp = TempDir::new().unwrap();
+    let dir = tmp.path().join("recordings");
+    fs::create_dir_all(&dir).unwrap();
+    let paths = SavePaths {
+        recordings_dir: dir.clone(),
+    };
+
+    let good = include_str!("../../../examples/scenarios/dealer_tsumo.json");
+    fs::write(dir.join("good.json"), good).unwrap();
+    // A save cut off mid-write, and a JSON file that isn't a recording.
+    fs::write(dir.join("truncated.json"), &good[..good.len() / 2]).unwrap();
+    fs::write(dir.join("other.json"), "{\"hello\": 1}").unwrap();
+
+    let saves = list_in_progress(&paths).unwrap();
+    assert_eq!(saves.len(), 1);
+    assert!(saves[0].path.ends_with("good.json"));
+    assert!(list_finished(&paths).unwrap().is_empty());
+}
+
+#[test]
+fn write_recording_replaces_atomically() {
+    let tmp = TempDir::new().unwrap();
+    let path = tmp.path().join("save.json");
+    let recording = recording_from_json(include_str!(
+        "../../../examples/scenarios/dealer_tsumo.json"
+    ));
+    write_recording(&path, &recording).unwrap();
+    write_recording(&path, &recording).unwrap();
+
+    let names: Vec<_> = fs::read_dir(tmp.path())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name())
+        .collect();
+    assert_eq!(names, ["save.json"], "no temporary file left behind");
+    recording_from_json(&fs::read_to_string(&path).unwrap());
+}

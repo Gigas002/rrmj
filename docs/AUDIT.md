@@ -315,17 +315,17 @@ west extension; dora from kans revealed at once.
 Play real matches in the TUI and check that what the player sees and can do
 follows the engine.
 
-- [ ] **3.1** Play at least one full hanchan at each difficulty as the
+- [x] **3.1** Play at least one full hanchan at each difficulty as the
   human, plus one with the human in each seat (0–3). Note anything odd.
-- [ ] **3.2** Action menus show only `legal_actions()`, all of them:
+- [x] **3.2** Action menus show only `legal_actions()`, all of them:
   compare the actions bar with the engine's list in a debug log for every
   decision of one match.
-- [ ] **3.3** Reaction window: when several calls are possible on one
+- [x] **3.3** Reaction window: when several calls are possible on one
   discard (ron + pon + chi), each is offered and picking one resolves by
   priority against CPU calls on the same tile.
-- [ ] **3.4** Riichi flow: declaring, choosing the discard, the stick
+- [x] **3.4** Riichi flow: declaring, choosing the discard, the stick
   shown, auto-tsumogiri afterwards, tsumo/ron prompts while in riichi.
-- [ ] **3.5** Timers (`rrmj/src/app/timers.rs`): turn timer expiry,
+- [x] **3.5** Timers (`rrmj/src/app/timers.rs`): turn timer expiry,
   response timer expiry, timers off (0), timers while an overlay is open,
   while paused, and across a reaction that the CPU resolves first.
   - Lead: on discard timeout the code discards `menu.discards.first()`;
@@ -336,26 +336,80 @@ follows the engine.
     `examples/config.toml` says the response timer does "auto-pass (or
     tsumo if win)". Decide the behavior (auto-win on timeout, or never),
     make the code and the comment agree.
-- [ ] **3.6** Hand end and match end: hand result popup matches the
+- [x] **3.6** Hand end and match end: hand result popup matches the
   `ScoringResult` (yaku, han, fu, limit, payments, deltas); the scores
   overlay matches the engine's scores; draws show who was tenpai.
-- [ ] **3.7** Saves: save mid-hand, quit, load, continue to the end; the
+- [x] **3.7** Saves: save mid-hand, quit, load, continue to the end; the
   file becomes `finished` and shows under Replays and not under Load game.
   Save during a reaction window and during a CPU turn. Load with a
   different human seat.
-- [ ] **3.8** Replays: step forward and back through a full match, seek to
+- [x] **3.8** Replays: step forward and back through a full match, seek to
   each hand boundary, switch viewed seat; the board at each step equals the
   board during the live match.
-- [ ] **3.9** Scenarios: every file in `examples/scenarios/` loads in the
+- [x] **3.9** Scenarios: every file in `examples/scenarios/` loads in the
   debug menu and plays on; player scenarios from `scenarios_dir` load;
   import (`i`) copies the file and it then lists.
-- [ ] **3.10** Leaving: `m` (main menu) and `q` (quit) mid-match. The
+- [x] **3.10** Leaving: `m` (main menu) and `q` (quit) mid-match. The
   keybind file says `m` "does not save"; check whether either asks for
   confirmation before discarding a match in progress.
 
+### 3.11 Results
+
+Done 2026-11-10. Method: a throwaway test module drove `App` headlessly
+(real `handle_key` key events, the app's own ticks, every frame rendered to
+a ratatui `TestBackend` at 120×40 and 80×24), plus a pty session of the
+release binary for the leave prompt and terminal restore. Deleted before
+commit; the regression tests below replace it.
+
+- **3.1/3.2** Twelve full matches by keys: Easy, Medium and Hard CPUs, the
+  human in each seat 0–3, the human's moves from a Hard agent with 10 %
+  random legal picks (so calls, kans, riichi and wins all came up). At each
+  of about 2,500 human decisions the action menu was exactly
+  `legal_actions()` (the engine lists one `Discard` per tile held; the
+  picker walks them), every chosen action applied, every match reached the
+  summary, no panic in any frame.
+- **3.3** Ron/pon/chi on one discard are all offered; the engine resolves
+  priority (§2). Double and triple ron now show every winner.
+- **3.4** Riichi: the discard picker lists only tenpai-keeping tiles; after
+  riichi the human's tsumogiri now happens by itself (it waited for `d`,
+  Enter every turn); tsumo/ron/closed kan still prompt. The stick now leaves
+  the player's score at once (see findings).
+- **3.5** Timers: decided and documented in `examples/config.toml` — on
+  turn timeout tsumo if possible, otherwise the drawn tile (rightmost tile
+  when there is none); on response timeout ron if possible, otherwise pass.
+  Open overlays (pause, help, rules, scores, recommendations) and the
+  hand-result popup stop the timer and restart it when closed.
+- **3.6** Hand result: win popup taken from `Won` + `ScoresAdjusted`
+  (matches the engine); exhaustive draw now lists tenpai and noten seats.
+- **3.7** Saved mid-hand during a reaction window, left, reloaded with the
+  human moved to another seat, played to the end: same scores and log on
+  load, the file turned `finished`, listed under Replays only.
+- **3.8** A finished match replayed against its live run: 642 seek points,
+  641 step-back checks, all boards equal after the fixes below; review keys
+  (step, seek hand, switch seat, autoplay) render at both sizes.
+- **3.9** All 50 bundled scenarios opened through the Scenarios menu by keys
+  and played on to a hand end (or match end).
+- **3.10** `m`/`q` left at once, unsaved, with no prompt. Now confirmed.
+
 | Finding | Severity | Status |
 | ------- | -------- | ------ |
-|         |          |        |
+| Replays broke after the second hand: the `Dealt` check compared the new dealer with the *previous* hand's dealer (`Dealt` comes before its `HandStarted`), so nearly every real match failed to seek past hand 3 — before the error safety net below, stepping into it ended the app. `Dealt` is now checked against the following `HandStarted`. | high | Fixed |
+| Replay rebuilt calls wrongly: a pon or open kan left the caller's matching tiles in hand (it skipped every tile equal to the called one), and closed kans and kakan popped a tile from the caller's own river. Replay now removes all but one copy of the called tile, builds closed kans from the hand, and completes kakan from the declared chankan window. Test: whole matches replayed step by step against the live boards until pon, chi, closed kan and kakan were all covered. | high | Fixed |
+| A ron removed the winning tile from the discarder's river without putting it anywhere (135 tiles). Hidden mid-match because the next hand is dealt at once, but a match that ended on a ron saved a final snapshot that `validate()` rejects: the replay couldn't be opened (and the app exited). The tile now stays in the river, as replay already had it. The §2.5 simulation skipped the check at match end; it now checks the final state too. | high | Fixed |
+| Any error from a key or tick ended the app: a corrupt or foreign `.json` in the recordings folder (Load game, Replays), a broken scenario file, a save deleted between listing and opening, a failed replay. Errors now go to the status line and the log; listings skip unreadable files; saves are written to a temp file and renamed, so a quit mid-write can't truncate one. | high | Fixed |
+| Discard timeout threw the lowest tile of the sorted hand, not the drawn tile; response timeout passed on an available ron. See 3.5 for the rule now used. | medium | Fixed |
+| `m` and `q` (table, pause menu, popups) dropped an unsaved match without asking. With progress not in a save file, the first press now warns on the status line and a second press of the same key leaves; any other key cancels. A just-saved or just-loaded match leaves at once. | medium | Fixed |
+| Double/triple ron popup showed only the first winner; exhaustive draw printed `Deltas: [..]` (Debug) and not who was tenpai. `Event::ExhaustiveDraw` now carries `tenpai: [bool; 4]` (`serde(default)` for old files); status-line deltas read `East +1500, South -1500`. | medium | Fixed |
+| The `double_ron` and `triple_ron` scenarios could not produce more than one ron (the other seats waited on 7p/8p); their assertions only checked the human's Ron. Hands rebuilt (tiles swapped with the wall, set still 136) so two and three seats win; tests play them through. | medium | Fixed |
+| Five scenarios saved after their hand ended (`exhaustive_draw`, `exhaustive_draw_mixed`, three abortives) froze the table: nobody to act, nothing shown. `match_finished` froze without the summary. New `Game::finish_restored_hand` settles such a hand; the app shows its result and deals on, or shows the match summary. | medium | Fixed |
+| The key that launched a scenario from the seat picker was handled again by the table (it dismissed a popup at once), and arrow keys in the picker also moved the menu underneath. Picker keys no longer fall through. | medium | Fixed |
+| In riichi the human had to press `d`, Enter for every forced tsumogiri. Now automatic (CPU seats keep their pacing). | low | Fixed |
+| `Game::scores()` lagged inside a hand (synced only at hand end) while replay synced per event: a riichi player's score showed 1000 too high on the live table. Synced after every action. | low | Fixed |
+| Scenario import (`i`) only opened the file once; README and `config.toml` describe importing into the scenarios folder. It now copies the validated file there (same content reused, a different file with the same name gets `-2`, `-3`…) and refreshes the list. The debug-menu import still opens in place. | low | Fixed |
+| Opening any overlay restarts the decision timer, so a player can stall a turn by opening help. Single-player, no harm. | low | Accepted |
+| Seat labels are the starting winds (seat 0 is "East" all match), not the current seat winds; the match-over popup lists raw scores without placement. | low | Follow-up (§7) |
+| `RecordingPlayer::seek` replays from the first event on every step, so stepping and autoplay cost O(events) each (fine at ~1,300 events, worth measuring). | low | Follow-up (§6) |
+| `bundled_debug_scenarios_dir` is a compile-time path; a `debug-menu` binary moved elsewhere finds no fixtures. Debug-only. | low | Accepted |
 
 ---
 
@@ -507,6 +561,11 @@ Measure with release builds; record machine, median of five runs.
     next. Space the tiles or mark aka another way.
   - The setup popup is drawn over the main menu box at 100×32, cutting
     its borders.
+  - (from §3) Seats are named by their starting wind for the whole match
+    (seat 0 stays "East" after the deal moves on); the match-over popup
+    lists raw scores with no placement or ± from the start.
+  - (from §3) The status line still shows `Called Kan(Open) from …`
+    (`{:?}` of the meld kind); see 7.10.
 - [ ] **7.10** Messages and wording: event text (`app/event_text.rs`),
   errors, prompts — consistent terms (one name per yaku, romaji spelled as
   in `RULES.md`), no debug formatting (`{:?}`) leaking to the player.

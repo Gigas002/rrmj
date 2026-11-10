@@ -66,7 +66,7 @@ tsumo = "t"
 riichi = "i"
 closed_kan = "g"
 discard = "d"
-# Dealer first-turn abortive draw (when legal)
+# Abortive draw on nine terminals (your first uninterrupted turn, when legal)
 abort_nine_terminals = "a"
 # Tile picker (discard / riichi / closed kan / chi variant)
 tile_prev = "left"

@@ -60,7 +60,7 @@ use crate::utils::{TimerKind, format_decision_timer};
 use librrmj::game::GamePhase;
 use librrmj::replay::{GameRecording, GameStatus, RecordingMeta, RecordingPlayer};
 
-use self::timers::{ActionTimerState, timeout_action};
+use self::timers::{ActionTimerState, forced_action, timeout_action};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
@@ -145,6 +145,19 @@ pub struct App {
     rules_scroll: usize,
     status: String,
     quit: bool,
+    /// Events in the match when it was last saved or loaded (unsaved progress check).
+    saved_event_count: Option<usize>,
+    /// Leave request waiting for its confirming second press.
+    leave_armed: Option<Leave>,
+    /// `leave_armed` as it was before the key being handled.
+    leave_armed_before_key: Option<Leave>,
+}
+
+/// Ways to leave a match in progress.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Leave {
+    MainMenu,
+    Quit,
 }
 
 impl App {
@@ -204,6 +217,9 @@ impl App {
             rules_scroll: 0,
             status: String::new(),
             quit: false,
+            saved_event_count: None,
+            leave_armed: None,
+            leave_armed_before_key: None,
         }
     }
 
@@ -227,16 +243,19 @@ impl App {
         terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     ) -> Result<(), AppError> {
         while !self.quit {
-            self.tick_cpu()?;
-            self.tick_replay()?;
-            self.tick_action_timers()?;
+            let ticked = self
+                .tick_cpu()
+                .and_then(|()| self.tick_replay())
+                .and_then(|()| self.tick_action_timers());
+            self.report_error(ticked);
             let theme = self.theme();
             terminal.draw(|frame| ui::draw(frame, self, &theme))?;
 
             if event::poll(Duration::from_millis(50))? {
                 while let Ok(Event::Key(key)) = event::read() {
                     if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
-                        self.handle_key(key)?;
+                        let handled = self.handle_key(key);
+                        self.report_error(handled);
                     }
                     if !event::poll(Duration::ZERO)? {
                         break;
@@ -245,6 +264,15 @@ impl App {
             }
         }
         Ok(())
+    }
+
+    /// A failed action, load or file operation is shown on the status line
+    /// and logged; it never ends the session (only terminal I/O errors do).
+    fn report_error(&mut self, result: Result<(), AppError>) {
+        if let Err(err) = result {
+            tracing::error!("{err}");
+            self.status = format!("Error: {err}");
+        }
     }
 
     fn tick_cpu(&mut self) -> Result<(), AppError> {
@@ -325,16 +353,15 @@ impl App {
             return Ok(());
         };
         let phase = game.hand().phase();
-        let menu = ActionMenu::from_legal(&game.hand().legal_actions_for(seat));
+        let legal = game.hand().legal_actions_for(seat);
+        let menu = ActionMenu::from_legal(&legal);
 
-        // Nothing to decide — pass immediately, no response timer.
-        if phase == HandPhase::Reaction && menu.is_pass_only() {
-            return self.apply_action_for_seat(seat, Action::Pass);
-        }
-
-        // Draw is automatic at turn start (no timer, no hotkey).
-        if phase == HandPhase::Draw {
-            return self.apply_action_for_seat(seat, Action::Draw);
+        // Nothing to decide (draw, pass-only reaction, the human's riichi
+        // tsumogiri): act at once, no timer. CPU discards keep their pacing.
+        if let Some(action) = forced_action(&legal, phase, &menu)
+            && (phase != HandPhase::Discard || self.is_human_turn())
+        {
+            return self.apply_action_for_seat(seat, action);
         }
 
         self.action_timer
@@ -353,7 +380,8 @@ impl App {
         let phase = game.hand().phase();
         let legal = game.hand().legal_actions_for(seat);
         let menu = ActionMenu::from_legal(&legal);
-        let Some(action) = timeout_action(&legal, phase, &menu) else {
+        let drawn = game.hand().last_drawn_tile();
+        let Some(action) = timeout_action(&legal, phase, &menu, drawn) else {
             return Ok(());
         };
 
@@ -422,6 +450,7 @@ impl App {
         self.active_recording_id = None;
         self.active_recording_meta = None;
         self.active_save_path = None;
+        self.saved_event_count = None;
         self.screen = Screen::MainMenu;
         self.main_menu_mode = MainMenuMode::Root;
         self.menu_index = 0;
@@ -437,10 +466,41 @@ impl App {
 
     fn try_exit_table_to_main_menu(&mut self, action: Option<BindAction>) -> bool {
         if matches!(action, Some(BindAction::MainMenu)) {
-            self.return_to_main_menu();
+            self.leave_match(Leave::MainMenu);
             return true;
         }
         false
+    }
+
+    /// True while a match is running with progress not yet in a save file.
+    fn has_unsaved_match(&self) -> bool {
+        self.active_game.as_ref().is_some_and(|game| {
+            !game.is_ended() && Some(game.events().len()) != self.saved_event_count
+        })
+    }
+
+    /// Leave the match (main menu or quit). With unsaved progress the first
+    /// press only warns; pressing the same key again confirms.
+    fn leave_match(&mut self, leave: Leave) {
+        if self.has_unsaved_match() && self.leave_armed_before_key != Some(leave) {
+            self.leave_armed = Some(leave);
+            let key = match leave {
+                Leave::MainMenu => {
+                    crate::input::format_chord(self.settings.keybinds.chord(BindAction::MainMenu))
+                }
+                Leave::Quit => {
+                    crate::input::format_chord(self.settings.keybinds.chord(BindAction::Quit))
+                }
+            };
+            self.status = format!(
+                "Unsaved match will be lost — press {key} again to leave (save from the pause menu)"
+            );
+            return;
+        }
+        match leave {
+            Leave::MainMenu => self.return_to_main_menu(),
+            Leave::Quit => self.quit = true,
+        }
     }
 
     fn default_export_path(&self) -> PathBuf {
@@ -517,6 +577,8 @@ impl App {
                 match crate::save::write_recording(&path, &recording) {
                     Ok(()) => {
                         self.active_save_path = Some(path.clone());
+                        self.saved_event_count =
+                            self.active_game.as_ref().map(|game| game.events().len());
                         self.active_recording_id =
                             recording.meta.recording_id.clone().or_else(|| {
                                 path.file_stem()
@@ -556,11 +618,11 @@ impl App {
                     Ok(())
                 }
                 PauseItem::MainMenu => {
-                    self.return_to_main_menu();
+                    self.leave_match(Leave::MainMenu);
                     Ok(())
                 }
                 PauseItem::Quit => {
-                    self.quit = true;
+                    self.leave_match(Leave::Quit);
                     Ok(())
                 }
             };
@@ -572,7 +634,7 @@ impl App {
             Some(BindAction::MenuDown) => {
                 self.pause_index = self.pause_index.next();
             }
-            Some(BindAction::Quit) => self.quit = true,
+            Some(BindAction::Quit) => self.leave_match(Leave::Quit),
             _ => {}
         }
         Ok(())
@@ -618,6 +680,8 @@ impl App {
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
+        // A leave request stays armed only for the very next key.
+        self.leave_armed_before_key = self.leave_armed.take();
         let key = normalize_key_event(key);
 
         if self.import_scenario.is_some() {
@@ -647,9 +711,13 @@ impl App {
         if self.load_setup.is_some() && self.screen == Screen::MainMenu {
             return self.handle_load_setup_key(key);
         }
-        self.handle_scenario_setup_key_if_open(key)?;
+        if self.handle_scenario_setup_key_if_open(key)? {
+            return Ok(());
+        }
         #[cfg(feature = "debug-menu")]
-        self.handle_debug_setup_key_if_open(key)?;
+        if self.handle_debug_setup_key_if_open(key)? {
+            return Ok(());
+        }
 
         let action = self.settings.keybinds.action_for(&key);
         if matches!(action, Some(BindAction::Help)) {
@@ -704,7 +772,7 @@ impl App {
     fn handle_scores_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
         let action = self.settings.keybinds.action_for(&key);
         if matches!(action, Some(BindAction::Quit)) {
-            self.quit = true;
+            self.leave_match(Leave::Quit);
         }
         if matches!(
             action,
@@ -726,7 +794,7 @@ impl App {
     fn handle_recommendations_key(&mut self, key: KeyEvent) -> Result<(), AppError> {
         let action = self.settings.keybinds.action_for(&key);
         if matches!(action, Some(BindAction::Quit)) {
-            self.quit = true;
+            self.leave_match(Leave::Quit);
         }
         if matches!(
             action,
@@ -841,7 +909,7 @@ impl App {
                         Ok(())
                     }
                     _ => {
-                        self.quit = true;
+                        self.leave_match(Leave::Quit);
                         Ok(())
                     }
                 };
@@ -855,7 +923,7 @@ impl App {
                 Some(BindAction::MenuDown) => {
                     self.menu_index = (self.menu_index + 1).min(max);
                 }
-                Some(BindAction::Quit) => self.quit = true,
+                Some(BindAction::Quit) => self.leave_match(Leave::Quit),
                 _ => {}
             }
             Ok(())
@@ -914,7 +982,7 @@ impl App {
             Some(BindAction::MenuDown) => {
                 self.menu_index = (self.menu_index + 1).min(max);
             }
-            Some(BindAction::Quit) => self.quit = true,
+            Some(BindAction::Quit) => self.leave_match(Leave::Quit),
             _ => {}
         }
         Ok(())
@@ -948,7 +1016,7 @@ impl App {
             Some(BindAction::MenuDown) => {
                 self.menu_index = (self.menu_index + 1).min(max);
             }
-            Some(BindAction::Quit) => self.quit = true,
+            Some(BindAction::Quit) => self.leave_match(Leave::Quit),
             _ => {}
         }
         Ok(())
@@ -1015,7 +1083,7 @@ impl App {
             return Ok(());
         }
         if matches!(action, Some(BindAction::Quit)) {
-            self.quit = true;
+            self.leave_match(Leave::Quit);
             return Ok(());
         }
         let page = 8isize;
@@ -1129,7 +1197,7 @@ impl App {
                 LoadSetupField::ResponseTimer => load.cycle_response_timer(),
                 LoadSetupField::Confirm => {}
             },
-            Some(BindAction::Quit) => self.quit = true,
+            Some(BindAction::Quit) => self.leave_match(Leave::Quit),
             _ => {}
         }
         Ok(())
@@ -1163,6 +1231,7 @@ impl App {
         let game = load.recording.restore()?;
         self.setup_meta = Some(setup);
         self.agents = Some(agents);
+        self.saved_event_count = Some(game.events().len());
         self.active_game = Some(game);
         self.human_seat_active = human;
         self.cpu_step_delay_ms = load.cpu_step_delay_ms;
@@ -1179,6 +1248,26 @@ impl App {
         self.game_summary = None;
         self.screen = Screen::Table;
         self.status = status;
+        self.settle_loaded_game()
+    }
+
+    /// A loaded game may stop where nobody can act: its hand already ended
+    /// (scenario fixtures) or the whole match did. Show that result and move
+    /// the match on, so the table never waits on nothing.
+    fn settle_loaded_game(&mut self) -> Result<(), AppError> {
+        let Some(game) = self.active_game.as_mut() else {
+            return Ok(());
+        };
+        if game.is_ended() {
+            self.game_summary = Some(*game.scores());
+            return Ok(());
+        }
+        let Some(reason) = game.hand().end_reason().filter(|_| game.hand().is_ended()) else {
+            return Ok(());
+        };
+        let events = game.finish_restored_hand()?;
+        self.on_game_events(&events);
+        self.hand_result = Some(hand_result::summary_from_end_reason(&reason));
         Ok(())
     }
 
@@ -1190,7 +1279,7 @@ impl App {
             return Ok(());
         }
         match action {
-            Some(BindAction::Quit) => self.quit = true,
+            Some(BindAction::Quit) => self.leave_match(Leave::Quit),
             Some(BindAction::MenuUp) => {
                 self.settings_field = self.settings_field.prev();
             }
@@ -1268,7 +1357,7 @@ impl App {
             Some(BindAction::MenuDown) => setup.select_next(),
             Some(BindAction::MenuToggle) => setup.toggle_selected(),
             Some(BindAction::MenuCycle) => setup.cycle_selected(),
-            Some(BindAction::Quit) => self.quit = true,
+            Some(BindAction::Quit) => self.leave_match(Leave::Quit),
             _ => {}
         }
         Ok(())
@@ -1291,6 +1380,7 @@ impl App {
         self.action_timer.reset();
         self.setup_meta = Some(game_setup);
         self.agents = Some(agents);
+        self.saved_event_count = None;
         self.active_game = Some(game);
         self.active_recording_id = Some(format!("match-{seed}"));
         self.active_recording_meta = None;
@@ -1318,7 +1408,7 @@ impl App {
             return Ok(());
         }
         if matches!(action, Some(BindAction::Quit)) {
-            self.quit = true;
+            self.leave_match(Leave::Quit);
         }
         Ok(())
     }
@@ -1336,7 +1426,7 @@ impl App {
             return Ok(());
         }
         if matches!(action, Some(BindAction::Quit)) {
-            self.quit = true;
+            self.leave_match(Leave::Quit);
         }
         Ok(())
     }
@@ -1361,7 +1451,7 @@ impl App {
         if !human_turn {
             match action {
                 Some(BindAction::Back) => self.open_pause_menu(),
-                Some(BindAction::Quit) => self.quit = true,
+                Some(BindAction::Quit) => self.leave_match(Leave::Quit),
                 _ => {}
             }
             return Ok(());
@@ -1434,7 +1524,7 @@ impl App {
             }
             Some(BindAction::TilePrev) => self.bump_tile_index(-1),
             Some(BindAction::TileNext) => self.bump_tile_index(1),
-            Some(BindAction::Quit) => self.quit = true,
+            Some(BindAction::Quit) => self.leave_match(Leave::Quit),
             _ => {}
         }
         Ok(None)
@@ -1782,3 +1872,6 @@ pub fn phase_label(phase: HandPhase) -> &'static str {
         HandPhase::Ended => "Ended",
     }
 }
+
+#[cfg(test)]
+mod tests;

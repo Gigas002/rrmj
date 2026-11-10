@@ -213,3 +213,129 @@ mod recording {
         assert_eq!(live.snapshot(), replayed.snapshot());
     }
 }
+
+/// A ron leaves the winning tile in the discarder's river: the ended hand (what
+/// a finished recording stores, and what replay rebuilds) keeps all 136 tiles.
+#[cfg(feature = "serde")]
+#[test]
+fn ron_keeps_the_winning_tile_in_the_river() {
+    use crate::replay::GameRecording;
+    use crate::state::{HandPhase, HandState};
+
+    let text = include_str!("../../../examples/scenarios/ron_on_discard.json");
+    let recording = GameRecording::from_json(text).unwrap();
+    let mut hand =
+        HandState::from_snapshot(recording.hand.clone(), recording.rules_config.clone()).unwrap();
+    let reaction = recording.hand.reaction.clone().expect("ron reaction");
+    let river_before = hand.discards(reaction.discarder).len();
+
+    for seat in 0..4 {
+        if hand.phase() != HandPhase::Reaction {
+            break;
+        }
+        let legal = hand.legal_actions_for(seat);
+        if legal.contains(&Action::Ron) {
+            hand.apply(seat, Action::Ron).unwrap();
+        } else if legal.contains(&Action::Pass) {
+            hand.apply(seat, Action::Pass).unwrap();
+        }
+    }
+
+    assert_eq!(hand.phase(), HandPhase::Ended);
+    assert_eq!(hand.discards(reaction.discarder).len(), river_before);
+    assert_eq!(
+        hand.discards(reaction.discarder).last(),
+        Some(&reaction.tile)
+    );
+    hand.validate_tile_conservation().unwrap();
+}
+
+/// Whole multi-hand matches recorded and replayed: every hand boundary and
+/// every live step can be sought, and the boards (hands, melds, rivers,
+/// scores) match the live match at each point. Seeds run until pon, chi,
+/// closed kan and kakan have all been replayed.
+#[cfg(feature = "serde")]
+#[test]
+fn full_match_replays_hand_after_hand() {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    use crate::ai::{AiConfig, CpuAgent, Difficulty, GameSetup};
+    use crate::event::Event;
+    use crate::game::GameLength;
+    use crate::hand::{KanForm, MeldKind};
+    use crate::replay::{GameRecording, RecordingMeta, RecordingPlayer};
+
+    fn board(game: &Game) -> String {
+        let hand = game.hand();
+        let seats: Vec<String> = (0..4)
+            .map(|seat| {
+                format!(
+                    "{:?}|{:?}|{:?}",
+                    hand.hand(seat).concealed().tiles(),
+                    hand.hand(seat).melds(),
+                    hand.discards(seat)
+                )
+            })
+            .collect();
+        format!("{:?} {:?}", seats, game.scores())
+    }
+
+    let mut config = RulesConfig::standard();
+    config.game_length = GameLength::EastOnly;
+    let wanted = ["chi", "closed kan", "kakan", "pon"];
+    let mut seen = BTreeSet::new();
+    for seed in 4242..4300 {
+        let mut live = Game::new(config.clone(), seed).unwrap();
+        let mut agents: [CpuAgent; 4] = std::array::from_fn(|seat| {
+            CpuAgent::new(AiConfig::new(Difficulty::Easy, seed), seat, seed)
+        });
+        let mut boards = BTreeMap::new();
+        while let Some(_step) = live.step(&mut agents).unwrap() {
+            boards.insert(live.events().len(), board(&live));
+        }
+        assert!(live.is_ended());
+        for event in live.events() {
+            match event {
+                Event::Called {
+                    meld: MeldKind::Chi,
+                    ..
+                } => seen.insert("chi"),
+                Event::Called {
+                    meld: MeldKind::Pon,
+                    ..
+                } => seen.insert("pon"),
+                Event::Called {
+                    meld: MeldKind::Kan(KanForm::Closed),
+                    ..
+                } => seen.insert("closed kan"),
+                Event::KakanDeclared { .. } => seen.insert("kakan"),
+                _ => false,
+            };
+        }
+
+        let recording = GameRecording::capture(
+            &live,
+            &GameSetup::all_medium(seed),
+            0,
+            0,
+            0,
+            0,
+            RecordingMeta::default(),
+        );
+        let mut player = RecordingPlayer::new(recording).unwrap();
+        for hand in 0..player.hand_boundaries().len() {
+            player.seek_hand(hand).unwrap();
+        }
+        for (&len, want) in &boards {
+            player.seek(Some(len - 1)).unwrap();
+            let got = board(player.game());
+            assert_eq!(&got, want, "seed {seed}, event {}", len - 1);
+        }
+        assert!(player.at_end());
+        assert_eq!(player.game().scores(), live.scores());
+        if wanted.iter().all(|kind| seen.contains(kind)) {
+            return;
+        }
+    }
+    panic!("seeds never covered all of {wanted:?}; saw {seen:?}");
+}

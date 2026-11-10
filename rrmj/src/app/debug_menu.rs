@@ -75,11 +75,17 @@ impl App {
         Ok(())
     }
 
-    pub(super) fn handle_debug_setup_key_if_open(&mut self, key: KeyEvent) -> Result<(), AppError> {
+    /// Handles the key when the debug seat picker is open; `true` means the
+    /// key was used and must not reach the screen underneath.
+    pub(super) fn handle_debug_setup_key_if_open(
+        &mut self,
+        key: KeyEvent,
+    ) -> Result<bool, AppError> {
         if self.debug_setup.is_some() && self.screen == Screen::MainMenu {
-            return self.handle_debug_setup_key(key);
+            self.handle_debug_setup_key(key)?;
+            return Ok(true);
         }
-        Ok(())
+        Ok(false)
     }
 
     fn cycle_debug_filter(&mut self) -> Result<(), AppError> {
@@ -225,6 +231,7 @@ impl App {
         let game = setup.recording.restore()?;
         self.setup_meta = Some(game_setup);
         self.agents = Some(agents);
+        self.saved_event_count = Some(game.events().len());
         self.active_game = Some(game);
         self.human_seat_active = human;
         self.cpu_step_delay_ms = self.settings.cpu_step_delay_ms;
@@ -241,7 +248,7 @@ impl App {
         self.game_summary = None;
         self.screen = Screen::Table;
         self.status = format!("Debug: {title}");
-        Ok(())
+        self.settle_loaded_game()
     }
 
     pub fn debug_setup(&self) -> Option<&DebugScenarioSetup> {

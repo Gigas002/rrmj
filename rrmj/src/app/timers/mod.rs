@@ -2,6 +2,7 @@ use std::time::{Duration, Instant};
 
 use librrmj::action::Action;
 use librrmj::state::HandPhase;
+use librrmj::tile::Tile;
 
 use crate::app::ActionMenu;
 use crate::utils::{SeatTimer, TimerKind};
@@ -74,17 +75,46 @@ impl ActionTimerState {
     }
 }
 
-pub fn timeout_action(legal: &[Action], phase: HandPhase, menu: &ActionMenu) -> Option<Action> {
+/// The action to take without asking when the seat has no real choice:
+/// the draw, a reaction where only pass is legal, or a discard turn where
+/// one tile is the only legal discard (riichi tsumogiri).
+pub fn forced_action(legal: &[Action], phase: HandPhase, menu: &ActionMenu) -> Option<Action> {
     match phase {
+        HandPhase::Draw => legal.contains(&Action::Draw).then_some(Action::Draw),
+        HandPhase::Reaction if menu.is_pass_only() => Some(Action::Pass),
+        HandPhase::Discard => match legal.first() {
+            Some(&only @ Action::Discard(_)) if legal.iter().all(|action| *action == only) => {
+                Some(only)
+            }
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// What a seat does when its decision timer runs out: never throw away a
+/// win (tsumo or ron when offered), otherwise discard the drawn tile
+/// (tsumogiri) or pass. With no drawn tile (dealer's first turn, after a
+/// call) the rightmost tile of the sorted hand goes.
+pub fn timeout_action(
+    legal: &[Action],
+    phase: HandPhase,
+    menu: &ActionMenu,
+    drawn: Option<Tile>,
+) -> Option<Action> {
+    match phase {
+        HandPhase::Reaction if menu.can_ron => Some(Action::Ron),
         HandPhase::Reaction => Some(Action::Pass),
         HandPhase::Draw => Some(Action::Draw),
-        HandPhase::Discard => {
-            if menu.can_tsumo {
-                return Some(Action::Tsumo);
-            }
-            menu.discards.first().copied().map(Action::Discard)
-        }
+        HandPhase::Discard if menu.can_tsumo => Some(Action::Tsumo),
+        HandPhase::Discard => drawn
+            .map(Action::Discard)
+            .filter(|action| legal.contains(action))
+            .or_else(|| menu.discards.last().copied().map(Action::Discard)),
         HandPhase::Ended => None,
     }
     .filter(|action| legal.contains(action))
 }
+
+#[cfg(test)]
+mod tests;
