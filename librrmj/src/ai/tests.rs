@@ -205,3 +205,41 @@ fn hard_beats_medium_in_short_benchmark() {
         "hard matched or beat medium on {hard_better}/{comparisons} sampled discards"
     );
 }
+
+fn parse_hand(spec: &str) -> crate::hand::Hand {
+    let tiles = spec
+        .split_whitespace()
+        .map(|t| t.parse().expect("tile"))
+        .collect();
+    crate::hand::Hand::new(crate::hand::Concealed::from_tiles(tiles), vec![]).unwrap()
+}
+
+#[test]
+fn shanten_matches_hand_counted_values() {
+    use crate::ai::shanten::shanten_to_tenpai;
+    let cases = [
+        // complete standard hand
+        ("1m 2m 3m 4p 5p 6p 7s 8s 9s E E E 2p 2p", -1),
+        // tenpai: 1p/4p
+        ("1m 2m 3m 4m 5m 6m 7m 8m 9m 1p 2p 3p 4p", 0),
+        // 13-sided kokushi
+        ("1m 9m 1p 9p 1s 9s E S W N wd gd rd", 0),
+        // chiitoitsu tenpai
+        ("1m 1m 3p 3p 5s 5s 7s 7s E E gd gd 9m", 0),
+        // 789s, green-dragon head, 56m and 34p partials: 8 - 2 - 2 - 1 = 3
+        ("3m 5m 6m 9m 3p 4p 1s 4s 7s 8s 9s 9s gd gd", 3),
+        // nothing connected; ten terminal/honor kinds: kokushi 13 - 10 = 3
+        ("1m 5m 9m 1p 5p 9p 1s 5s 9s E S W N", 3),
+    ];
+    for (spec, expected) in cases {
+        assert_eq!(shanten_to_tenpai(&parse_hand(spec)), expected, "{spec}");
+    }
+}
+
+#[test]
+fn ukeire_counts_improving_kinds() {
+    use crate::ai::shanten::best_waiting_potential;
+    // 1-shanten 13 tiles: 123m 456p 78s 99s 34m + E (needs a 2m/5m or 6s/9s).
+    let hand = parse_hand("1m 2m 3m 4p 5p 6p 7s 8s 9s 9s 3m 4m E");
+    assert!(best_waiting_potential(&hand) >= 4);
+}

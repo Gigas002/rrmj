@@ -60,6 +60,8 @@ pub struct WinContext<'a> {
     pub is_rinshan: bool,
     /// Ron on a tile added during kakan.
     pub is_chankan: bool,
+    /// Takes honba and table riichi sticks (see [`WinContext::with_bonus`]).
+    pub collects_bonus: bool,
 }
 
 impl<'a> WinContext<'a> {
@@ -79,15 +81,24 @@ impl<'a> WinContext<'a> {
             is_houtei: state.is_houtei_win(win_type),
             is_rinshan: state.is_rinshan_win(win_type),
             is_chankan: timing.is_chankan,
+            collects_bonus: true,
         }
+    }
+
+    /// Whether this winner also takes the honba and the riichi sticks on the
+    /// table. Only the first winner of a multiple ron does.
+    pub fn with_bonus(mut self, collects_bonus: bool) -> Self {
+        self.collects_bonus = collects_bonus;
+        self
     }
 
     pub fn hand(&self) -> &Hand {
         self.state.hand(self.winner)
     }
 
+    /// Closed hand: no chi, pon or open kan (closed kans are allowed).
     pub fn is_menzen(&self) -> bool {
-        self.hand().melds().is_empty()
+        self.hand().is_closed()
     }
 
     pub fn is_riichi(&self) -> bool {
@@ -117,6 +128,15 @@ pub trait RulesProfile: Send + Sync {
 
     /// Whether discarding this tile keeps the hand tenpai (required for riichi declaration).
     fn is_riichi_discard(&self, hand: &Hand, discard: Tile, config: &RulesConfig) -> bool;
+
+    /// Whether a seat in riichi may declare a closed kan of `kan_tile` after drawing `drawn`.
+    fn riichi_kan_allowed(
+        &self,
+        hand: &Hand,
+        drawn: Tile,
+        kan_tile: Tile,
+        config: &RulesConfig,
+    ) -> bool;
 
     fn score_win(&self, ctx: &WinContext<'_>, config: &RulesConfig) -> ScoringResult;
 

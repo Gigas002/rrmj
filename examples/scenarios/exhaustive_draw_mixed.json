@@ -1,7 +1,7 @@
 {
   "format_version": 3,
   "title": "Exhaustive draw (mixed tenpai)",
-  "description": "Two seats tenpai and two noten when the live wall is exhausted.",
+  "description": "Two seats tenpai and two noten when the live wall is exhausted (captured from a seeded Medium match).",
   "tags": [
     "draw",
     "hand-end",
@@ -59,10 +59,10 @@
   "kyoku": 1,
   "honba": 0,
   "scores": [
-    25000,
-    25000,
-    25000,
-    25000
+    23500,
+    26500,
+    26500,
+    23500
   ],
   "table_riichi_sticks": 0,
   "hand_index": 0,
@@ -75,190 +75,258 @@
       {
         "concealed": {
           "tiles": [
-            "5s",
-            "5s",
-            "6s",
-            "7s",
-            "8s",
-            "8s",
-            "E",
-            "S",
-            "W",
-            "W",
-            "N",
-            "wd",
-            "gd"
-          ]
-        },
-        "melds": []
-      },
-      {
-        "concealed": {
-          "tiles": [
-            "7s",
-            "9s",
-            "9s",
-            "9s",
-            "E",
-            "S",
-            "S",
-            "W",
-            "W",
-            "N",
-            "wd",
-            "gd",
-            "rd"
-          ]
-        },
-        "melds": []
-      },
-      {
-        "concealed": {
-          "tiles": [
-            "7p",
-            "7p",
-            "1s",
-            "5s",
-            "5s",
-            "5s",
-            "6s",
-            "7s",
-            "8s",
-            "9s",
-            "S",
-            "S",
-            "N"
-          ]
-        },
-        "melds": []
-      },
-      {
-        "concealed": {
-          "tiles": [
-            "2s",
+            "2m",
+            "3m",
+            "4m",
+            "5mr",
+            "7m",
             "4s",
-            "7s",
+            "5s",
+            "6s",
             "8s",
-            "8s",
-            "9s",
-            "E",
-            "E",
+            "9s"
+          ]
+        },
+        "melds": [
+          {
+            "kind": "Chi",
+            "tiles": [
+              "4p",
+              "5p",
+              "6p"
+            ],
+            "called": "5p"
+          }
+        ]
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "3p",
+            "4p",
             "S",
-            "W",
-            "N",
+            "S"
+          ]
+        },
+        "melds": [
+          {
+            "kind": "Chi",
+            "tiles": [
+              "7m",
+              "8m",
+              "9m"
+            ],
+            "called": "9m"
+          },
+          {
+            "kind": "Chi",
+            "tiles": [
+              "1m",
+              "2m",
+              "3m"
+            ],
+            "called": "3m"
+          },
+          {
+            "kind": "Pon",
+            "tiles": [
+              "E",
+              "E",
+              "E"
+            ],
+            "called": "E"
+          }
+        ]
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "2p",
+            "4p",
             "wd",
             "wd"
           ]
         },
-        "melds": []
+        "melds": [
+          {
+            "kind": "Chi",
+            "tiles": [
+              "6p",
+              "7p",
+              "8p"
+            ],
+            "called": "8p"
+          },
+          {
+            "kind": "Chi",
+            "tiles": [
+              "2s",
+              "3s",
+              "4s"
+            ],
+            "called": "3s"
+          },
+          {
+            "kind": "Chi",
+            "tiles": [
+              "1m",
+              "2m",
+              "3m"
+            ],
+            "called": "3m"
+          }
+        ]
+      },
+      {
+        "concealed": {
+          "tiles": [
+            "4s",
+            "5sr",
+            "S",
+            "S"
+          ]
+        },
+        "melds": [
+          {
+            "kind": "Pon",
+            "tiles": [
+              "W",
+              "W",
+              "W"
+            ],
+            "called": "W"
+          },
+          {
+            "kind": "Pon",
+            "tiles": [
+              "7s",
+              "7s",
+              "7s"
+            ],
+            "called": "7s"
+          },
+          {
+            "kind": "Pon",
+            "tiles": [
+              "3p",
+              "3p",
+              "3p"
+            ],
+            "called": "3p"
+          }
+        ]
       }
     ],
     "discards": [
       [
-        "2m",
-        "3m",
-        "4m",
-        "1p",
-        "2p",
-        "3p",
-        "8m",
-        "7m",
-        "4p",
-        "5p",
-        "2p",
+        "rd",
+        "gd",
+        "9p",
         "1s",
+        "gd",
+        "1p",
+        "2s",
         "3s",
-        "5p",
-        "5s",
-        "5s",
-        "6p",
-        "3m"
-      ],
-      [
-        "1m",
-        "1m",
-        "6m",
-        "9m",
-        "9m",
-        "4m",
-        "1p",
         "4p",
         "9p",
+        "5p",
         "9p",
-        "1s",
-        "1s",
-        "5s",
-        "5s",
-        "6m",
-        "9p",
-        "6s",
-        "6s"
-      ],
-      [
-        "1m",
-        "2m",
-        "3m",
+        "7p",
         "4m",
         "4m",
-        "2p",
-        "3p",
-        "7m",
-        "3p",
-        "4p",
-        "1p",
-        "5p",
-        "1p",
         "9m",
-        "1p",
-        "5p",
-        "5m"
-      ],
-      [
-        "1m",
-        "1m",
-        "3m",
-        "2m",
-        "9m",
-        "9m",
-        "1p",
         "8m",
+        "rd"
+      ],
+      [
+        "N",
         "2p",
-        "3p",
-        "9p",
-        "9m",
-        "9p",
-        "1m",
         "1s",
-        "1m",
-        "2m"
+        "5m",
+        "8s",
+        "6m",
+        "6m",
+        "9s",
+        "2p",
+        "wd",
+        "W",
+        "3s",
+        "7p",
+        "5pr",
+        "4m",
+        "8m"
+      ],
+      [
+        "N",
+        "9s",
+        "5m",
+        "1s",
+        "8m",
+        "6m",
+        "1p",
+        "6s",
+        "1s",
+        "6p",
+        "7m",
+        "9m",
+        "wd",
+        "8p",
+        "7m",
+        "4s",
+        "5s"
+      ],
+      [
+        "9p",
+        "gd",
+        "2p",
+        "6m",
+        "9m",
+        "5p",
+        "5s",
+        "gd",
+        "N",
+        "1p",
+        "8s",
+        "6s",
+        "6p",
+        "1p",
+        "6s",
+        "7p",
+        "3m",
+        "8p",
+        "8s"
       ]
     ],
     "wall": {
       "live": [],
       "dead": [
-        "5mr",
-        "7m",
-        "4p",
-        "2s",
+        "E",
+        "3s",
         "5m",
-        "1s",
-        "8p",
-        "3p",
-        "gd",
         "2m",
-        "6p",
+        "9s",
         "2s",
-        "2p",
-        "8p"
+        "1m",
+        "N",
+        "2s",
+        "7s",
+        "8p",
+        "1m",
+        "rd",
+        "rd"
       ],
       "kan_count": 0,
       "rinshan_taken": 0
     },
+    "last_discard": [
+      1,
+      "8m"
+    ],
     "scores": [
-      25000,
-      25000,
-      25000,
-      25000
+      23500,
+      26500,
+      26500,
+      23500
     ],
     "riichi": [
       false,
@@ -269,10 +337,10 @@
     "table_riichi_sticks": 0,
     "honba": 0,
     "first_discards": [
-      "2m",
-      "1m",
-      "1m",
-      "1m"
+      "rd",
+      "N",
+      "N",
+      "9p"
     ],
     "is_dealer_first_turn": false,
     "temporary_furiten": [
@@ -299,12 +367,12 @@
       false,
       false
     ],
-    "calls_made": false,
+    "calls_made": true,
     "is_rinshan_draw": false,
     "live_draws": [
-      17,
+      19,
       18,
-      17,
+      15,
       17
     ],
     "end_reason": "ExhaustiveDraw"

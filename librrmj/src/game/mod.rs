@@ -122,8 +122,9 @@ impl Game {
     #[cfg(feature = "serde")]
     pub(crate) fn restore_from_hand(
         recording: &crate::replay::GameRecording,
-        hand: HandState,
+        mut hand: HandState,
     ) -> Self {
+        hand.set_round_wind(recording.round_wind);
         Self {
             config: recording.rules_config.clone(),
             seed: recording.seed,
@@ -228,10 +229,30 @@ impl Game {
         let profile = RulesRegistry::get(self.config.profile)?;
         let dealer_tenpai = profile.is_tenpai(self.hand.hand(self.dealer), &self.config);
 
-        if profile
-            .game_flow()
-            .is_game_over(self.round_wind, self.kyoku, &self.scores, &self.config)
-        {
+        let riichi_sticks = self.hand.table_riichi_sticks();
+        let (dealer, honba, round_wind, kyoku) = advance_after_hand(
+            self.dealer,
+            self.honba,
+            self.round_wind,
+            self.kyoku,
+            outcome.clone(),
+            dealer_tenpai,
+        );
+        let renchan = dealer == self.dealer;
+
+        if profile.game_flow().is_game_over(
+            self.round_wind,
+            self.kyoku,
+            self.dealer,
+            renchan,
+            &self.scores,
+            &self.config,
+        ) {
+            // Riichi sticks still on the table go to first place.
+            if !matches!(outcome, HandOutcome::Win { .. }) {
+                let top = crate::rules::flow::placement_order(&self.scores)[0];
+                self.scores[top] += i32::from(riichi_sticks) * 1_000;
+            }
             self.table_riichi_sticks = 0;
             self.phase = GamePhase::Ended;
             return Ok(vec![Event::GameEnded {
@@ -239,20 +260,10 @@ impl Game {
             }]);
         }
 
-        let riichi_sticks = self.hand.table_riichi_sticks();
         self.table_riichi_sticks = match outcome {
             HandOutcome::Win { .. } => 0,
             _ => riichi_sticks,
         };
-
-        let (dealer, honba, round_wind, kyoku) = advance_after_hand(
-            self.dealer,
-            self.honba,
-            self.round_wind,
-            self.kyoku,
-            outcome,
-            dealer_tenpai,
-        );
 
         self.dealer = dealer;
         self.honba = honba;
@@ -269,7 +280,7 @@ impl Game {
     fn deal_hand(&self) -> Result<(HandState, Vec<Event>), Error> {
         let mut wall = Wall::new(&self.config, hand_rng(self.seed, self.hand_index));
         let deal = wall.deal(self.dealer)?;
-        let hand = HandState::from_deal_with_carry(
+        let mut hand = HandState::from_deal_with_carry(
             wall,
             deal,
             self.config.clone(),
@@ -277,6 +288,7 @@ impl Game {
             self.honba,
             self.table_riichi_sticks,
         );
+        hand.set_round_wind(self.round_wind);
         let events = vec![
             Event::Dealt {
                 dealer: self.dealer,

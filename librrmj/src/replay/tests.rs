@@ -15,9 +15,9 @@ fn winning_tanyao_tiles() -> Vec<Tile> {
         Tile::sou(6),
         Tile::sou(7),
         Tile::sou(8),
-        Tile::sou(9),
-        Tile::sou(9),
-        Tile::sou(9),
+        Tile::sou(3),
+        Tile::sou(4),
+        Tile::sou(5),
         Tile::pin(2),
         Tile::pin(2),
     ]

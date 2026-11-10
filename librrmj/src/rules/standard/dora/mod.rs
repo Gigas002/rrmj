@@ -23,7 +23,7 @@ pub fn count_aka_dora(ctx: &WinContext<'_>, config: &RulesConfig) -> u8 {
     if !config.aka_dora {
         return 0;
     }
-    win::all_tiles_in_hand(ctx.hand(), ctx.win_tile, ctx.win_type)
+    win::all_tiles_with_reds(ctx.hand(), ctx.win_tile, ctx.win_type)
         .iter()
         .filter(|tile| tile.is_red())
         .count() as u8

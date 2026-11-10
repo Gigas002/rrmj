@@ -12,7 +12,7 @@ pub fn detect_abortive(
     trigger: AbortiveTrigger,
 ) -> Option<AbortiveDrawKind> {
     match trigger {
-        AbortiveTrigger::DealerFirstTurn if config.abortive_nine_terminals => nine_terminals(state),
+        AbortiveTrigger::FirstTurn if config.abortive_nine_terminals => nine_terminals(state),
         AbortiveTrigger::FirstDiscard { seat, tile } if config.abortive_four_winds => {
             four_winds(state, seat, tile)
         }
@@ -23,11 +23,7 @@ pub fn detect_abortive(
 }
 
 fn nine_terminals(state: &HandState) -> Option<AbortiveDrawKind> {
-    if state.current_actor() != state.dealer() {
-        return None;
-    }
-    let dealer = state.dealer();
-    let hand = state.hand(dealer);
+    let hand = state.hand(state.current_actor());
     if !hand.melds().is_empty() {
         return None;
     }
@@ -48,6 +44,10 @@ fn four_winds(state: &HandState, _seat: usize, tile: Tile) -> Option<AbortiveDra
     let TileKind::Wind(_) = tile.kind() else {
         return None;
     };
+    // Any call before the fourth discard breaks the first go-around.
+    if state.calls_made() {
+        return None;
+    }
     for seat in 0..4 {
         let first = state.first_discard(seat)?;
         if !first.matches_identity(tile) {
@@ -57,12 +57,22 @@ fn four_winds(state: &HandState, _seat: usize, tile: Tile) -> Option<AbortiveDra
     Some(AbortiveDrawKind::FourWinds)
 }
 
+/// Four kans by two or more players. One player holding all four is
+/// playing for suukantsu, and the hand goes on (a fifth kan isn't allowed).
 fn four_kongs(state: &HandState) -> Option<AbortiveDrawKind> {
-    if state.wall().kan_count() >= 4 {
-        Some(AbortiveDrawKind::FourKongs)
-    } else {
-        None
+    if state.wall().kan_count() < 4 {
+        return None;
     }
+    let one_player_has_all = (0..4).any(|seat| {
+        state
+            .hand(seat)
+            .melds()
+            .iter()
+            .filter(|meld| matches!(meld.kind(), crate::hand::MeldKind::Kan(_)))
+            .count()
+            == 4
+    });
+    (!one_player_has_all).then_some(AbortiveDrawKind::FourKongs)
 }
 
 fn four_riichis(state: &HandState) -> Option<AbortiveDrawKind> {

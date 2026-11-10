@@ -5,7 +5,7 @@ mod snapshot;
 #[cfg(test)]
 mod tests;
 
-pub use layout::WallLayout;
+pub use layout::{RINSHAN_START, WallLayout};
 #[cfg(feature = "serde")]
 pub use snapshot::WallSnapshot;
 
@@ -59,7 +59,17 @@ impl Wall {
     }
 
     pub fn live_remaining(&self) -> usize {
-        self.layout.live().len()
+        self.layout.live_remaining()
+    }
+
+    /// Every tile still in the live and dead walls (taken rinshan slots excluded).
+    pub fn wall_tiles(&self) -> impl Iterator<Item = Tile> + '_ {
+        self.layout.wall_tiles()
+    }
+
+    /// Tiles in the live and dead walls that no player holds yet.
+    pub fn tiles_in_walls(&self) -> usize {
+        self.layout.tiles_in_walls()
     }
 
     pub fn dead_wall(&self) -> &[Tile] {

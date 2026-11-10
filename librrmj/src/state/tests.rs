@@ -21,9 +21,9 @@ fn winning_tanyao_tiles() -> Vec<Tile> {
         Tile::sou(6),
         Tile::sou(7),
         Tile::sou(8),
-        Tile::sou(9),
-        Tile::sou(9),
-        Tile::sou(9),
+        Tile::sou(3),
+        Tile::sou(4),
+        Tile::sou(5),
         Tile::pin(2),
         Tile::pin(2),
     ]
@@ -827,4 +827,352 @@ fn double_ron_when_enabled() {
     assert!(state.scores()[0] < starting);
     assert!(state.scores()[1] > starting);
     assert!(state.scores()[3] > starting);
+}
+
+// --- audit §2 regressions ---
+
+fn tiles(spec: &str) -> Vec<Tile> {
+    spec.split_whitespace()
+        .map(|t| t.parse().unwrap())
+        .collect()
+}
+
+/// Dealer (seat 0) discards `tile` on the first turn.
+fn dealer_discards(state: &mut HandState, tile: Tile) {
+    let mut dealer_hand: Vec<Tile> = state.hand(0).concealed().tiles().to_vec();
+    dealer_hand[0] = tile;
+    state.set_concealed(0, dealer_hand);
+    state.apply(0, Action::Discard(tile)).unwrap();
+}
+
+#[test]
+fn ron_needs_a_yaku() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(31));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+
+    // Open hand, no yaku: 123m 12p 666p WW + chi 234s, waiting on 3p.
+    let chi = Meld::chi([Tile::sou(2), Tile::sou(3), Tile::sou(4)], Tile::sou(3)).unwrap();
+    let concealed = crate::hand::Concealed::from_tiles(tiles("1m 2m 3m 1p 2p 6p 6p 6p W W"));
+    state.set_hand(1, Hand::new(concealed, vec![chi]).unwrap());
+    state.calls_made = true;
+
+    dealer_discards(&mut state, Tile::pin(3));
+    assert!(!state.legal_actions_for(1).contains(&Action::Ron));
+    assert!(matches!(state.apply(1, Action::Ron), Err(Error::CannotWin)));
+}
+
+#[test]
+fn round_wind_counts_for_yakuhai() {
+    for (round, can_ron) in [
+        (crate::game::RoundWind::East, false),
+        (crate::game::RoundWind::South, true),
+    ] {
+        let config = RulesConfig::standard();
+        let mut wall = Wall::new(&config, StdRng::seed_from_u64(32));
+        let deal = wall.deal(0).unwrap();
+        let mut state = HandState::from_deal(wall, deal, config);
+        state.set_round_wind(round);
+        // Seat 2 is West: a South triplet is yakuhai only in the South round.
+        state.set_concealed(2, tiles("S S S 2m 3m 4m 3p 4p 5p 6s 7s 8s 9p"));
+        dealer_discards(&mut state, Tile::pin(9));
+        assert_eq!(
+            state.legal_actions_for(2).contains(&Action::Ron),
+            can_ron,
+            "{round:?}"
+        );
+    }
+}
+
+#[test]
+fn riichi_is_offered_when_a_discard_leaves_tenpai() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(33));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+    // Tenpai after discarding East (waits 1p/4p), but not complete.
+    state.set_concealed(0, tiles("1m 2m 3m 4m 5m 6m 7m 8m 9m 1p 2p 3p 4p E"));
+    let legal = state.legal_actions_for(0);
+    assert!(legal.contains(&Action::Riichi {
+        discard: Tile::wind(crate::tile::Wind::East)
+    }));
+    assert!(!legal.contains(&Action::Tsumo));
+}
+
+/// Plays other seats (passing, drawing, discarding their first tile) until `seat` must discard.
+fn advance_to_discard(state: &mut HandState, seat: usize) {
+    for _ in 0..64 {
+        if state.phase() == HandPhase::Discard && state.current_actor() == seat {
+            return;
+        }
+        match state.phase() {
+            HandPhase::Reaction => {
+                let actor = state.pending_reaction_seat().unwrap();
+                state.apply(actor, Action::Pass).unwrap();
+            }
+            HandPhase::Draw => {
+                let actor = state.current_actor();
+                state.apply(actor, Action::Draw).unwrap();
+            }
+            HandPhase::Discard => {
+                let actor = state.current_actor();
+                let discard = state
+                    .legal_actions_for(actor)
+                    .into_iter()
+                    .find(|a| matches!(a, Action::Discard(_)))
+                    .unwrap();
+                state.apply(actor, discard).unwrap();
+            }
+            HandPhase::Ended => panic!("hand ended"),
+        }
+    }
+    panic!("seat {seat} never reached its discard");
+}
+
+#[test]
+fn riichi_restricts_discards_and_calls() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(34));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+    state.set_concealed(0, tiles("1m 2m 3m 4m 5m 6m 7m 8m 9m 1p 2p 3p 4p E"));
+    state
+        .apply(
+            0,
+            Action::Riichi {
+                discard: Tile::wind(crate::tile::Wind::East),
+            },
+        )
+        .unwrap();
+
+    advance_to_discard(&mut state, 0);
+    let drawn = state.last_drawn_tile().unwrap();
+    let discards: Vec<Action> = state
+        .legal_actions_for(0)
+        .into_iter()
+        .filter(|a| matches!(a, Action::Discard(_) | Action::Riichi { .. }))
+        .collect();
+    assert_eq!(discards, vec![Action::Discard(drawn)]);
+    let other = state
+        .hand(0)
+        .concealed()
+        .tiles()
+        .iter()
+        .copied()
+        .find(|t| *t != drawn)
+        .unwrap();
+    assert!(state.apply(0, Action::Discard(other)).is_err());
+}
+
+#[test]
+fn illegal_tsumo_is_rejected() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(35));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+    state.set_concealed(0, tiles("1m 4m 7m 1p 4p 7p 1s 4s 7s E S W N wd"));
+    assert!(matches!(
+        state.apply(0, Action::Tsumo),
+        Err(Error::CannotWin)
+    ));
+}
+
+#[test]
+fn double_ron_bonus_goes_to_the_closest_winner() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(24));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+    state.set_honba_for_test(1);
+    state.set_table_riichi_sticks_for_test(1);
+    state.set_concealed(1, tenpai_waiting_on_p2());
+    state.set_concealed(3, tenpai_waiting_on_p2());
+    // Not the first go-around, so neither winner gets renhou.
+    state.live_draws = [1; 4];
+    let before = *state.scores();
+
+    dealer_discards(&mut state, Tile::pin(2));
+    state.apply(1, Action::Ron).unwrap();
+    state.apply(2, Action::Pass).unwrap();
+    state.apply(3, Action::Ron).unwrap();
+
+    let delta: Vec<i32> = (0..4).map(|s| state.scores()[s] - before[s]).collect();
+    // Seat 1 (next after the discarder) also takes 300 honba and the 1000 stick.
+    assert_eq!(delta[1] - delta[3], 1_300);
+    assert_eq!(delta.iter().sum::<i32>(), 1_000);
+    assert_eq!(state.table_riichi_sticks(), 0);
+}
+
+#[test]
+fn exhaustive_draw_with_four_tenpai_pays_nothing() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(36));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config.clone());
+    for seat in 0..4 {
+        state.set_concealed(seat, tenpai_waiting_on_p2());
+    }
+    let profile = RulesRegistry::get(config.profile).unwrap();
+    assert_eq!(profile.score_exhaustive_draw(&state, &config), [0; 4]);
+}
+
+#[test]
+fn kuikae_bans_swap_discards_after_chi_and_pon() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(41));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+    // Seat 1 chis 3m with 4m 5m: 3m (called) and 6m (other end) are banned.
+    state.set_concealed(1, tiles("4m 5m 3m 6m 1p 2p 3p 7s 8s 9s E E S"));
+    dealer_discards(&mut state, Tile::man(3));
+    let chi = Action::Chi {
+        tiles: [Tile::man(3), Tile::man(4), Tile::man(5)],
+    };
+    assert!(state.legal_actions_for(1).contains(&chi));
+    for seat in 2..4 {
+        state.apply(seat, Action::Pass).unwrap();
+    }
+    state.apply(1, chi).unwrap();
+    let legal = state.legal_actions_for(1);
+    assert!(!legal.contains(&Action::Discard(Tile::man(3))));
+    assert!(!legal.contains(&Action::Discard(Tile::man(6))));
+    assert!(legal.contains(&Action::Discard(Tile::pin(1))));
+    assert!(matches!(
+        state.apply(1, Action::Discard(Tile::man(6))),
+        Err(Error::IllegalAction { .. })
+    ));
+    state.apply(1, Action::Discard(Tile::pin(1))).unwrap();
+}
+
+#[test]
+fn kuikae_blocks_calls_that_leave_only_banned_discards() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(42));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+    // Chi 7m-8m on 9m would leave only 6m and 9m, both banned by kuikae.
+    state.set_concealed(1, tiles("7m 8m 6m 9m"));
+    dealer_discards(&mut state, Tile::man(9));
+    let legal = state.legal_actions_for(1);
+    assert!(
+        !legal.iter().any(|a| matches!(a, Action::Chi { .. })),
+        "{legal:?}"
+    );
+}
+
+#[test]
+fn no_kan_straight_after_pon() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(43));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+    state.set_concealed(2, tiles("5m 5m 1p 1p 1p 1p 3s 4s 5s 7s 8s 9s E"));
+    dealer_discards(&mut state, Tile::man(5));
+    for seat in [1, 3] {
+        state.apply(seat, Action::Pass).unwrap();
+    }
+    state.apply(2, Action::Pon).unwrap();
+    let legal = state.legal_actions_for(2);
+    assert!(
+        !legal.iter().any(|a| matches!(a, Action::Kan(_))),
+        "{legal:?}"
+    );
+}
+
+#[test]
+fn nine_terminals_on_any_first_uninterrupted_turn() {
+    let config = RulesConfig::standard();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(44));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config);
+    state.set_concealed(1, tiles("1m 9m 1p 9p 1s 9s E S W wd 2m 3m 4m"));
+    dealer_discards(&mut state, Tile::man(5));
+    for seat in 1..4 {
+        if state.legal_actions_for(seat).contains(&Action::Pass) {
+            state.apply(seat, Action::Pass).unwrap();
+        }
+    }
+    state.apply(1, Action::Draw).unwrap();
+    assert!(
+        state
+            .legal_actions_for(1)
+            .contains(&Action::AbortiveNineTerminals)
+    );
+
+    let events = state.apply(1, Action::AbortiveNineTerminals).unwrap();
+    assert!(
+        events
+            .iter()
+            .any(|e| matches!(e, crate::event::Event::AbortiveDraw { .. }))
+    );
+}
+
+#[test]
+fn four_kans_by_one_player_do_not_abort() {
+    use crate::hand::Meld;
+    let config = RulesConfig::standard();
+    let profile = crate::rules::RulesRegistry::get(config.profile).unwrap();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(45));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config.clone());
+    for _ in 0..4 {
+        state.wall_mut().apply_kan().unwrap();
+    }
+    let kan = |t: Tile| Meld::closed_kan([t; 4]).unwrap();
+    let all_four = vec![
+        kan(Tile::man(1)),
+        kan(Tile::pin(2)),
+        kan(Tile::sou(3)),
+        kan(Tile::man(4)),
+    ];
+    state.set_hand(
+        1,
+        Hand::new(crate::hand::Concealed::from_tiles(tiles("E")), all_four).unwrap(),
+    );
+    let trigger = crate::game::AbortiveTrigger::KanDeclared;
+    assert_eq!(profile.detect_abortive(&state, &config, trigger), None);
+
+    let split = vec![kan(Tile::man(1)), kan(Tile::pin(2)), kan(Tile::sou(3))];
+    state.set_hand(
+        1,
+        Hand::new(
+            crate::hand::Concealed::from_tiles(tiles("E 5m 6m 7m")),
+            split,
+        )
+        .unwrap(),
+    );
+    state.set_hand(
+        2,
+        Hand::new(
+            crate::hand::Concealed::from_tiles(tiles("1s 2s 3s 4s 5s 6s 7s 8s 9s S")),
+            vec![kan(Tile::man(4))],
+        )
+        .unwrap(),
+    );
+    assert_eq!(
+        profile.detect_abortive(&state, &config, trigger),
+        Some(crate::game::AbortiveDrawKind::FourKongs)
+    );
+}
+
+#[test]
+fn four_winds_needs_an_uninterrupted_go_around() {
+    let config = RulesConfig::standard();
+    let profile = crate::rules::RulesRegistry::get(config.profile).unwrap();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(46));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config.clone());
+    let east = Tile::wind(crate::tile::Wind::East);
+    state.first_discards = [Some(east); 4];
+    let trigger = crate::game::AbortiveTrigger::FirstDiscard {
+        seat: 3,
+        tile: east,
+    };
+    assert_eq!(
+        profile.detect_abortive(&state, &config, trigger),
+        Some(crate::game::AbortiveDrawKind::FourWinds)
+    );
+    state.calls_made = true;
+    assert_eq!(profile.detect_abortive(&state, &config, trigger), None);
 }

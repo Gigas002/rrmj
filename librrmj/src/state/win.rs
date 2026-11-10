@@ -27,6 +27,11 @@ impl HandState {
         self.riichi[seat]
     }
 
+    /// Whether any chi, pon or open kan has been called this hand.
+    pub fn calls_made(&self) -> bool {
+        self.calls_made
+    }
+
     pub fn is_double_riichi(&self, seat: usize) -> bool {
         self.double_riichi[seat]
     }
@@ -64,6 +69,7 @@ impl HandState {
         winner != self.dealer()
             && matches!(win_type, WinType::Tsumo)
             && self.live_draws[winner] == 1
+            && !self.calls_made
     }
 
     pub(crate) fn is_renhou_win(&self, winner: usize, win_type: WinType) -> bool {
@@ -126,10 +132,17 @@ impl HandState {
         seat == self.current_actor()
             && self.phase() == HandPhase::Discard
             && !self.riichi[seat]
-            && self.hand(seat).melds().is_empty()
-            && RulesRegistry::get(self.config.profile)
-                .is_ok_and(|p| p.is_tenpai(self.hand(seat), &self.config))
+            && self.hand(seat).is_closed()
+            && RulesRegistry::get(self.config.profile).is_ok_and(|p| {
+                // The hand holds 14 tiles here: riichi needs a discard that leaves tenpai.
+                self.hand(seat)
+                    .concealed()
+                    .tiles()
+                    .iter()
+                    .any(|&tile| p.is_riichi_discard(self.hand(seat), tile, &self.config))
+            })
             && self.scores[seat] >= 1_000
+            && self.wall().live_remaining() >= 4
     }
 
     pub(crate) fn resolve_win(
@@ -156,8 +169,10 @@ impl HandState {
         let mut events = Vec::new();
         let mut combined_deltas = [0i32; 4];
 
-        for &winner in &winners {
-            let ctx = WinContext::new(self, winner, win_type, win_tile, timing);
+        for (index, &winner) in winners.iter().enumerate() {
+            // `winners` is ordered from the discarder: the closest takes honba and sticks.
+            let ctx =
+                WinContext::new(self, winner, win_type, win_tile, timing).with_bonus(index == 0);
             if !profile.can_win(&ctx, &self.config) {
                 return Err(Error::CannotWin);
             }

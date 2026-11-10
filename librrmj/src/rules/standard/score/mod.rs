@@ -17,19 +17,25 @@ pub fn score_hand(
     aka_dora: u8,
     config: &RulesConfig,
 ) -> ScoringResult {
-    let base = base_points(han, fu);
+    let base = base_points(han, fu, config.kiriage);
     let mut deltas = [0i32; 4];
     let mut payments = Vec::new();
     let winner = ctx.winner;
     let dealer = ctx.state.dealer();
     let winner_is_dealer = winner == dealer;
-    let honba = ctx.state.honba() as i32;
-    let riichi_sticks = ctx.state.table_riichi_sticks() as i32 * 1_000;
+    let (honba, riichi_sticks) = if ctx.collects_bonus {
+        (
+            ctx.state.honba() as i32,
+            ctx.state.table_riichi_sticks() as i32 * 1_000,
+        )
+    } else {
+        (0, 0)
+    };
 
     match ctx.win_type {
         WinType::Ron { from } => {
             let multiplier = if winner_is_dealer { 6 } else { 4 };
-            let total = round_points(base * multiplier) + honba * 300 + riichi_sticks;
+            let total = round_points(base * multiplier) + honba * 300;
             payments.push(Payment {
                 payer: from,
                 payee: winner,
@@ -37,6 +43,8 @@ pub fn score_hand(
             });
             deltas[from] -= total;
             deltas[winner] += total;
+            // Riichi sticks come off the table, not from the discarder.
+            deltas[winner] += riichi_sticks;
         }
         WinType::Tsumo => {
             for seat in 0..4 {
@@ -57,8 +65,6 @@ pub fn score_hand(
         }
     }
 
-    let _ = config;
-
     ScoringResult {
         winner,
         win_type: ctx.win_type,
@@ -70,6 +76,8 @@ pub fn score_hand(
         fu,
         payments,
         deltas,
+        open: !ctx.is_menzen(),
+        kiriage: config.kiriage,
     }
 }
 
@@ -94,6 +102,9 @@ pub fn score_exhaustive_draw(state: &HandState) -> [i32; 4] {
     }
 
     let mut deltas = [0i32; 4];
+    if tenpai_count == 4 {
+        return [0; 4];
+    }
     let noten_count = 4 - tenpai_count;
     let payment_per_noten = 3_000 / noten_count as i32;
     let gain_per_tenpai = 3_000 / tenpai_count as i32;

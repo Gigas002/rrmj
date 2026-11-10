@@ -128,7 +128,7 @@ fn east_four_to_south_one() {
 }
 
 #[test]
-fn nine_terminals_abortive_keeps_dealer_and_honba() {
+fn nine_terminals_abortive_keeps_dealer_and_adds_honba() {
     use crate::game::AbortiveDrawKind;
     let (dealer, honba, round, kyoku) = advance_after_hand(
         2,
@@ -139,9 +139,84 @@ fn nine_terminals_abortive_keeps_dealer_and_honba() {
         false,
     );
     assert_eq!(dealer, 2);
-    assert_eq!(honba, 3);
+    assert_eq!(honba, 4);
     assert_eq!(round, RoundWind::South);
     assert_eq!(kyoku, 2);
+}
+
+#[test]
+fn draw_with_dealer_noten_rotates_and_still_adds_honba() {
+    let (dealer, honba, round, kyoku) =
+        advance_after_hand(1, 2, RoundWind::East, 2, HandOutcome::ExhaustiveDraw, false);
+    assert_eq!((dealer, honba, round, kyoku), (2, 3, RoundWind::East, 3));
+}
+
+#[test]
+fn every_abortive_draw_keeps_the_dealer() {
+    use crate::game::AbortiveDrawKind;
+    for kind in [
+        AbortiveDrawKind::NineTerminals,
+        AbortiveDrawKind::FourWinds,
+        AbortiveDrawKind::FourKongs,
+        AbortiveDrawKind::FourRiichis,
+    ] {
+        let next = advance_after_hand(
+            3,
+            0,
+            RoundWind::East,
+            4,
+            HandOutcome::AbortiveDraw(kind),
+            false,
+        );
+        assert_eq!(next, (3, 1, RoundWind::East, 4), "{kind:?}");
+    }
+}
+
+#[test]
+fn match_end_rules() {
+    use crate::rules::flow::{GameFlowPolicy, StandardGameFlow};
+    let config = RulesConfig::standard();
+    let flow = StandardGameFlow;
+    let even = [25_000; 4];
+    // Mid-match: keeps going.
+    assert!(!flow.is_game_over(RoundWind::East, 4, 3, false, &even, &config));
+    // Bust ends the match anywhere.
+    assert!(flow.is_game_over(
+        RoundWind::East,
+        2,
+        1,
+        false,
+        &[-100, 40_000, 30_100, 30_000],
+        &config
+    ));
+    // All-last without renchan ends.
+    assert!(flow.is_game_over(RoundWind::South, 4, 3, false, &even, &config));
+    // All-last dealer repeat continues while the dealer isn't first...
+    assert!(!flow.is_game_over(
+        RoundWind::South,
+        4,
+        3,
+        true,
+        &[30_000, 25_000, 25_000, 20_000],
+        &config
+    ));
+    // ...and ends once the dealer leads (agari-yame).
+    assert!(flow.is_game_over(
+        RoundWind::South,
+        4,
+        3,
+        true,
+        &[25_000, 25_000, 20_000, 30_000],
+        &config
+    ));
+}
+
+#[test]
+fn placement_ties_break_by_seat_order() {
+    assert_eq!(
+        crate::rules::flow::placement_order(&[20_000, 30_000, 30_000, 20_000]),
+        [1, 2, 0, 3]
+    );
 }
 
 // --- game integration ---

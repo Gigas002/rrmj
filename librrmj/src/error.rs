@@ -46,6 +46,9 @@ pub enum Error {
     #[error("wall has {actual} tiles, maximum is 136")]
     InvalidWallSize { actual: usize },
 
+    #[error("invalid wall: {detail}")]
+    InvalidWall { detail: &'static str },
+
     #[error("tile {tile} is not in the concealed hand")]
     TileNotInHand { tile: Tile },
 
@@ -66,6 +69,13 @@ pub enum Error {
 
     #[error("expected {expected} tiles in play, found {actual}")]
     TileConservation { expected: usize, actual: usize },
+
+    #[error("tile {tile} appears {actual} times, the set has {expected}")]
+    InvalidTileSet {
+        tile: Tile,
+        expected: usize,
+        actual: usize,
+    },
 
     #[error("invalid chii sequence: {tiles:?}")]
     InvalidChiSequence { tiles: [Tile; 3] },

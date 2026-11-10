@@ -80,7 +80,7 @@ fn yakuhai_ron_scores() {
             Tile::sou(8),
             Tile::wind(crate::tile::Wind::East),
             Tile::wind(crate::tile::Wind::East),
-            Tile::pin(2),
+            Tile::pin(3),
             Tile::pin(3),
         ]),
         vec![],
@@ -242,7 +242,7 @@ fn baseline_cases() -> Vec<WinCase> {
             &[Yaku::MenzenTsumo, Yaku::Tanyao],
             &[Yaku::Pinfu, Yaku::Yakuhai, Yaku::Chiitoitsu],
             2,
-            28,
+            30,
         ),
         case(
             "tanyao_ron",
@@ -260,7 +260,7 @@ fn baseline_cases() -> Vec<WinCase> {
             &[Yaku::Tanyao],
             &[Yaku::MenzenTsumo, Yaku::Pinfu],
             1,
-            36,
+            40,
         ),
         case(
             "tanyao_open_ron",
@@ -329,7 +329,7 @@ fn baseline_cases() -> Vec<WinCase> {
             false,
             &[Yaku::Yakuhai],
             &[Yaku::Tanyao],
-            1,
+            2,
             40,
         ),
         case(
@@ -407,7 +407,7 @@ fn baseline_cases() -> Vec<WinCase> {
         case(
             "yakuhai_menzen_tsumo",
             &[
-                "2m", "3m", "4m", "5p", "6p", "7p", "6s", "7s", "8s", "rd", "rd", "2p", "2p",
+                "2m", "3m", "4m", "5p", "6p", "7p", "6s", "7s", "8s", "rd", "rd", "rd", "2p",
             ],
             &[],
             0,
@@ -420,7 +420,7 @@ fn baseline_cases() -> Vec<WinCase> {
             &[Yaku::Yakuhai, Yaku::MenzenTsumo],
             &[Yaku::Tanyao, Yaku::Pinfu],
             2,
-            22,
+            40,
         ),
         case(
             "riichi_tsumo_tanyao",
@@ -438,7 +438,7 @@ fn baseline_cases() -> Vec<WinCase> {
             &[Yaku::Riichi, Yaku::MenzenTsumo, Yaku::Tanyao],
             &[],
             3,
-            28,
+            30,
         ),
         case(
             "riichi_ron_tanyao",
@@ -456,7 +456,7 @@ fn baseline_cases() -> Vec<WinCase> {
             &[Yaku::Riichi, Yaku::Tanyao],
             &[Yaku::MenzenTsumo],
             2,
-            36,
+            40,
         ),
         case(
             "chiitoitsu_menzen_tsumo",
@@ -511,9 +511,9 @@ fn pattern_cases() -> Vec<WinCase> {
             false,
             false,
             false,
-            &[Yaku::Toitoi],
+            &[Yaku::Toitoi, Yaku::Sanankou],
             &[Yaku::MenzenTsumo, Yaku::Pinfu],
-            2,
+            4,
             40,
         ),
         case(
@@ -529,10 +529,10 @@ fn pattern_cases() -> Vec<WinCase> {
             false,
             false,
             false,
-            &[Yaku::Iipeikou, Yaku::MenzenTsumo],
-            &[Yaku::Ryanpeikou, Yaku::Pinfu],
-            2,
-            24,
+            &[Yaku::Iipeikou, Yaku::MenzenTsumo, Yaku::Pinfu],
+            &[Yaku::Ryanpeikou],
+            3,
+            20,
         ),
         case(
             "ryanpeikou_menzen_tsumo",
@@ -550,7 +550,7 @@ fn pattern_cases() -> Vec<WinCase> {
             &[Yaku::Ryanpeikou, Yaku::MenzenTsumo],
             &[Yaku::Iipeikou, Yaku::Pinfu, Yaku::Chiitoitsu],
             4,
-            24,
+            30,
         ),
         case(
             "sanshoku_closed_tsumo",
@@ -568,7 +568,7 @@ fn pattern_cases() -> Vec<WinCase> {
             &[Yaku::Sanshoku, Yaku::MenzenTsumo],
             &[],
             3,
-            24,
+            30,
         ),
         case(
             "sanshoku_open_ron",
@@ -602,7 +602,7 @@ fn pattern_cases() -> Vec<WinCase> {
             &[Yaku::Ittsu, Yaku::MenzenTsumo],
             &[],
             3,
-            28,
+            30,
         ),
         case(
             "ittsu_open_ron",
@@ -633,10 +633,10 @@ fn pattern_cases() -> Vec<WinCase> {
             false,
             false,
             false,
-            &[Yaku::Honitsu, Yaku::Yakuhai, Yaku::MenzenTsumo],
-            &[Yaku::Chinitsu, Yaku::Tanyao],
-            5,
-            38,
+            &[Yaku::Honitsu, Yaku::MenzenTsumo],
+            &[Yaku::Chinitsu, Yaku::Tanyao, Yaku::Yakuhai],
+            4,
+            40,
         ),
         case(
             "chinitsu_tsumo",
@@ -654,7 +654,7 @@ fn pattern_cases() -> Vec<WinCase> {
             &[Yaku::Chinitsu, Yaku::MenzenTsumo],
             &[Yaku::Honitsu, Yaku::Yakuhai, Yaku::Tanyao],
             7,
-            32,
+            40,
         ),
         case(
             "chanta_ron",
@@ -669,10 +669,10 @@ fn pattern_cases() -> Vec<WinCase> {
             false,
             false,
             false,
-            &[Yaku::Chanta, Yaku::Yakuhai],
-            &[Yaku::Junchan, Yaku::Tanyao],
-            3,
-            50,
+            &[Yaku::Chanta],
+            &[Yaku::Junchan, Yaku::Tanyao, Yaku::Yakuhai],
+            2,
+            60,
         ),
         case(
             "junchan_tsumo",
@@ -714,7 +714,7 @@ fn riichi_timing_cases() -> Vec<WinCase> {
             &[Yaku::Riichi, Yaku::Ippatsu, Yaku::MenzenTsumo, Yaku::Tanyao],
             &[],
             4,
-            28,
+            30,
         ),
         case(
             "double_riichi_tsumo_tanyao",
@@ -732,7 +732,7 @@ fn riichi_timing_cases() -> Vec<WinCase> {
             &[Yaku::DoubleRiichi, Yaku::MenzenTsumo, Yaku::Tanyao],
             &[Yaku::Riichi],
             4,
-            28,
+            30,
         ),
     ]
 }
@@ -1103,7 +1103,7 @@ fn win_timing_cases() -> Vec<WinCase> {
             must_include: &[Yaku::HaiteiHoutei, Yaku::MenzenTsumo, Yaku::Tanyao],
             must_exclude: &[],
             expected_yaku_han: 3,
-            expected_fu: 28,
+            expected_fu: 30,
         },
         WinCase {
             id: "houtei_ron_tanyao",
@@ -1127,7 +1127,7 @@ fn win_timing_cases() -> Vec<WinCase> {
             must_include: &[Yaku::HaiteiHoutei, Yaku::Tanyao],
             must_exclude: &[Yaku::MenzenTsumo],
             expected_yaku_han: 2,
-            expected_fu: 36,
+            expected_fu: 40,
         },
         WinCase {
             id: "rinshan_tsumo_tanyao",
@@ -1151,7 +1151,7 @@ fn win_timing_cases() -> Vec<WinCase> {
             must_include: &[Yaku::Rinshan, Yaku::MenzenTsumo, Yaku::Tanyao],
             must_exclude: &[],
             expected_yaku_han: 3,
-            expected_fu: 28,
+            expected_fu: 30,
         },
         WinCase {
             id: "chankan_ron_tanyao",
@@ -1175,7 +1175,7 @@ fn win_timing_cases() -> Vec<WinCase> {
             must_include: &[Yaku::Chankan, Yaku::Tanyao],
             must_exclude: &[Yaku::MenzenTsumo],
             expected_yaku_han: 2,
-            expected_fu: 36,
+            expected_fu: 40,
         },
         WinCase {
             id: "renhou_ron_tanyao",
@@ -1199,7 +1199,7 @@ fn win_timing_cases() -> Vec<WinCase> {
             must_include: &[Yaku::Renhou, Yaku::Tanyao],
             must_exclude: &[Yaku::MenzenTsumo],
             expected_yaku_han: 6,
-            expected_fu: 36,
+            expected_fu: 40,
         },
         WinCase {
             id: "tenhou_tsumo_tanyao",
@@ -1220,9 +1220,9 @@ fn win_timing_cases() -> Vec<WinCase> {
             live_draws: [0; 4],
             calls_made: false,
             is_chankan: false,
-            must_include: &[Yaku::TenhouChiihou, Yaku::Tanyao],
-            must_exclude: &[Yaku::MenzenTsumo, Yaku::HaiteiHoutei],
-            expected_yaku_han: 14,
+            must_include: &[Yaku::TenhouChiihou],
+            must_exclude: &[Yaku::MenzenTsumo, Yaku::HaiteiHoutei, Yaku::Tanyao],
+            expected_yaku_han: 13,
             expected_fu: 30,
         },
         WinCase {
@@ -1244,9 +1244,9 @@ fn win_timing_cases() -> Vec<WinCase> {
             live_draws: [0, 1, 0, 0],
             calls_made: false,
             is_chankan: false,
-            must_include: &[Yaku::TenhouChiihou, Yaku::MenzenTsumo, Yaku::Tanyao],
-            must_exclude: &[Yaku::HaiteiHoutei],
-            expected_yaku_han: 15,
+            must_include: &[Yaku::TenhouChiihou],
+            must_exclude: &[Yaku::HaiteiHoutei, Yaku::MenzenTsumo, Yaku::Tanyao],
+            expected_yaku_han: 13,
             expected_fu: 30,
         },
     ]
@@ -1385,4 +1385,79 @@ fn recommendations_match_score_win_on_fixtures() {
             );
         }
     }
+}
+
+fn ron_result(concealed: &[&str], win_tile: &str) -> Option<crate::scoring::ScoringResult> {
+    let config = RulesConfig::standard();
+    let profile = RulesRegistry::get(RulesProfileId::Standard).unwrap();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(7));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config.clone());
+    let hand = Hand::new(Concealed::from_tiles(parse_tiles(concealed)), vec![]).unwrap();
+    state.set_hand(2, hand);
+    state.calls_made = true;
+    let win_tile = Tile::from_str(win_tile).unwrap();
+    let ctx = WinContext::new(
+        &state,
+        2,
+        WinType::Ron { from: 0 },
+        win_tile,
+        WinTimingFlags { is_chankan: false },
+    );
+    profile
+        .can_win(&ctx, &config)
+        .then(|| profile.score_win(&ctx, &config))
+}
+
+#[test]
+fn red_fives_form_sets_with_plain_fives() {
+    // Red five inside a triplet and in the middle of a sequence, tanki on 8p.
+    let result = ron_result(
+        &[
+            "2m", "3m", "4m", "4p", "5pr", "6p", "5s", "5s", "5sr", "6s", "7s", "8s", "8p",
+        ],
+        "8p",
+    )
+    .expect("red fives must still complete the hand");
+    assert!(result.yaku.contains(&Yaku::Tanyao));
+    assert_eq!(result.aka_dora, 2);
+
+    // Winning on the red five itself (5s-6s-7s needs the 5s).
+    let result = ron_result(
+        &[
+            "2m", "3m", "4m", "4p", "5p", "6p", "6s", "7s", "3s", "3s", "6m", "7m", "8m",
+        ],
+        "5sr",
+    )
+    .expect("ron on a red five");
+    assert_eq!(result.aka_dora, 1);
+}
+
+#[test]
+fn yakuman_drops_situational_yaku() {
+    let config = RulesConfig::standard();
+    let profile = RulesRegistry::get(RulesProfileId::Standard).unwrap();
+    let mut wall = Wall::new(&config, StdRng::seed_from_u64(7));
+    let deal = wall.deal(0).unwrap();
+    let mut state = HandState::from_deal(wall, deal, config.clone());
+    let hand = Hand::new(
+        Concealed::from_tiles(parse_tiles(&[
+            "1m", "9m", "1p", "9p", "1s", "9s", "E", "S", "W", "N", "wd", "gd", "rd",
+        ])),
+        vec![],
+    )
+    .unwrap();
+    state.set_hand(2, hand);
+    state.riichi[2] = true;
+    state.ippatsu_live[2] = true;
+    state.calls_made = true;
+    let ctx = WinContext::new(
+        &state,
+        2,
+        WinType::Ron { from: 0 },
+        Tile::from_str("1m").unwrap(),
+        WinTimingFlags { is_chankan: false },
+    );
+    let result = profile.score_win(&ctx, &config);
+    assert_eq!(result.yaku, vec![Yaku::Kokushi]);
 }

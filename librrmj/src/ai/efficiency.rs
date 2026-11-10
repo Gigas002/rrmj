@@ -54,9 +54,6 @@ fn candidate_tiles() -> Vec<Tile> {
     for suit in Suit::ALL {
         for rank in 1..=9 {
             tiles.push(Tile::numbered(suit, rank));
-            if rank == 5 {
-                tiles.push(Tile::red_five(suit));
-            }
         }
     }
     for wind in Wind::ALL {

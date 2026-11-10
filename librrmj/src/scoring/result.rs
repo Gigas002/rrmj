@@ -19,6 +19,11 @@ pub enum Yaku {
     Yakuhai,
     Chiitoitsu,
     Toitoi,
+    Sanankou,
+    Sankantsu,
+    SanshokuDoukou,
+    Shousangen,
+    Honroutou,
     Iipeikou,
     Ryanpeikou,
     Sanshoku,
@@ -40,6 +45,8 @@ pub enum Yaku {
     Chuuren,
     Ryuuiisou,
     Suukantsu,
+    Tsuuiisou,
+    Chinroutou,
     Dora,
     UraDora,
     AkaDora,
@@ -58,6 +65,11 @@ impl Yaku {
             | Self::Iipeikou => 1,
             Self::DoubleRiichi => 2,
             Self::Chiitoitsu | Self::Toitoi | Self::Sanshoku | Self::Ittsu | Self::Chanta => 2,
+            Self::Sanankou
+            | Self::Sankantsu
+            | Self::SanshokuDoukou
+            | Self::Shousangen
+            | Self::Honroutou => 2,
             Self::Honitsu | Self::Junchan | Self::Ryanpeikou => 3,
             Self::Chinitsu => 6,
             Self::HaiteiHoutei | Self::Rinshan | Self::Chankan => 1,
@@ -69,7 +81,9 @@ impl Yaku {
             | Self::Shousuushii
             | Self::Chuuren
             | Self::Ryuuiisou
-            | Self::Suukantsu => 13,
+            | Self::Suukantsu
+            | Self::Tsuuiisou
+            | Self::Chinroutou => 13,
             Self::Daisuushii => 26,
             Self::Dora | Self::UraDora | Self::AkaDora => 0,
         }
@@ -88,6 +102,8 @@ impl Yaku {
                 | Self::Chuuren
                 | Self::Ryuuiisou
                 | Self::Suukantsu
+                | Self::Tsuuiisou
+                | Self::Chinroutou
         )
     }
 
@@ -118,6 +134,11 @@ impl Yaku {
             Self::Yakuhai => "Yakuhai",
             Self::Chiitoitsu => "Chiitoitsu",
             Self::Toitoi => "Toitoi",
+            Self::Sanankou => "Sanankou",
+            Self::Sankantsu => "Sankantsu",
+            Self::SanshokuDoukou => "Sanshoku doukou",
+            Self::Shousangen => "Shousangen",
+            Self::Honroutou => "Honroutou",
             Self::Iipeikou => "Iipeikou",
             Self::Ryanpeikou => "Ryanpeikou",
             Self::Sanshoku => "Sanshoku doujun",
@@ -139,6 +160,8 @@ impl Yaku {
             Self::Chuuren => "Chuuren poutou",
             Self::Ryuuiisou => "Ryuuiisou",
             Self::Suukantsu => "Suukantsu",
+            Self::Tsuuiisou => "Tsuuiisou",
+            Self::Chinroutou => "Chinroutou",
             Self::Dora => "Dora",
             Self::UraDora => "Ura-dora",
             Self::AkaDora => "Aka-dora",
@@ -173,6 +196,12 @@ pub struct ScoringResult {
     pub fu: u8,
     pub payments: Vec<Payment>,
     pub deltas: [i32; 4],
+    /// The winning hand had called melds (open −1 han applied).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub open: bool,
+    /// Kiriage mangan was on when this hand was scored.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub kiriage: bool,
 }
 
 impl ScoringResult {
@@ -184,13 +213,20 @@ impl ScoringResult {
     }
 
     pub fn limit_label(&self) -> &'static str {
-        crate::scoring::limit_band_label(self.han, self.fu)
+        crate::scoring::limit_band_label(self.han, self.fu, self.kiriage)
     }
 
     pub fn yaku_lines(&self) -> Vec<String> {
         self.yaku
             .iter()
-            .map(|yaku| format!("{} ({} han)", yaku.label(), yaku.closed_han()))
+            .map(|yaku| {
+                let han = if self.open && yaku.open_han_penalty() {
+                    yaku.closed_han().saturating_sub(1)
+                } else {
+                    yaku.closed_han()
+                };
+                format!("{} ({han} han)", yaku.label())
+            })
             .collect()
     }
 

@@ -110,9 +110,8 @@ pub fn choose_discard(
     };
 
     let defending = should_defend(view, &hand, policy.defend_from_shanten);
-    let can_riichi = !defending
-        && hand.melds().is_empty()
-        && view.scores[view.seat] >= policy.min_points_for_riichi;
+    let can_riichi =
+        !defending && hand.is_closed() && view.scores[view.seat] >= policy.min_points_for_riichi;
 
     let mut candidates: Vec<Action> = legal
         .iter()
@@ -148,18 +147,22 @@ pub fn choose_discard(
             .expect("discard fallback");
     }
 
+    if defending {
+        // Folding: the safest tile first; efficiency only breaks ties.
+        ranked.sort_by(|(_, a, sa), (_, b, sb)| {
+            sb.cmp(sa)
+                .then(a.shanten.cmp(&b.shanten))
+                .then(b.ukeire.cmp(&a.ukeire))
+                .then(b.weighted.cmp(&a.weighted))
+        });
+        return ranked[0].0;
+    }
+
     let best_shanten = ranked.iter().map(|(_, s, _)| s.shanten).min().unwrap();
     ranked.retain(|(_, s, _)| s.shanten == best_shanten);
 
     let best_ukeire = ranked.iter().map(|(_, s, _)| s.ukeire).max().unwrap();
     ranked.retain(|(_, s, _)| s.ukeire == best_ukeire);
-
-    if defending {
-        let best_weighted = ranked.iter().map(|(_, s, _)| s.weighted).max().unwrap();
-        ranked.retain(|(_, s, _)| s.weighted == best_weighted);
-        ranked.sort_by_key(|(_, _, safety)| std::cmp::Reverse(*safety));
-        return ranked[0].0;
-    }
 
     if policy.prefer_riichi_at_tenpai {
         let riichi: Vec<Action> = ranked

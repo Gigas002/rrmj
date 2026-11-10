@@ -1,52 +1,144 @@
 use crate::agent::PlayerView;
 use crate::hand::Hand;
 use crate::rules::standard::is_winning_hand;
-use crate::tile::{Dragon, Suit, Tile, Wind};
+use crate::tile::{Dragon, Suit, Tile, TileKind, Wind};
 
-use super::efficiency::weighted_waiting_count;
+use super::efficiency::{remaining_copies, weighted_waiting_count};
 
-/// Minimum discards needed to reach tenpai. `-1` = winning shape, `0` = tenpai.
+/// Shanten: `-1` = complete hand, `0` = tenpai, `n` = n tiles from tenpai.
+///
+/// Works on 13- and 14-tile shapes (counting open melds as sets): a 14-tile
+/// hand reports the shanten left after its best discard.
 pub fn shanten_to_tenpai(hand: &Hand) -> i8 {
-    let len = hand.concealed().len();
-    if len % 3 == 2 && is_winning_hand(hand, None) {
-        return -1;
+    let counts = kind_counts(hand.concealed().tiles());
+    let melds = hand.melds().len() as i8;
+    let mut best = normal_shanten(&counts, melds);
+    if melds == 0 {
+        best = best
+            .min(chiitoitsu_shanten(&counts))
+            .min(kokushi_shanten(&counts));
     }
-    if len % 3 == 1 && waiting_count(hand) > 0 {
-        return 0;
-    }
-    match min_discards_to_tenpai(hand, 0, 8) {
-        s if s > 8 => 8,
-        s => s,
+    best
+}
+
+/// Tile kinds 0..34: man 1–9, pin 1–9, sou 1–9, winds E S W N, dragons W G R.
+pub(crate) fn kind_index(tile: Tile) -> usize {
+    match tile.kind() {
+        TileKind::Man(rank) => usize::from(rank - 1),
+        TileKind::Pin(rank) => 9 + usize::from(rank - 1),
+        TileKind::Sou(rank) => 18 + usize::from(rank - 1),
+        TileKind::Wind(wind) => 27 + Wind::ALL.iter().position(|w| *w == wind).unwrap_or(0),
+        TileKind::Dragon(dragon) => 31 + Dragon::ALL.iter().position(|d| *d == dragon).unwrap_or(0),
     }
 }
 
-fn min_discards_to_tenpai(hand: &Hand, depth: i8, limit: i8) -> i8 {
-    if depth > limit {
-        return limit + 1;
+fn kind_counts(tiles: &[Tile]) -> [u8; 34] {
+    let mut counts = [0u8; 34];
+    for &tile in tiles {
+        counts[kind_index(tile)] += 1;
     }
-    let len = hand.concealed().len();
-    if len % 3 == 1 && waiting_count(hand) > 0 {
-        return depth;
-    }
-    if len % 3 == 2 && is_winning_hand(hand, None) {
-        return -1;
-    }
-    if len % 3 != 2 {
-        return depth.saturating_add(1).min(limit + 1);
-    }
+    counts
+}
 
-    let mut best = limit + 1;
-    let mut seen = Vec::new();
-    for tile in hand.concealed().tiles() {
-        if seen.contains(&tile) {
-            continue;
-        }
-        seen.push(tile);
-        if let Some(after) = hand_without_concealed_tile(hand, *tile) {
-            best = best.min(min_discards_to_tenpai(&after, depth + 1, limit));
+fn normal_shanten(counts: &[u8; 34], open_melds: i8) -> i8 {
+    let mut work = *counts;
+    let mut best = search_sets(&mut work, 0, open_melds, 0);
+    for kind in 0..34 {
+        if work[kind] >= 2 {
+            work[kind] -= 2;
+            best = best.min(search_sets(&mut work, 0, open_melds, 0) - 1);
+            work[kind] += 2;
         }
     }
     best
+}
+
+/// Depth-first split into sets and partial sets (pairs, two-sided, edge, gap).
+fn search_sets(counts: &mut [u8; 34], start: usize, sets: i8, partials: i8) -> i8 {
+    let mut kind = start;
+    while kind < 34 && counts[kind] == 0 {
+        kind += 1;
+    }
+    if kind == 34 {
+        let partials = partials.min(4 - sets);
+        return 8 - 2 * sets - partials;
+    }
+
+    let suited = kind < 27;
+    let rank = kind % 9;
+    let mut best = i8::MAX;
+
+    if counts[kind] >= 3 {
+        counts[kind] -= 3;
+        best = best.min(search_sets(counts, kind, sets + 1, partials));
+        counts[kind] += 3;
+    }
+    if suited && rank <= 6 && counts[kind + 1] > 0 && counts[kind + 2] > 0 {
+        counts[kind] -= 1;
+        counts[kind + 1] -= 1;
+        counts[kind + 2] -= 1;
+        best = best.min(search_sets(counts, kind, sets + 1, partials));
+        counts[kind] += 1;
+        counts[kind + 1] += 1;
+        counts[kind + 2] += 1;
+    }
+    if sets + partials < 4 {
+        if counts[kind] >= 2 {
+            counts[kind] -= 2;
+            best = best.min(search_sets(counts, kind, sets, partials + 1));
+            counts[kind] += 2;
+        }
+        if suited && rank <= 7 && counts[kind + 1] > 0 {
+            counts[kind] -= 1;
+            counts[kind + 1] -= 1;
+            best = best.min(search_sets(counts, kind, sets, partials + 1));
+            counts[kind] += 1;
+            counts[kind + 1] += 1;
+        }
+        if suited && rank <= 6 && counts[kind + 2] > 0 {
+            counts[kind] -= 1;
+            counts[kind + 2] -= 1;
+            best = best.min(search_sets(counts, kind, sets, partials + 1));
+            counts[kind] += 1;
+            counts[kind + 2] += 1;
+        }
+    }
+    // Leave one copy of this kind unused.
+    counts[kind] -= 1;
+    best = best.min(search_sets(counts, kind, sets, partials));
+    counts[kind] += 1;
+    best
+}
+
+fn chiitoitsu_shanten(counts: &[u8; 34]) -> i8 {
+    let pairs = counts.iter().filter(|&&c| c >= 2).count() as i8;
+    let kinds = counts.iter().filter(|&&c| c >= 1).count() as i8;
+    6 - pairs + (7 - kinds).max(0)
+}
+
+fn kokushi_shanten(counts: &[u8; 34]) -> i8 {
+    const TERMINALS: [usize; 13] = [0, 8, 9, 17, 18, 26, 27, 28, 29, 30, 31, 32, 33];
+    let kinds = TERMINALS.iter().filter(|&&k| counts[k] >= 1).count() as i8;
+    let pair = TERMINALS.iter().any(|&k| counts[k] >= 2);
+    13 - kinds - i8::from(pair)
+}
+
+/// Tile kinds (one representative tile each, no red fives) that lower the
+/// shanten of a 13-tile shape.
+pub(crate) fn improving_tiles(hand: &Hand) -> Vec<Tile> {
+    let base = shanten_to_tenpai(hand);
+    let mut concealed = hand.concealed().tiles().to_vec();
+    let mut out = Vec::new();
+    for tile in candidate_tiles() {
+        concealed.push(tile);
+        if let Some(with) = hand_from_parts(concealed.clone(), hand.melds().to_vec())
+            && shanten_to_tenpai(&with) < base
+        {
+            out.push(tile);
+        }
+        concealed.pop();
+    }
+    out
 }
 
 /// Aggregate hand quality for AI comparisons (lower shanten is better).
@@ -89,12 +181,17 @@ pub fn evaluate_hand(hand: &Hand, view: Option<&PlayerView>) -> HandStrength {
 fn best_weighted_potential(hand: &Hand, view: &PlayerView) -> u32 {
     let len = hand.concealed().len();
     if len % 3 == 1 {
-        return weighted_waiting_count(hand, view);
+        return improving_tiles(hand)
+            .into_iter()
+            .map(|tile| u32::from(remaining_copies(view, tile)))
+            .sum();
     }
     if len % 3 == 2 && is_winning_hand(hand, None) {
         return weighted_waiting_count(hand, view).max(4);
     }
     if len % 3 == 2 {
+        // Ukeire only counts among discards that keep the best shanten.
+        let target = shanten_to_tenpai(hand);
         let mut best = 0u32;
         let mut seen = Vec::new();
         for tile in hand.concealed().tiles() {
@@ -102,7 +199,9 @@ fn best_weighted_potential(hand: &Hand, view: &PlayerView) -> u32 {
                 continue;
             }
             seen.push(tile);
-            if let Some(after) = hand_without_concealed_tile(hand, *tile) {
+            if let Some(after) = hand_without_concealed_tile(hand, *tile)
+                && shanten_to_tenpai(&after) == target
+            {
                 best = best.max(best_weighted_potential(&after, view));
             }
         }
@@ -127,16 +226,17 @@ pub fn waiting_count(hand: &Hand) -> usize {
         .count()
 }
 
-/// Best ukeire after discarding down to a tenpai-check shape.
+/// Ukeire: tile kinds that lower shanten (after the best discard for 14 tiles).
 pub fn best_waiting_potential(hand: &Hand) -> usize {
     let len = hand.concealed().len();
     if len % 3 == 1 {
-        return waiting_count(hand);
+        return improving_tiles(hand).len();
     }
     if len % 3 == 2 && is_winning_hand(hand, None) {
         return candidate_tiles().len();
     }
     if len % 3 == 2 {
+        let target = shanten_to_tenpai(hand);
         let mut best = 0usize;
         let mut seen = Vec::new();
         for tile in hand.concealed().tiles() {
@@ -144,7 +244,9 @@ pub fn best_waiting_potential(hand: &Hand) -> usize {
                 continue;
             }
             seen.push(tile);
-            if let Some(after) = hand_without_concealed_tile(hand, *tile) {
+            if let Some(after) = hand_without_concealed_tile(hand, *tile)
+                && shanten_to_tenpai(&after) == target
+            {
                 best = best.max(best_waiting_potential(&after));
             }
         }
@@ -170,9 +272,6 @@ fn candidate_tiles() -> Vec<Tile> {
     for suit in Suit::ALL {
         for rank in 1..=9 {
             tiles.push(Tile::numbered(suit, rank));
-            if rank == 5 {
-                tiles.push(Tile::red_five(suit));
-            }
         }
     }
     for wind in Wind::ALL {

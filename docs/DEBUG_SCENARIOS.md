@@ -59,7 +59,7 @@ Wire format: `docs/REPLAY.md` (`format_version` 3).
 | `furiten_riichi` | furiten, riichi, ron, reaction | Riichi furiten persists after a draw |
 | `yakuhai_ron` | ron, scoring, yakuhai | East-wind yakuhai ron setup |
 | `yakuhai_red_ron` | ron, scoring, yakuhai | Red-dragon yakuhai ron |
-| `non_dealer_tsumo` | tsumo, scoring | South tsumo win (tanyao + menzen) |
+| `non_dealer_tsumo` | tsumo, scoring | South wins on its first draw: chiihou, non-dealer tsumo split |
 | `dealer_tsumo` | tsumo, scoring, hand-end | East tsumo on honba hand |
 | `pinfu_tsumo` | tsumo, scoring, pinfu | Menzen pinfu tsumo |
 | `pinfu_ron` | ron, scoring, pinfu | Menzen pinfu ron |

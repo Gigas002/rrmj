@@ -66,7 +66,11 @@ fn prefers_discard_that_reduces_shanten() {
         panic!("expected discard, got {choice:?}");
     };
     let after = shanten::hand_without_concealed_tile(&hand, tile).unwrap();
-    assert!(shanten::waiting_count(&after) >= baseline);
+    assert_eq!(
+        shanten::shanten_to_tenpai(&after),
+        shanten::shanten_to_tenpai(&hand)
+    );
+    assert!(shanten::best_waiting_potential(&after) >= baseline);
 }
 
 #[test]
@@ -89,8 +93,14 @@ fn passes_when_pon_reduces_waiting_potential() {
     let hand = Hand::new(Concealed::from_tiles(concealed.clone()), vec![]).unwrap();
     let called = Tile::sou(5);
     let after = crate::ai::common::simulate_call(&hand, Action::Pon, called).unwrap();
+    let strength = |h: &Hand| {
+        (
+            -shanten::shanten_to_tenpai(h),
+            shanten::best_waiting_potential(h),
+        )
+    };
     assert!(
-        shanten::best_waiting_potential(&after) < shanten::best_waiting_potential(&hand),
+        strength(&after) < strength(&hand),
         "fixture should worsen after pon"
     );
 

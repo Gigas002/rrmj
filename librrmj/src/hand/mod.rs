@@ -33,6 +33,11 @@ impl Hand {
         }
     }
 
+    /// Closed (menzen): no called melds. Closed kans keep the hand closed.
+    pub fn is_closed(&self) -> bool {
+        self.melds.iter().all(|meld| meld.kind().is_closed_kan())
+    }
+
     pub fn concealed(&self) -> &Concealed {
         &self.concealed
     }

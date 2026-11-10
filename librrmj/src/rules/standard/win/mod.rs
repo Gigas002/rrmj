@@ -1,18 +1,19 @@
 #[cfg(test)]
 mod tests;
 
-use crate::hand::{Concealed, Hand, MeldKind};
-use crate::rules::profile::WinContext;
-use crate::tile::{Suit, Tile, TileKind, Wind};
+use crate::hand::{Concealed, Hand};
+use crate::tile::{Suit, Tile, TileKind};
 
 pub fn is_winning_hand(hand: &Hand, win_tile: Option<Tile>) -> bool {
-    let mut concealed = hand.concealed().tiles().to_vec();
+    let held = hand.concealed().tiles();
+    let mut concealed: Vec<Tile> = held.iter().map(|t| t.plain()).collect();
     if let Some(tile) = win_tile {
         // Ron waits have concealed.len() % 3 == 1 and need the called tile added.
-        // Tsumo completes with concealed.len() % 3 == 2 and the draw already in hand.
+        // Tsumo completes with concealed.len() % 3 == 2 and the draw already in hand
+        // (matched exactly, so a red five is not "held" through a plain five).
         let ron_shape = concealed.len() % 3 == 1;
-        if ron_shape || !concealed.contains(&tile) {
-            concealed.push(tile);
+        if ron_shape || !held.contains(&tile) {
+            concealed.push(tile.plain());
         }
     }
     concealed.sort();
@@ -45,6 +46,53 @@ pub fn is_tenpai(hand: &Hand) -> bool {
         }
     }
     false
+}
+
+/// Tile kinds that complete a 13-tile hand (red fives count as fives).
+pub fn wait_kinds(hand: &Hand) -> Vec<TileKind> {
+    let mut kinds: Vec<TileKind> = all_wait_tiles()
+        .into_iter()
+        .filter(|tile| !tile.is_red() && is_winning_hand(hand, Some(*tile)))
+        .map(|tile| tile.kind())
+        .collect();
+    kinds.dedup();
+    kinds
+}
+
+/// During riichi, a closed kan is allowed only of the drawn tile and only
+/// when the waits stay exactly the same.
+pub fn riichi_kan_keeps_wait(hand: &Hand, drawn: Tile, kan_tile: Tile) -> bool {
+    if drawn.kind() != kan_tile.kind() {
+        return false;
+    }
+    let mut before = hand.concealed().tiles().to_vec();
+    let Some(pos) = before.iter().position(|&t| t == drawn) else {
+        return false;
+    };
+    before.remove(pos);
+    let Ok(before) = Hand::new(Concealed::from_tiles(before), hand.melds().to_vec()) else {
+        return false;
+    };
+
+    let (kan, rest): (Vec<Tile>, Vec<Tile>) = hand
+        .concealed()
+        .tiles()
+        .iter()
+        .partition(|t| t.kind() == kan_tile.kind());
+    let Ok(kan) = <[Tile; 4]>::try_from(kan) else {
+        return false;
+    };
+    let Ok(meld) = crate::hand::Meld::closed_kan(kan) else {
+        return false;
+    };
+    let mut melds = hand.melds().to_vec();
+    melds.push(meld);
+    let Ok(after) = Hand::new(Concealed::from_tiles(rest), melds) else {
+        return false;
+    };
+
+    let waits = wait_kinds(&before);
+    !waits.is_empty() && waits == wait_kinds(&after)
 }
 
 /// Whether the hand stays tenpai after removing one tile from the concealed hand.
@@ -183,10 +231,6 @@ pub(crate) fn all_wait_tiles() -> Vec<Tile> {
     tiles
 }
 
-pub fn is_simple(tile: Tile) -> bool {
-    matches!(tile.rank(), Some(2..=8))
-}
-
 pub fn is_terminal_or_honor(tile: Tile) -> bool {
     match tile.kind() {
         TileKind::Man(r) | TileKind::Pin(r) | TileKind::Sou(r) => r == 1 || r == 9,
@@ -194,324 +238,57 @@ pub fn is_terminal_or_honor(tile: Tile) -> bool {
     }
 }
 
-pub fn triplet_fu(tile: Tile, closed: bool) -> u8 {
-    let simple = !is_terminal_or_honor(tile);
-    match (closed, simple) {
-        (true, true) => 4,
-        (true, false) => 8,
-        (false, true) => 2,
-        (false, false) => 4,
-    }
-}
-
-/// Concealed meld, pair, and wait fu from the minimum-fu winning decomposition.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FuDecomposition {
-    pub concealed_meld_fu: u8,
-    pub pair_fu: u8,
-    pub wait_fu: u8,
-}
-
-pub fn best_fu_decomposition(ctx: &WinContext<'_>) -> FuDecomposition {
-    let mut tiles = tiles_with_win_tile(ctx.hand(), ctx.win_tile, ctx.win_type);
-    tiles.sort();
-
-    let open_sets = ctx.hand().melds().len();
-    let sets_needed = 4usize.saturating_sub(open_sets);
-    let seat_wind = seat_wind_tile(ctx.winner, ctx.state.dealer());
-    let round_wind = Tile::wind(Wind::East);
-
-    decompose_for_fu(&tiles, sets_needed, ctx.win_tile, seat_wind, round_wind).unwrap_or(
-        FuDecomposition {
-            concealed_meld_fu: 0,
-            pair_fu: 0,
-            wait_fu: 0,
-        },
-    )
-}
-
-fn decompose_for_fu(
-    tiles: &[Tile],
-    sets_needed: usize,
-    win_tile: Tile,
-    seat_wind: Tile,
-    round_wind: Tile,
-) -> Option<FuDecomposition> {
-    if sets_needed == 0 {
-        if tiles.len() != 2 || tiles[0] != tiles[1] {
-            return None;
-        }
-        let pair_fu = valued_pair_fu(tiles[0], seat_wind, round_wind);
-        let wait_fu = if tiles[0].identity() == win_tile.identity() {
-            2
-        } else {
-            0
-        };
-        return Some(FuDecomposition {
-            concealed_meld_fu: 0,
-            pair_fu,
-            wait_fu,
-        });
-    }
-
-    let mut best: Option<FuDecomposition> = None;
-
-    for i in 0..tiles.len() {
-        for j in (i + 1)..tiles.len() {
-            if tiles[i] != tiles[j] {
-                continue;
-            }
-            let mut rest = tiles.to_vec();
-            rest.remove(j);
-            rest.remove(i);
-            let pair_fu = valued_pair_fu(tiles[i], seat_wind, round_wind);
-            if let Some(mut child) = decompose_sets_for_fu(&rest, sets_needed, win_tile) {
-                child.pair_fu = pair_fu;
-                if tiles[i].identity() == win_tile.identity() {
-                    child.wait_fu = child.wait_fu.max(2);
-                }
-                best = Some(min_fu_decomp(best, child));
-            }
-        }
-    }
-
-    best
-}
-
-fn decompose_sets_for_fu(
-    tiles: &[Tile],
-    sets_needed: usize,
-    win_tile: Tile,
-) -> Option<FuDecomposition> {
-    if sets_needed == 0 {
-        return if tiles.is_empty() {
-            Some(FuDecomposition {
-                concealed_meld_fu: 0,
-                pair_fu: 0,
-                wait_fu: 0,
-            })
-        } else {
-            None
-        };
-    }
-    if tiles.is_empty() {
-        return None;
-    }
-
-    let mut best: Option<FuDecomposition> = None;
-
-    if tiles.len() >= 3 && tiles[0] == tiles[1] && tiles[1] == tiles[2] {
-        let triplet_tile = tiles[0];
-        let meld_fu = triplet_fu(triplet_tile, true);
-        let wait_fu = if triplet_tile.identity() == win_tile.identity() {
-            2
-        } else {
-            0
-        };
-        if let Some(mut child) = decompose_sets_for_fu(&tiles[3..], sets_needed - 1, win_tile) {
-            child.concealed_meld_fu = child.concealed_meld_fu.saturating_add(meld_fu);
-            child.wait_fu = child.wait_fu.max(wait_fu);
-            best = Some(min_fu_decomp(best, child));
-        }
-    }
-
-    if let (Some(suit), Some(rank)) = (tiles[0].suit(), tiles[0].rank())
-        && rank <= 7
-    {
-        let t2 = Tile::numbered(suit, rank + 1);
-        let t3 = Tile::numbered(suit, rank + 2);
-        let meld = [tiles[0], t2, t3];
-        if let Some(rest) = remove_tiles(tiles, &meld) {
-            let wait_fu = sequence_wait_fu(&meld, win_tile);
-            if let Some(mut child) = decompose_sets_for_fu(&rest, sets_needed - 1, win_tile) {
-                child.wait_fu = child.wait_fu.max(wait_fu);
-                best = Some(min_fu_decomp(best, child));
-            }
-        }
-    }
-
-    best
-}
-
-fn min_fu_decomp(current: Option<FuDecomposition>, candidate: FuDecomposition) -> FuDecomposition {
-    match current {
-        None => candidate,
-        Some(prev) => {
-            let prev_cost = prev.concealed_meld_fu + prev.wait_fu;
-            let cand_cost = candidate.concealed_meld_fu + candidate.wait_fu;
-            if cand_cost < prev_cost {
-                candidate
-            } else {
-                prev
-            }
-        }
-    }
-}
-
-fn valued_pair_fu(pair: Tile, seat_wind: Tile, round_wind: Tile) -> u8 {
-    if pair == seat_wind || pair == round_wind || matches!(pair.kind(), TileKind::Dragon(_)) {
-        2
-    } else {
-        0
-    }
-}
-
-fn sequence_wait_fu(meld: &[Tile; 3], win_tile: Tile) -> u8 {
-    if !meld.contains(&win_tile) {
-        return 0;
-    }
-    if is_ryanmen_sequence_win(meld, win_tile) {
-        0
-    } else {
-        2
-    }
-}
-
-pub fn hand_contains_yakuhai(hand: &Hand, tile: Tile) -> bool {
-    let identity = tile.identity();
-    hand.concealed()
-        .tiles()
-        .iter()
-        .any(|t| t.identity() == identity)
-        || hand.melds().iter().any(|meld| {
-            meld.tiles()
-                .iter()
-                .any(|t| t.identity() == identity && meld.kind() != MeldKind::Chi)
-        })
-}
-
+/// Every tile of the winning hand (melds included), red fives as plain fives.
 pub fn all_tiles_in_hand(
     hand: &Hand,
     win_tile: Tile,
     win_type: crate::scoring::WinType,
 ) -> Vec<Tile> {
-    let mut tiles = tiles_with_win_tile(hand, win_tile, win_type);
-    for meld in hand.melds() {
-        tiles.extend_from_slice(meld.tiles());
-    }
+    let mut tiles: Vec<Tile> = all_tiles_with_reds(hand, win_tile, win_type)
+        .into_iter()
+        .map(Tile::plain)
+        .collect();
     tiles.sort();
     tiles
 }
 
-/// Concealed tiles plus the winning tile (ron always adds the called tile).
+/// Every tile of the winning hand as held, keeping the aka marker.
+pub(crate) fn all_tiles_with_reds(
+    hand: &Hand,
+    win_tile: Tile,
+    win_type: crate::scoring::WinType,
+) -> Vec<Tile> {
+    let mut tiles = raw_tiles_with_win_tile(hand, win_tile, win_type);
+    for meld in hand.melds() {
+        tiles.extend_from_slice(meld.tiles());
+    }
+    tiles
+}
+
+/// Concealed tiles plus the winning tile (ron always adds the called tile),
+/// red fives as plain fives.
 pub(crate) fn tiles_with_win_tile(
     hand: &Hand,
     win_tile: Tile,
     win_type: crate::scoring::WinType,
 ) -> Vec<Tile> {
+    raw_tiles_with_win_tile(hand, win_tile, win_type)
+        .into_iter()
+        .map(Tile::plain)
+        .collect()
+}
+
+fn raw_tiles_with_win_tile(
+    hand: &Hand,
+    win_tile: Tile,
+    win_type: crate::scoring::WinType,
+) -> Vec<Tile> {
+    // A waiting hand (3n+1 tiles) needs the winning tile added; a tsumo hand
+    // already holds the drawn tile. Same rule as `is_winning_hand`.
+    let _ = win_type;
     let mut tiles = hand.concealed().tiles().to_vec();
-    match win_type {
-        crate::scoring::WinType::Ron { .. } if tiles.len() < 14 => tiles.push(win_tile),
-        crate::scoring::WinType::Tsumo if !tiles.contains(&win_tile) => tiles.push(win_tile),
-        _ => {}
+    if tiles.len() % 3 == 1 {
+        tiles.push(win_tile);
     }
     tiles
-}
-
-pub fn is_tanyao_hand(hand: &Hand, win_tile: Tile, win_type: crate::scoring::WinType) -> bool {
-    all_tiles_in_hand(hand, win_tile, win_type)
-        .iter()
-        .all(|tile| is_simple(*tile))
-}
-
-pub fn is_pinfu_hand(ctx: &WinContext<'_>) -> bool {
-    if !ctx.is_menzen() || !is_winning_hand(ctx.hand(), Some(ctx.win_tile)) {
-        return false;
-    }
-
-    let tiles = all_tiles_in_hand(ctx.hand(), ctx.win_tile, ctx.win_type);
-    if tiles.len() != 14 {
-        return false;
-    }
-
-    let seat_wind = seat_wind_tile(ctx.winner, ctx.state.dealer());
-    let round_wind = Tile::wind(Wind::East);
-
-    for i in 0..tiles.len() {
-        for j in (i + 1)..tiles.len() {
-            if tiles[i] != tiles[j] {
-                continue;
-            }
-            let pair = tiles[i];
-            if is_scoring_pair(pair, seat_wind, round_wind) {
-                continue;
-            }
-            let mut rest = tiles.clone();
-            rest.remove(j);
-            rest.remove(i);
-            rest.sort();
-            if pinfu_sequence_decomposition(&rest, 4, ctx.win_tile) {
-                return true;
-            }
-        }
-    }
-    false
-}
-
-fn is_scoring_pair(tile: Tile, seat_wind: Tile, round_wind: Tile) -> bool {
-    tile == seat_wind
-        || tile == round_wind
-        || matches!(tile.kind(), crate::tile::TileKind::Dragon(_))
-}
-
-fn seat_wind_tile(seat: usize, dealer: usize) -> Tile {
-    let index = (seat + 4 - dealer) % 4;
-    Tile::wind(Wind::ALL[index])
-}
-
-fn pinfu_sequence_decomposition(tiles: &[Tile], sequences_needed: usize, win_tile: Tile) -> bool {
-    decompose_pinfu_sequences(tiles, sequences_needed, win_tile, false)
-}
-
-fn decompose_pinfu_sequences(
-    tiles: &[Tile],
-    sequences_needed: usize,
-    win_tile: Tile,
-    found_ryanmen: bool,
-) -> bool {
-    if sequences_needed == 0 {
-        return tiles.is_empty() && found_ryanmen;
-    }
-    if tiles.len() < 3 {
-        return false;
-    }
-
-    if let (Some(suit), Some(rank)) = (tiles[0].suit(), tiles[0].rank())
-        && rank <= 7
-    {
-        let t2 = Tile::numbered(suit, rank + 1);
-        let t3 = Tile::numbered(suit, rank + 2);
-        let meld = [tiles[0], t2, t3];
-        if let Some(rest) = remove_tiles(tiles, &meld) {
-            let win_in_meld = meld.contains(&win_tile);
-            let ryanmen =
-                found_ryanmen || (win_in_meld && is_ryanmen_sequence_win(&meld, win_tile));
-            if decompose_pinfu_sequences(&rest, sequences_needed - 1, win_tile, ryanmen) {
-                return true;
-            }
-        }
-    }
-
-    false
-}
-
-fn is_ryanmen_sequence_win(meld: &[Tile; 3], win_tile: Tile) -> bool {
-    if !meld.contains(&win_tile) {
-        return false;
-    }
-    let Some(win_rank) = win_tile.rank() else {
-        return false;
-    };
-    let mut ranks: Vec<u8> = meld.iter().filter_map(|t| t.rank()).collect();
-    ranks.sort_unstable();
-    if ranks.len() != 3 {
-        return false;
-    }
-    if win_rank == ranks[1] {
-        return false;
-    }
-    if win_rank == ranks[2] {
-        return win_rank > 3;
-    }
-    win_rank < 7
 }

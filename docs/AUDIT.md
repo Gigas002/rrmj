@@ -133,15 +133,15 @@ decide the rule, write it into `RULES.md`, then make the engine match.
 
 ### 2.1 Tiles, wall, deal
 
-- [ ] **2.1.1** 136 tiles (with the configured aka fives replacing normal
+- [x] **2.1.1** 136 tiles (with the configured aka fives replacing normal
   fives, not added), dead wall 14, dora indicator position, kan dora order,
   rinshan draw order, haitei tile. Check against `RULES.md` and with a
   seeded wall dump.
-- [ ] **2.1.2** Tile conservation after every action of a long random match
+- [x] **2.1.2** Tile conservation after every action of a long random match
   (all seats CPU, many seeds): wall + dead wall + hands + melds + rivers =
   136 at every step. `validate_tile_conservation` exists; call it after each
   `apply_action` in a test harness.
-- [ ] **2.1.3** Determinism: same seed + same actions = same event log and
+- [x] **2.1.3** Determinism: same seed + same actions = same event log and
   same final scores, run twice and compared.
 
 ### 2.2 Calls and legality
@@ -149,104 +149,164 @@ decide the rule, write it into `RULES.md`, then make the engine match.
 For each, check `legal_actions()` offers exactly the legal set, no more, no
 less, for the seat that must act.
 
-- [ ] **2.2.1** Chi: only from kamicha; all three shapes; with aka fives
+- [x] **2.2.1** Chi: only from kamicha; all three shapes; with aka fives
   (aka and normal five offered as distinct choices where it matters);
   no chi on the last discard (houtei) and no chi when the wall is empty.
-- [ ] **2.2.2** Kuikae (swap-calling): after chi/pon, discarding the called
+- [x] **2.2.2** Kuikae (swap-calling): after chi/pon, discarding the called
   tile or the other end of the same sequence. `RULES.md` doesn't mention it;
   decide and document.
-- [ ] **2.2.3** Pon and open kan from any seat; priority ron > pon/kan > chi;
+- [x] **2.2.3** Pon and open kan from any seat; priority ron > pon/kan > chi;
   a pon and a chi on the same discard; two seats able to pon (impossible,
   but check the code doesn't assume it).
-- [ ] **2.2.4** Closed kan and kakan: not on the last tile, not after the
+- [x] **2.2.4** Closed kan and kakan: not on the last tile, not after the
   fourth kan except the one completing suukantsu; closed kan during riichi
   only when it doesn't change the wait (and the decomposition); rinshan
   draw; new dora timing (closed kan at once, open kan/kakan after discard if
   that's the chosen rule; document it).
-- [ ] **2.2.5** Chankan on kakan; kokushi ron on closed kan (allowed or
+- [x] **2.2.5** Chankan on kakan; kokushi ron on closed kan (allowed or
   not; document); chankan with double ron.
-- [ ] **2.2.6** Riichi: needs closed hand, tenpai, 1000 points, at least 4
+- [x] **2.2.6** Riichi: needs closed hand, tenpai, 1000 points, at least 4
   tiles left in the wall (check the exact threshold); riichi discard must
   keep tenpai; riichi stick is paid only once the discard isn't ronned;
   after riichi, only tsumogiri, tsumo, ron and allowed closed kan.
-- [ ] **2.2.7** Furiten: permanent (own discard in the wait), temporary
+- [x] **2.2.7** Furiten: permanent (own discard in the wait), temporary
   (passed on a winning tile until own next discard), riichi (passed after
   riichi: furiten to the end of the hand); tsumo still allowed in all three.
   Waits include tiles that complete the hand with no yaku: furiten still
   applies.
-- [ ] **2.2.8** Win with no yaku: neither ron nor tsumo offered. Dora alone
+- [x] **2.2.8** Win with no yaku: neither ron nor tsumo offered. Dora alone
   isn't a yaku.
-- [ ] **2.2.9** Double/triple ron by `RulesConfig`; when `triple_ron` is
+- [x] **2.2.9** Double/triple ron by `RulesConfig`; when `triple_ron` is
   off, three rons = abortive draw (sanchahou) or head-bump? Decide,
   document, test. Who gets the riichi sticks and honba on double ron
   (closest seat by turn order).
 
 ### 2.3 Yaku, fu, limits, payments
 
-- [ ] **2.3.1** One test per yaku in `RULES.md`'s table, open and closed
+- [x] **2.3.1** One test per yaku in `RULES.md`'s table, open and closed
   where both exist, checked for han. The yaku catalog lives in
   `librrmj/src/rules/standard/tests.rs` now (`WinCase`); PLAN still
   calls it `cheatsheet.rs` (see §10).
-- [ ] **2.3.2** Decomposition choice: a hand with several readings scores
+- [x] **2.3.2** Decomposition choice: a hand with several readings scores
   the highest (e.g. ryanpeikou vs chiitoitsu, sanankou vs sequences,
   pinfu vs a kanchan reading of the same tiles, ittsu vs other splits).
-- [ ] **2.3.3** Fu, table-driven against hand-computed values, including:
+- [x] **2.3.3** Fu, table-driven against hand-computed values, including:
   open pinfu-shape ron = 30; pinfu tsumo = 20 (no +2); closed ron +10;
   shanpon ron makes that triplet open for fu (and for sanankou);
   double-wind pair (+2 or +4; document); kan fu open/closed,
   simple/terminal; tanki/kanchan/penchan +2; round up to 10; chiitoitsu
   25 fixed.
-- [ ] **2.3.4** Limits: mangan at 5 han, and at 4 han 40+ fu / 3 han 70+
+- [x] **2.3.4** Limits: mangan at 5 han, and at 4 han 40+ fu / 3 han 70+
   fu; kiriage mangan when `kiriage` is on; haneman/baiman/sanbaiman;
   counted yakuman (13+ han) if supported, otherwise document it isn't;
   double yakuman and yakuman stacking (e.g. daisangen + tsuuiisou)
   per `RULES.md`.
-- [ ] **2.3.5** Yaku that `RULES.md` should list but may not: tsuuiisou,
+- [x] **2.3.5** Yaku that `RULES.md` should list but may not: tsuuiisou,
   chinroutou, honroutou, sanankou, sankantsu, sanshoku doukou,
   shousangen, chankan, nagashi mangan. For each: implemented and tested,
   or listed in `RULES.md` as deliberately not supported.
-- [ ] **2.3.6** Payments: dealer/non-dealer, ron/tsumo, honba (300 per
+- [x] **2.3.6** Payments: dealer/non-dealer, ron/tsumo, honba (300 per
   honba on ron, 100 from each on tsumo), riichi sticks to the winner,
   rounding up to 100 per payment. Compare against a published table for
   every han/fu cell used (1–4 han × 20–110 fu).
-- [ ] **2.3.7** Dora: indicator wraps (9→1, North→East, Chun→Haku), aka
+- [x] **2.3.7** Dora: indicator wraps (9→1, North→East, Chun→Haku), aka
   counted once each, ura only for riichi winners, kan ura revealed.
 
 ### 2.4 Draws and match flow
 
-- [ ] **2.4.1** Exhaustive draw: tenpai/noten payments (1000/1500/3000
+- [x] **2.4.1** Exhaustive draw: tenpai/noten payments (1000/1500/3000
   split); a hand that's tenpai only on a tile the player holds all four of
   (karaten) — tenpai or not (document); honba +1; dealer keeps the seat
   when tenpai.
-- [ ] **2.4.2** Abortive draws, each behind its `RulesConfig` flag: nine
+- [x] **2.4.2** Abortive draws, each behind its `RulesConfig` flag: nine
   terminals (only on the first uninterrupted turn), four winds, four kongs
   (by two or more players), four riichis (after the fourth riichi stick is
   placed). Honba +1, dealer stays.
-- [ ] **2.4.3** Renchan and rotation: dealer win or dealer tenpai keeps
+- [x] **2.4.3** Renchan and rotation: dealer win or dealer tenpai keeps
   the seat; otherwise rotate; honba resets on a non-dealer win.
-- [ ] **2.4.4** Match end: hanchan/tonpuusen length; `target_score`;
+- [x] **2.4.4** Match end: hanchan/tonpuusen length; `target_score`;
   south (west) extension if nobody reaches the target, if supported;
   bust (below zero) ends the match or not (document); all-last dealer
   stops when in first place (agari-yame), or not; leftover riichi sticks
   at match end go to first place or disappear (document).
-- [ ] **2.4.5** Ties in final placement broken by seat order.
+- [x] **2.4.5** Ties in final placement broken by seat order.
 
 ### 2.5 Fuzzing the engine
 
-- [ ] **2.5.1** A test (or `#[ignore]`d long test run by hand) that plays
+- [x] **2.5.1** A test (or `#[ignore]`d long test run by hand) that plays
   thousands of seeded matches with four CPU seats of mixed difficulty and
   asserts on every step: tile conservation, scores sum to
   `4 × starting_points` minus sticks on the table, no panic, every
   chosen action was in `legal_actions()`, every match ends.
-- [ ] **2.5.2** A random-action variant: seats pick uniformly from
+- [x] **2.5.2** A random-action variant: seats pick uniformly from
   `legal_actions()` (exercises calls and kans the real AI rarely makes).
-- [ ] **2.5.3** For every `Won` event in those runs, recompute the score
+- [x] **2.5.3** For every `Won` event in those runs, recompute the score
   from the final hand with `score_win` and compare. Log any hand where the
   win had no yaku.
 
+### 2.6 Results
+
+Tools added: `librrmj/tests/simulation.rs` plays seeded matches (six seat
+mixes of Easy/Medium/Hard CPUs and uniform-random seats, four rule
+variants) and checks after every action: a legal action exists, the chosen
+action is legal and applies, the full 136-tile multiset is conserved
+(`validate_tile_conservation` now compares tiles, not just a count),
+points plus table sticks are conserved; on every win: a yaku, han adds up
+(yaku with open −1 + dora), fu rounded, winner gains; draws sum to zero;
+final scores sum to the starting total. A short run is in the normal test
+suite, determinism is a test, the long run is `#[ignore]`d (see the file
+header). Yaku and fu are now computed by `rules/standard/eval/`, which
+scores every reading of the hand and keeps the best; fixtures and the fu
+table were corrected where they encoded the old behaviour, and a payment
+test checks the published table. RULES.md and the in-app rules pages were
+rewritten to match. Long run (`RRMJ_SIM_GAMES=2000`, release, one thread,
+38 min, 2026-11-10): passed. 2000 matches, 16 872 hands, 5.6 M actions;
+7793 rons, 2473 tsumos, 8660 exhaustive draws, 12 abortive (four winds 9,
+four kongs 2, nine terminals 1); 73 875 chi, 45 425 pon, 2623 open kans,
+2457 kakan, 545 closed kans, 4042 riichi. Every non-yakuman yaku was won at
+least once except ryanpeikou and renhou; among yakuman only kokushi (28)
+appeared. Those are covered by the unit tests and scenarios instead.
+Highest win 14 han.
+
+Rule decisions taken (standard Tenhou / Mahjong Soul behaviour unless noted;
+all written into RULES.md): kuikae banned; no kan right after a call; no
+calls on houtei or while in riichi; riichi needs ≥ 4 live tiles, tsumogiri
+only, closed kan only if waits don't change; honba +1 on every draw;
+abortive draws keep the dealer; all-last renchan plays on unless the dealer
+leads; bust ends the match; leftover sticks to first place; nine terminals
+for any seat's first uninterrupted turn; four kongs only across players;
+double-wind pair 4 fu; karaten counts as tenpai; multiple-ron bonus to the
+closest winner; triple ron off = head bump (no sanchahou, kept from before);
+renhou 5 han (kept); no nagashi mangan, counted or double yakuman, pao,
+west extension; dora from kans revealed at once.
+
 | Finding | Severity | Status |
 | ------- | -------- | ------ |
-|         |          |        |
+| Kans broke the wall: rinshan draws came from the dora-indicator slots and the live wall never shrank, so tile counts drifted (137 after an open kan) and haitei came late. Rinshan now draws from `dead[10..14]`, each kan shortens the live wall, at most four kans. | high | Fixed |
+| Wins without a yaku were accepted (`can_win` checked only the shape), e.g. yakuless open ron. | high | Fixed |
+| `apply` didn't check legality: kans with an empty live wall, calls on the last discard, any discard during riichi, calls during riichi. `apply` now requires the action to be in `legal_actions_for`, with specific errors. | high | Fixed |
+| Riichi was never offered: tenpai was tested on the 14-tile hand. | high | Fixed |
+| The AI's shanten calculator was wrong, so CPUs didn't build hands; defence was only a tie-breaker. Real shanten/ukeire; a defending seat now puts safety first. | high | Fixed |
+| Points not conserved: on ron the discarder also paid the riichi sticks, and every winner of a double ron got honba and sticks. | high | Fixed |
+| Red fives didn't match plain fives in win shapes, so hands holding aka couldn't win (and recommendations offered a tsumo on a red five not in hand). | high | Fixed |
+| A dragon or value-wind *pair* counted as yakuhai; two value triplets or a double wind counted once. | high | Fixed |
+| Fu used the minimum-fu reading, rounded up only with `kiriage`, gave +2 and closed fu to shanpon ron triplets; yaku could combine across incompatible readings. Replaced by per-reading evaluation (best payout). | high | Fixed |
+| Closed kans made the hand open: no riichi, no menzen tsumo, open −1 han. | high | Fixed |
+| Round wind was hard-coded to East for yakuhai, pinfu and fu. | high | Fixed |
+| 43 of 50 scenario files held impossible tile sets (duplicated or missing tiles); only the count was checked. Files repaired; `validate_tile_conservation` checks the multiset. | high | Fixed |
+| Missing yaku: sanankou, sankantsu, sanshoku doukou, shousangen, honroutou, tsuuiisou, chinroutou. | medium | Fixed |
+| No kuikae; a kan straight after a pon was allowed. | medium | Fixed |
+| Chiitoitsu accepted four of a kind as two pairs. | medium | Fixed |
+| Exhaustive draw with four tenpai divided by zero. | medium | Fixed |
+| Chiihou didn't require an uninterrupted first go-around; yakuman listed riichi/ippatsu/etc. beside them. | medium | Fixed |
+| Match flow: all-last always ended (even on dealer repeat), no bust, leftover sticks vanished, honba reset on a draw rotation, abortive draws could rotate the dealer. | medium | Fixed |
+| Nine terminals was dealer-only (and refused by `apply` for others); four kongs aborted with all four kans in one hand; four winds ignored calls. | medium | Fixed |
+| `kiriage` meant fu rounding (always on in riichi); it now means kiriage mangan. In-app point table had wrong 70 fu and 3 han 60 fu cells and wrong examples. `yaku_lines` showed closed han for open hands. | medium | Fixed |
+| A riichi declaration discard that is ronned still costs the stick and keeps the riichi; standard play voids it. Needs the stick deferred in both live play and replay. | medium | Follow-up |
+| Scenario assertions only check that listed actions/yaku are present; they can't assert an action is absent (e.g. no Ron when furiten), and the scenario test scores with `RulesConfig::standard()` instead of the recording's config. | medium | Follow-up (§8) |
+| Easy (and random) seats call everything and almost never win (yakuless open hands). | medium | Follow-up (§4) |
+| `calls::kamicha(discarder)` returns the seat *after* the discarder (the caller whose kamicha is the discarder); the name reads backwards. | low | Follow-up (§9) |
+| Abortive draws are rare in simulation (none in 480 matches before the fixes); covered by scenarios and unit tests instead. | low | Accepted |
 
 ---
 

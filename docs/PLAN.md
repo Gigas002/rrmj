@@ -240,7 +240,7 @@ cargo doc --workspace --no-deps
 
 #### Phase 11.2 — Fu calculation
 
-Replace `rules/standard/fu.rs` with full breakdown:
+Replace `rules/standard/fu.rs` with full breakdown (now `rules/standard/eval/`, per-reading yaku + fu):
 
 - [x] Base 20 fu; open zero-fu pinfu → 30
 - [x] Meld fu: simple vs terminal/honor; open vs closed; kan = 4× triplet
@@ -248,7 +248,7 @@ Replace `rules/standard/fu.rs` with full breakdown:
 - [x] Valued pair +2 (seat wind, round wind, dragons)
 - [x] Closed ron +10; tsumo +2 (pinfu tsumo exception)
 - [x] Chiitoitsu fixed 25 fu
-- [x] Round up to 10 (`kiriage`)
+- [x] Round up to 10 (always; `kiriage` is kiriage mangan — see RULES.md)
 
 **Verify:** table-driven fu tests; existing `WinCase` rows pass.
 

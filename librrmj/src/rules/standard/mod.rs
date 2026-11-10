@@ -1,6 +1,6 @@
 mod abortive;
 pub mod dora;
-mod fu;
+mod eval;
 mod patterns;
 mod recommendations;
 mod score;
@@ -32,8 +32,10 @@ impl RulesProfile for StandardRules {
         RulesProfileId::Standard
     }
 
-    fn can_win(&self, ctx: &WinContext<'_>, _config: &RulesConfig) -> bool {
+    /// A complete hand with at least one yaku (dora alone isn't one).
+    fn can_win(&self, ctx: &WinContext<'_>, config: &RulesConfig) -> bool {
         win::is_winning_hand(ctx.hand(), Some(ctx.win_tile))
+            && !yaku::detect_yaku(ctx, config).is_empty()
     }
 
     fn is_tenpai(&self, hand: &Hand, _config: &RulesConfig) -> bool {
@@ -44,14 +46,24 @@ impl RulesProfile for StandardRules {
         win::is_tenpai_after_discard(hand, discard)
     }
 
+    fn riichi_kan_allowed(
+        &self,
+        hand: &Hand,
+        drawn: Tile,
+        kan_tile: Tile,
+        _config: &RulesConfig,
+    ) -> bool {
+        win::riichi_kan_keeps_wait(hand, drawn, kan_tile)
+    }
+
     fn score_win(&self, ctx: &WinContext<'_>, config: &RulesConfig) -> ScoringResult {
-        let yaku = yaku::detect_yaku(ctx, config);
         let dora = dora::count_dora(ctx, config);
         let ura_dora = dora::count_ura_dora(ctx, config);
         let aka_dora = dora::count_aka_dora(ctx, config);
-        let is_open = !ctx.hand().melds().is_empty();
-        let han = yaku::total_han(&yaku, is_open) + dora + ura_dora + aka_dora;
-        let fu = fu::calculate_fu(ctx, &yaku, config);
+        let extra = dora + ura_dora + aka_dora;
+        let (yaku, fu) = eval::evaluate(ctx, config, extra)
+            .map_or((Vec::new(), 30), |eval| (eval.yaku, eval.fu));
+        let han = yaku::total_han(&yaku, !ctx.is_menzen()) + extra;
         score::score_hand(ctx, &yaku, han, fu, dora, ura_dora, aka_dora, config)
     }
 

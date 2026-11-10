@@ -81,3 +81,29 @@ fn dora_indicator_is_first_dead_wall_tile() {
     let wall = Wall::new(&rules, StdRng::seed_from_u64(3));
     assert_eq!(wall.dora_indicator(), wall.dead_wall()[0]);
 }
+
+#[test]
+fn kan_draws_rinshan_past_the_indicators_and_shortens_the_live_wall() {
+    use super::RINSHAN_START;
+    let rules = RulesConfig::standard();
+    let mut wall = Wall::new(&rules, StdRng::seed_from_u64(5));
+    wall.deal(0).unwrap();
+    let live = wall.live_remaining();
+    let dead = wall.dead_wall().to_vec();
+
+    let (rinshan, dora) = wall.apply_kan().unwrap();
+    assert_eq!(rinshan, dead[RINSHAN_START]);
+    assert_eq!(dora, dead[2]);
+    let (rinshan, dora) = wall.apply_kan().unwrap();
+    assert_eq!(rinshan, dead[RINSHAN_START + 1]);
+    assert_eq!(dora, dead[4]);
+
+    // Each kan moves the live wall's last tile into the dead wall.
+    assert_eq!(wall.live_remaining(), live - 2);
+    // The two rinshan tiles left the walls.
+    assert_eq!(wall.tiles_in_walls(), live + DEAD_WALL_SIZE - 2);
+    for _ in 0..live - 2 {
+        wall.draw_live().unwrap();
+    }
+    assert!(wall.draw_live().is_err());
+}

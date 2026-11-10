@@ -53,6 +53,15 @@ impl Tile {
         Self { kind, red: false }
     }
 
+    /// The same tile without the aka marker. Shape checks (sets, pairs,
+    /// waits) compare plain tiles; only aka dora counting looks at `red`.
+    pub const fn plain(self) -> Self {
+        Self {
+            kind: self.kind,
+            red: false,
+        }
+    }
+
     pub const fn red_five(suit: Suit) -> Self {
         let kind = match suit {
             Suit::Man => TileKind::Man(5),

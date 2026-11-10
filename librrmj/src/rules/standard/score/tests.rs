@@ -68,23 +68,23 @@ fn score_for(
 
 #[test]
 fn base_points_mangan_thresholds() {
-    assert_eq!(base_points(5, 30), 2_000);
-    assert_eq!(base_points(4, 40), 2_000);
-    assert_eq!(base_points(3, 70), 2_000);
-    assert_eq!(base_points(4, 39), 39 * 64);
-    assert_eq!(base_points(3, 69), 69 * 32);
+    assert_eq!(base_points(5, 30, false), 2_000);
+    assert_eq!(base_points(4, 40, false), 2_000);
+    assert_eq!(base_points(3, 70, false), 2_000);
+    assert_eq!(base_points(4, 39, false), 39 * 64);
+    assert_eq!(base_points(3, 69, false), 69 * 32);
 }
 
 #[test]
 fn base_points_limit_bands() {
-    assert_eq!(base_points(6, 30), 3_000);
-    assert_eq!(base_points(7, 30), 3_000);
-    assert_eq!(base_points(8, 30), 4_000);
-    assert_eq!(base_points(10, 30), 4_000);
-    assert_eq!(base_points(11, 30), 6_000);
-    assert_eq!(base_points(12, 30), 6_000);
-    assert_eq!(base_points(13, 30), 8_000);
-    assert_eq!(base_points(26, 30), 8_000);
+    assert_eq!(base_points(6, 30, false), 3_000);
+    assert_eq!(base_points(7, 30, false), 3_000);
+    assert_eq!(base_points(8, 30, false), 4_000);
+    assert_eq!(base_points(10, 30, false), 4_000);
+    assert_eq!(base_points(11, 30, false), 6_000);
+    assert_eq!(base_points(12, 30, false), 6_000);
+    assert_eq!(base_points(13, 30, false), 8_000);
+    assert_eq!(base_points(26, 30, false), 8_000);
 }
 
 #[test]
@@ -151,9 +151,15 @@ fn honba_and_riichi_sticks() {
     assert_eq!(tsumo[2], -700);
     assert_eq!(tsumo[3], -700);
 
+    // Riichi sticks come off the table: the discarder pays only the hand.
     let sticks = score_for(0, 1, WinType::Ron { from: 2 }, 2, 30, 0, 2);
     assert_eq!(sticks[1], 4_000);
-    assert_eq!(sticks[2], -4_000);
+    assert_eq!(sticks[2], -2_000);
+    assert_eq!(sticks.iter().sum::<i32>(), 2_000);
+
+    let tsumo_sticks = score_for(0, 1, WinType::Tsumo, 2, 30, 0, 2);
+    assert_eq!(tsumo_sticks[1], 4_000);
+    assert_eq!(tsumo_sticks.iter().sum::<i32>(), 2_000);
 }
 
 #[test]
@@ -180,4 +186,61 @@ fn limit_hand_payments() {
 
     let yakuman = score_for(0, 1, WinType::Ron { from: 2 }, 13, 30, 0, 0);
     assert_eq!(yakuman[1], 32_000);
+}
+
+#[test]
+fn kiriage_mangan_rounds_4_30_and_3_60() {
+    assert_eq!(base_points(4, 30, false), 1_920);
+    assert_eq!(base_points(3, 60, false), 1_920);
+    assert_eq!(base_points(4, 30, true), 2_000);
+    assert_eq!(base_points(3, 60, true), 2_000);
+    assert_eq!(base_points(3, 50, true), 50 * 32);
+}
+
+/// Published payment table (no honba, no sticks): (han, fu, non-dealer ron,
+/// dealer ron, non-dealer tsumo (from non-dealer, from dealer), dealer tsumo each).
+type PaymentRow = (u8, u8, i32, i32, (i32, i32), i32);
+
+const PAYMENT_TABLE: &[PaymentRow] = &[
+    (1, 30, 1_000, 1_500, (300, 500), 500),
+    (1, 40, 1_300, 2_000, (400, 700), 700),
+    (1, 50, 1_600, 2_400, (400, 800), 800),
+    (1, 110, 3_600, 5_300, (900, 1_800), 1_800),
+    (2, 20, 1_300, 2_000, (400, 700), 700),
+    (2, 25, 1_600, 2_400, (400, 800), 800),
+    (2, 30, 2_000, 2_900, (500, 1_000), 1_000),
+    (2, 40, 2_600, 3_900, (700, 1_300), 1_300),
+    (3, 30, 3_900, 5_800, (1_000, 2_000), 2_000),
+    (3, 40, 5_200, 7_700, (1_300, 2_600), 2_600),
+    (3, 60, 7_700, 11_600, (2_000, 3_900), 3_900),
+    (4, 25, 6_400, 9_600, (1_600, 3_200), 3_200),
+    (4, 30, 7_700, 11_600, (2_000, 3_900), 3_900),
+    (4, 40, 8_000, 12_000, (2_000, 4_000), 4_000),
+    (5, 30, 8_000, 12_000, (2_000, 4_000), 4_000),
+    (6, 30, 12_000, 18_000, (3_000, 6_000), 6_000),
+    (8, 30, 16_000, 24_000, (4_000, 8_000), 8_000),
+    (11, 30, 24_000, 36_000, (6_000, 12_000), 12_000),
+    (13, 30, 32_000, 48_000, (8_000, 16_000), 16_000),
+];
+
+#[test]
+fn payments_match_the_published_table() {
+    for &(han, fu, ko_ron, oya_ron, (ko_tsumo_ko, ko_tsumo_oya), oya_tsumo) in PAYMENT_TABLE {
+        let cell = format!("{han} han {fu} fu");
+        assert_eq!(
+            score_for(0, 1, WinType::Ron { from: 2 }, han, fu, 0, 0)[2],
+            -ko_ron,
+            "{cell} ko ron"
+        );
+        assert_eq!(
+            score_for(0, 0, WinType::Ron { from: 2 }, han, fu, 0, 0)[2],
+            -oya_ron,
+            "{cell} oya ron"
+        );
+        let ko_tsumo = score_for(0, 1, WinType::Tsumo, han, fu, 0, 0);
+        assert_eq!(ko_tsumo[2], -ko_tsumo_ko, "{cell} ko tsumo from ko");
+        assert_eq!(ko_tsumo[0], -ko_tsumo_oya, "{cell} ko tsumo from oya");
+        let oya = score_for(0, 0, WinType::Tsumo, han, fu, 0, 0);
+        assert_eq!(oya[1], -oya_tsumo, "{cell} oya tsumo");
+    }
 }

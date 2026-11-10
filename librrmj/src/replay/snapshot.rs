@@ -50,6 +50,9 @@ pub struct HandSnapshot {
     pub is_rinshan_draw: bool,
     #[serde(default)]
     pub live_draws: [u8; 4],
+    /// Kuikae: plain tiles the caller may not discard right after chi/pon.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub kuikae_forbidden: Vec<crate::tile::Tile>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub end_reason: Option<HandEndReason>,
 }

@@ -57,6 +57,11 @@ pub struct HandState {
     /// Live-wall draws taken during play (excludes initial deal and rinshan).
     pub(crate) live_draws: [u8; 4],
     pub(crate) end_reason: Option<HandEndReason>,
+    /// Round wind of the match this hand belongs to (set by [`crate::Game`]).
+    pub(crate) round_wind: crate::game::RoundWind,
+    /// Kuikae: plain tiles the current actor may not discard right after a
+    /// chi or pon (the called tile, and the far end of a chi sequence).
+    pub(crate) kuikae_forbidden: Vec<Tile>,
 }
 
 impl HandState {
@@ -98,7 +103,26 @@ impl HandState {
             is_rinshan_draw: false,
             live_draws: [0; SEAT_COUNT],
             end_reason: None,
+            round_wind: crate::game::RoundWind::East,
+            kuikae_forbidden: Vec::new(),
         }
+    }
+
+    /// Round wind used for yakuhai and fu (East unless set by the match).
+    pub fn round_wind(&self) -> crate::game::RoundWind {
+        self.round_wind
+    }
+
+    /// Round wind as a tile.
+    pub fn round_wind_tile(&self) -> Tile {
+        Tile::wind(match self.round_wind {
+            crate::game::RoundWind::East => crate::tile::Wind::East,
+            crate::game::RoundWind::South => crate::tile::Wind::South,
+        })
+    }
+
+    pub fn set_round_wind(&mut self, round_wind: crate::game::RoundWind) {
+        self.round_wind = round_wind;
     }
 
     pub fn end_reason(&self) -> Option<HandEndReason> {
@@ -171,14 +195,34 @@ impl HandState {
             HandPhase::Draw if seat == self.current_actor => vec![Action::Draw],
             HandPhase::Discard if seat == self.current_actor => {
                 let mut actions = Vec::new();
+                let profile = RulesRegistry::get(self.config.profile).ok();
                 if self.can_abort_nine_terminals(seat) {
                     actions.push(Action::AbortiveNineTerminals);
                 }
                 if self.can_tsumo(seat) {
                     actions.push(Action::Tsumo);
                 }
+                if self.riichi[seat] {
+                    // Riichi: only the drawn tile may be discarded (tsumogiri), and a
+                    // closed kan only of that tile when it leaves the waits unchanged.
+                    if let Some(drawn) = self.last_draw {
+                        actions.push(Action::Discard(drawn));
+                        if self.can_declare_kan() {
+                            for tile in closed_kan_options(self.hands[seat].concealed()) {
+                                if profile.is_some_and(|p| {
+                                    p.riichi_kan_allowed(self.hand(seat), drawn, tile, &self.config)
+                                }) {
+                                    actions.push(Action::Kan(KanIntent::Closed { tile }));
+                                }
+                            }
+                        }
+                    } else if let Some(&tile) = self.hands[seat].concealed().tiles().last() {
+                        // No draw to throw (restored snapshot): any tile keeps the game moving.
+                        actions.push(Action::Discard(tile));
+                    }
+                    return actions;
+                }
                 if self.can_declare_riichi(seat) {
-                    let profile = RulesRegistry::get(self.config.profile).ok();
                     for &tile in self.hands[seat].concealed().tiles() {
                         if profile.is_some_and(|p| {
                             p.is_riichi_discard(self.hand(seat), tile, &self.config)
@@ -187,14 +231,25 @@ impl HandState {
                         }
                     }
                 }
-                for tile in self.hands[seat].concealed().tiles().iter().copied() {
-                    actions.push(Action::Discard(tile));
+                let concealed = self.hands[seat].concealed().tiles();
+                // Calls are only offered when a discard outside the kuikae ban
+                // remains; the fallback covers hand-built snapshots.
+                let all_banned = concealed
+                    .iter()
+                    .all(|t| self.kuikae_forbidden.contains(&t.plain()));
+                for tile in concealed.iter().copied() {
+                    if all_banned || !self.kuikae_forbidden.contains(&tile.plain()) {
+                        actions.push(Action::Discard(tile));
+                    }
                 }
-                for tile in closed_kan_options(self.hands[seat].concealed()) {
-                    actions.push(Action::Kan(KanIntent::Closed { tile }));
-                }
-                for meld_index in kakan_options(&self.hands[seat]) {
-                    actions.push(Action::Kan(KanIntent::Added { meld_index }));
+                // No kan straight after chi/pon (the kuikae ban is set exactly then).
+                if self.kuikae_forbidden.is_empty() && self.can_declare_kan() {
+                    for tile in closed_kan_options(self.hands[seat].concealed()) {
+                        actions.push(Action::Kan(KanIntent::Closed { tile }));
+                    }
+                    for meld_index in kakan_options(&self.hands[seat]) {
+                        actions.push(Action::Kan(KanIntent::Added { meld_index }));
+                    }
                 }
                 actions
             }
@@ -227,6 +282,10 @@ impl HandState {
     pub fn apply(&mut self, seat: usize, action: Action) -> Result<Vec<Event>, Error> {
         if self.phase == HandPhase::Ended {
             return Err(Error::HandEnded);
+        }
+
+        if !self.legal_actions_for(seat).contains(&action) {
+            return Err(self.illegal_action_error(seat, action));
         }
 
         match self.phase {
@@ -300,7 +359,7 @@ impl HandState {
     pub fn accounted_tile_count(&self) -> usize {
         let in_hands: usize = self.hands.iter().map(|h| h.total_tiles()).sum();
         let in_rivers: usize = self.discards.iter().map(|d| d.len()).sum();
-        let in_wall = self.wall.live_remaining() + self.wall.dead_wall().len();
+        let in_wall = self.wall.tiles_in_walls();
         // Kakan reactions hold a tile removed from hand but not yet in a river.
         // Discard reactions reference the last river tile — already counted above.
         let in_reaction = self
@@ -312,12 +371,47 @@ impl HandState {
         in_hands + in_rivers + in_wall + in_reaction
     }
 
+    /// Checks that hands, rivers and walls hold exactly the 136-tile set
+    /// (each kind four times; red fives only with aka dora, one per suit).
     pub fn validate_tile_conservation(&self) -> Result<(), Error> {
         let count = self.accounted_tile_count();
         if count != WALL_SIZE {
             return Err(Error::TileConservation {
                 expected: WALL_SIZE,
                 actual: count,
+            });
+        }
+
+        let mut tiles: Vec<Tile> = self.wall.wall_tiles().collect();
+        for (hand, river) in self.hands.iter().zip(&self.discards) {
+            tiles.extend(hand.concealed().tiles());
+            for meld in hand.melds() {
+                tiles.extend(meld.tiles());
+            }
+            tiles.extend(river);
+        }
+        if let Some(reaction) = self
+            .reaction
+            .as_ref()
+            .filter(|r| r.kind == ReactionKind::Kakan)
+        {
+            tiles.push(reaction.tile);
+        }
+        tiles.sort();
+        let mut expected = crate::tile::standard_set(self.config.aka_dora);
+        expected.sort();
+        if tiles != expected {
+            let count_of = |set: &[Tile], tile: Tile| set.iter().filter(|t| **t == tile).count();
+            let tile = expected
+                .iter()
+                .chain(&tiles)
+                .copied()
+                .find(|&t| count_of(&tiles, t) != count_of(&expected, t))
+                .unwrap_or(tiles[0]);
+            return Err(Error::InvalidTileSet {
+                tile,
+                expected: count_of(&expected, tile),
+                actual: count_of(&tiles, tile),
             });
         }
         Ok(())
@@ -349,6 +443,7 @@ impl HandState {
             calls_made: self.calls_made,
             is_rinshan_draw: self.is_rinshan_draw,
             live_draws: self.live_draws,
+            kuikae_forbidden: self.kuikae_forbidden.clone(),
             end_reason: self.end_reason.clone(),
         }
     }
@@ -384,6 +479,8 @@ impl HandState {
             is_rinshan_draw: snapshot.is_rinshan_draw,
             live_draws: snapshot.live_draws,
             end_reason: snapshot.end_reason,
+            round_wind: crate::game::RoundWind::East,
+            kuikae_forbidden: snapshot.kuikae_forbidden,
         };
         state.validate_tile_conservation()?;
         Ok(state)
@@ -437,7 +534,12 @@ impl HandState {
             actions.push(Action::Ron);
         }
 
-        if reaction.kind == ReactionKind::Kakan {
+        // Chankan offers ron only; a seat in riichi can't call; and nothing can be
+        // called on the last discard (houtei).
+        if reaction.kind == ReactionKind::Kakan
+            || self.riichi[seat]
+            || self.wall.live_remaining() == 0
+        {
             return actions;
         }
 
@@ -445,16 +547,77 @@ impl HandState {
         let called = reaction.tile;
 
         if seat == kamicha(reaction.discarder) {
-            actions.extend(chi_actions(concealed, called));
+            actions.extend(chi_actions(concealed, called).into_iter().filter(
+                |action| match action {
+                    Action::Chi { tiles } => {
+                        leaves_a_discard(concealed, called, tiles, &kuikae_for_chi(called, *tiles))
+                    }
+                    _ => true,
+                },
+            ));
         }
-        if crate::state::calls::can_pon(concealed, called) {
+        if crate::state::calls::can_pon(concealed, called)
+            && leaves_a_discard(
+                concealed,
+                called,
+                &[called, called, called],
+                &[called.plain()],
+            )
+        {
             actions.push(Action::Pon);
         }
-        if crate::state::calls::can_open_kan(concealed, called) {
+        if self.can_declare_kan() && crate::state::calls::can_open_kan(concealed, called) {
             actions.push(Action::Kan(KanIntent::Open));
         }
 
         actions
+    }
+
+    /// The most specific reason `action` by `seat` isn't legal now.
+    fn illegal_action_error(&self, seat: usize, action: Action) -> Error {
+        let illegal = Error::IllegalAction {
+            action,
+            phase: self.phase,
+        };
+        match self.phase {
+            HandPhase::Draw | HandPhase::Discard if seat != self.current_actor => {
+                Error::WrongActor {
+                    expected: self.current_actor,
+                    actual: seat,
+                }
+            }
+            HandPhase::Draw | HandPhase::Discard if action == Action::Tsumo => Error::CannotWin,
+            HandPhase::Reaction => {
+                let Some(reaction) = &self.reaction else {
+                    return illegal;
+                };
+                if seat == reaction.discarder {
+                    Error::NotReactingSeat { seat }
+                } else if !reaction.can_respond(seat) {
+                    Error::AlreadyResponded { seat }
+                } else if action == Action::Ron {
+                    if self.is_furiten(seat, reaction.tile) {
+                        Error::Furiten
+                    } else {
+                        Error::CannotWin
+                    }
+                } else if action != Action::Pass {
+                    self.validate_call_action(seat, action)
+                        .err()
+                        .unwrap_or(illegal)
+                } else {
+                    illegal
+                }
+            }
+            _ => illegal,
+        }
+    }
+
+    /// A kan needs a live tile to move to the dead wall and a fifth kan is never allowed.
+    fn can_declare_kan(&self) -> bool {
+        self.wall.live_remaining() > 0
+            && usize::from(self.wall.kan_count())
+                < crate::wall::DEAD_WALL_SIZE - crate::wall::RINSHAN_START
     }
 
     fn apply_draw(&mut self, seat: usize) -> Result<Vec<Event>, Error> {
@@ -498,6 +661,7 @@ impl HandState {
         self.discards[seat].push(tile);
         self.last_draw = None;
         self.last_discard = Some((seat, tile));
+        self.kuikae_forbidden.clear();
 
         if self.first_discards[seat].is_none() {
             self.first_discards[seat] = Some(tile);
@@ -786,6 +950,7 @@ impl HandState {
         self.hands[caller].melds_mut().push(resolved.meld);
         self.calls_made = true;
         self.void_ippatsu();
+        self.kuikae_forbidden = kuikae_for_call(action, called);
 
         let mut events = vec![Event::Called {
             seat: caller,
@@ -863,6 +1028,7 @@ impl HandState {
                 self.discards[*seat].push(*tile);
                 self.last_draw = None;
                 self.last_discard = Some((*seat, *tile));
+                self.kuikae_forbidden.clear();
                 if self.first_discards[*seat].is_none() {
                     self.first_discards[*seat] = Some(*tile);
                 }
@@ -901,6 +1067,17 @@ impl HandState {
                         self.hands[*seat].concealed_mut().remove(*tile)?;
                     }
                 }
+                self.kuikae_forbidden = match meld.kind() {
+                    crate::hand::MeldKind::Chi => {
+                        let tiles: [Tile; 3] =
+                            meld.tiles().try_into().map_err(|_| Error::ReplayMismatch {
+                                detail: "chi event without three tiles",
+                            })?;
+                        kuikae_for_chi(called, tiles)
+                    }
+                    crate::hand::MeldKind::Pon => vec![called.plain()],
+                    _ => Vec::new(),
+                };
                 self.hands[*seat].melds_mut().push(meld);
                 self.current_actor = *seat;
                 self.phase = HandPhase::Discard;
@@ -1004,4 +1181,51 @@ fn replay_build_meld(kind: MeldKind, tiles: &[Tile], called: Option<Tile>) -> Re
             Meld::closed_kan(arr)
         }
     }
+}
+
+/// Discards banned right after a call (kuikae): the called tile, and for a
+/// chi taken at one end, the tile that would extend the run at the other end.
+fn kuikae_for_call(action: Action, called: Tile) -> Vec<Tile> {
+    match action {
+        Action::Chi { tiles } => kuikae_for_chi(called, tiles),
+        Action::Pon => vec![called.plain()],
+        _ => Vec::new(),
+    }
+}
+
+fn kuikae_for_chi(called: Tile, tiles: [Tile; 3]) -> Vec<Tile> {
+    let mut banned = vec![called.plain()];
+    let (Some(suit), Some(rank)) = (called.suit(), called.rank()) else {
+        return banned;
+    };
+    let low = tiles.iter().filter_map(|t| t.rank()).min().unwrap_or(rank);
+    let high = tiles.iter().filter_map(|t| t.rank()).max().unwrap_or(rank);
+    if rank == low && high < 9 {
+        banned.push(Tile::numbered(suit, high + 1));
+    } else if rank == high && low > 1 {
+        banned.push(Tile::numbered(suit, low - 1));
+    }
+    banned
+}
+
+/// Whether, after removing the call's own tiles from `concealed`, some tile
+/// outside the kuikae ban is left to discard.
+fn leaves_a_discard(
+    concealed: &crate::hand::Concealed,
+    called: Tile,
+    meld: &[Tile],
+    banned: &[Tile],
+) -> bool {
+    let mut rest = concealed.tiles().to_vec();
+    let mut skipped_called = false;
+    for tile in meld {
+        if !skipped_called && tile.matches_identity(called) {
+            skipped_called = true;
+            continue;
+        }
+        if let Some(pos) = rest.iter().position(|t| t.matches_identity(*tile)) {
+            rest.remove(pos);
+        }
+    }
+    rest.iter().any(|t| !banned.contains(&t.plain()))
 }

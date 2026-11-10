@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
+use super::calculate_fu;
 use crate::hand::{Concealed, Hand, Meld};
-use crate::rules::standard::fu::calculate_fu;
 use crate::rules::{RulesConfig, WinContext, WinTimingFlags};
 use crate::scoring::{WinType, Yaku};
 use crate::state::HandState;
@@ -45,6 +45,9 @@ fn fu_for(
     let deal = wall.deal(dealer).unwrap();
     let mut state = HandState::from_deal(wall, deal, config.clone());
     state.set_hand(winner, hand);
+    // Past the first go-around: no tenhou/chiihou.
+    state.is_dealer_first_turn = false;
+    state.live_draws = [1; 4];
     let win_tile = Tile::from_str(win_tile).unwrap();
     let ctx = WinContext::new(
         &state,
@@ -53,7 +56,8 @@ fn fu_for(
         win_tile,
         WinTimingFlags::default(),
     );
-    calculate_fu(&ctx, yaku, config)
+    let _ = yaku;
+    calculate_fu(&ctx, config)
 }
 
 #[test]
@@ -136,28 +140,30 @@ fn open_zero_fu_ron_is_30() {
 
 #[test]
 fn closed_ron_adds_10() {
+    // 20 + tanki 2 + closed ron 10 = 32, rounded up to 40.
     let config = RulesConfig::standard();
     assert_eq!(
         fu_for(
             &[
-                "2m", "3m", "4m", "5p", "6p", "7p", "3s", "4s", "5s", "6p", "7p", "8p", "2m",
+                "2m", "3m", "4m", "5p", "6p", "7p", "3s", "4s", "5s", "6p", "7p", "8p", "6m",
             ],
             &[],
             0,
             0,
             WinType::Ron { from: 2 },
-            "2m",
+            "6m",
             &[Yaku::Tanyao],
             &config,
         ),
-        32
+        40
     );
 }
 
 #[test]
 fn yakuhai_ron_triplet_adds_meld_and_wait_fu() {
     let config = RulesConfig::standard();
-    // Ron on third E completes closed triplet: base 20 + triplet 8 + wait 2 + closed ron 10 = 40
+    // Shanpon ron on E: the triplet counts as open (4), no wait fu, closed ron 10:
+    // 20 + 4 + 10 = 34, rounded up to 40.
     assert_eq!(
         fu_for(
             &[
@@ -211,7 +217,7 @@ fn concealed_triplet_simple_adds_4() {
             &[Yaku::Tanyao],
             &config,
         ),
-        36
+        40
     );
 }
 
@@ -237,7 +243,7 @@ fn kiriage_rounds_up() {
 }
 
 #[test]
-fn chiitoitsu_kiriage_rounds_to_30() {
+fn chiitoitsu_stays_25_with_kiriage() {
     let mut config = RulesConfig::standard();
     config.kiriage = true;
     assert_eq!(
@@ -253,7 +259,7 @@ fn chiitoitsu_kiriage_rounds_to_30() {
             &[Yaku::Chiitoitsu, Yaku::MenzenTsumo],
             &config,
         ),
-        30
+        25
     );
 }
 
@@ -273,6 +279,6 @@ fn tsumo_adds_2_except_pinfu() {
             &[Yaku::Tanyao, Yaku::MenzenTsumo],
             &config,
         ),
-        28
+        30
     );
 }

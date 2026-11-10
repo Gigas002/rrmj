@@ -7,11 +7,17 @@ use crate::tile::Tile;
 
 impl HandState {
     pub(crate) fn can_abort_nine_terminals(&self, seat: usize) -> bool {
-        if seat != self.dealer() || !self.is_dealer_first_turn {
+        // Any seat, on its first turn, while no call or kan has interrupted
+        // the go-around.
+        if seat != self.current_actor()
+            || self.first_discard(seat).is_some()
+            || self.calls_made
+            || self.wall().kan_count() > 0
+        {
             return false;
         }
         RulesRegistry::get(self.config.profile).is_ok_and(|profile| {
-            profile.detect_abortive(self, &self.config, AbortiveTrigger::DealerFirstTurn)
+            profile.detect_abortive(self, &self.config, AbortiveTrigger::FirstTurn)
                 == Some(AbortiveDrawKind::NineTerminals)
         })
     }
@@ -43,12 +49,6 @@ impl HandState {
         &mut self,
         seat: usize,
     ) -> Result<Vec<Event>, Error> {
-        if seat != self.dealer() || !self.is_dealer_first_turn {
-            return Err(Error::IllegalAction {
-                action: crate::action::Action::AbortiveNineTerminals,
-                phase: self.phase,
-            });
-        }
         if !self.can_abort_nine_terminals(seat) {
             return Err(Error::IllegalAction {
                 action: crate::action::Action::AbortiveNineTerminals,
